@@ -96,6 +96,14 @@ curl http://localhost:8000/api/v1/endurance/dashboard
 `apps/web/.next` directory is present (documented in the audit). Treat build output as a
 disposable artifact.
 
+> **Windows + OneDrive note:** if the repo checkout lives inside a OneDrive-synced folder (as in
+> this workspace), the `clean` step can intermittently fail with `EPERM: operation not permitted,
+> unlink '...\.next\static\...'` because OneDrive's sync process transiently locks files inside
+> `.next` while it uploads them. This is a filesystem race, not a code defect — retrying the build
+> succeeds once OneDrive releases the handle. For reliable local development, either pause
+> OneDrive sync for this folder, exclude `apps/web/.next` from sync, or clone the repo outside any
+> synced directory. CI runners are unaffected since they do not run OneDrive.
+
 Required build hygiene:
 
 1. Add a `clean` step that removes `apps/web/.next` before every production build.

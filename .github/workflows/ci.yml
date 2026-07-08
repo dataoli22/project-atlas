@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api:
+    name: API tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install API dependencies
+        run: pip install -r apps/api/requirements.txt
+      - name: Run backend tests
+        run: python -m pytest apps/api/tests -q
+
+  web:
+    name: Web lint + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: Install workspace dependencies
+        run: npm ci
+      - name: Lint web app
+        run: npm run lint:web
+      - name: Build web app (clean room)
+        run: npm run build:web
+
+  security:
+    name: Security checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install workspace dependencies
+        run: npm ci
+      - name: Install API dependencies
+        run: pip install -r apps/api/requirements.txt
+      - name: npm audit
+        run: npm run security:npm
+        continue-on-error: true
+      - name: pip-audit
+        run: pip install pip-audit && npm run security:python
+        continue-on-error: true
+      - name: bandit static analysis
+        run: pip install bandit && npm run security:static
+        continue-on-error: true
+
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install workspace dependencies
+        run: npm ci
+      - name: Install API dependencies
+        run: pip install -r apps/api/requirements.txt
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run E2E smoke suite
+        run: npm run test:e2e

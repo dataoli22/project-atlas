@@ -23,14 +23,22 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ---
 
-## 1. Foundation & hygiene — Shared shell agent · P0
+## 1. Foundation & hygiene — Shared shell agent · P0 — DONE (except preflight + clean-room test)
 
-- [ ] `git init`; add `.gitignore` (`.next/`, `__pycache__/`, `*.pyc`, `apps/api/.local/`,
-      `e2e/test-results/`, `.venv/`, `node_modules/`); initial commit.
-- [ ] `apps/web` clean-before-build (`rimraf .next` in `build`).
+- [x] `git init`; `.gitignore` covers `.next/`, `__pycache__/`, `*.pyc`, `apps/api/.local/`,
+      `e2e/test-results/`, `.pytest_cache/`, `.venv/`, `node_modules/`, `*.log`; initial commit
+      pushed to `https://github.com/dataoli22/project-atlas` (private, `main`).
+- [x] `apps/web` clean-before-build (`rimraf .next` in `build`); verified with two consecutive
+      clean builds.
+- [x] CI pipeline added at `.github/workflows/ci.yml`: `api` (pytest), `web` (lint + clean build),
+      `security` (npm audit / pip-audit / bandit, non-blocking), `e2e` (Playwright).
 - [ ] Release preflight rejecting stale generated artifacts.
-- [ ] CI pipeline: `npm ci` → `test:api` → `test:web` (clean) → `test:e2e` → `security`.
-- [ ] Clean-room install test from fresh checkout.
+- [ ] Clean-room install test from fresh checkout (CI now provides this per-push; a documented
+      manual clean-room script is still outstanding).
+
+> Note: this workspace's checkout lives under OneDrive, which can transiently `EPERM`-lock
+> `.next` files during sync. Retrying the build succeeds; see `packaging-and-installation.md`
+> section 3 for the full explanation. CI runners are unaffected.
 
 ## 2. Data, persistence, secrets — Shared shell agent · P0
 
