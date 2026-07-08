@@ -1,0 +1,28 @@
+{
+  "name": "project-atlas",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "dev:api": "npm --workspace apps/api run dev",
+    "build:web": "npm --workspace apps/web run build",
+    "lint:web": "npm --workspace apps/web run lint",
+    "test:api": "python -m pytest apps/api/tests",
+    "test:web": "npm run lint:web && npm run build:web",
+    "test:all": "npm run test:api && npm run test:web && npm run test:e2e",
+    "test:e2e": "node e2e/run-e2e.mjs",
+    "test:e2e:ui": "playwright test -c e2e/playwright.config.ts --ui",
+    "security:npm": "npm audit --audit-level=moderate",
+    "security:python": "python -m pip_audit -r apps/api/requirements.txt",
+    "security:static": "python -m bandit -r apps/api/app",
+    "security": "npm run security:npm && npm run security:python && npm run security:static",
+    "release:check": "npm run test:all && npm run security"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  }
+}
