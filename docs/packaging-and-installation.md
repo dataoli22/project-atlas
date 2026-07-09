@@ -5,8 +5,7 @@ Last updated: July 9, 2026
 This document is the authoritative reference for how Atlas is developed, packaged, and
 installed. It covers the current developer install, the target packaged desktop and Android
 runtimes, the local sidecar lifecycle, and the release/signing pipeline that must exist before
-any public beta. It complements `prod-readiness-audit.md` (section 1) with concrete,
-implementable steps.
+any public beta.
 
 Atlas is a **local-first, self-contained** application. The distribution goal is a user-run
 desktop or phone package that runs all services on the user's own device. Atlas is **not** a
@@ -309,8 +308,7 @@ libsecret shell out to their standard CLI tools the same way DPAPI uses ctypes d
 Keystore is out of scope for this backend; it belongs in the native Android shell once that
 packaging target exists (section 5).
 
-Still required before packaging GA (details in `prod-readiness-audit.md` section 2 and the master
-TODO):
+Still required before packaging GA (details in `production-todo.md` section 2):
 
 - Move to normalized, Alembic-managed tables once real relational data arrives (connector sync
   history, planner generation history with foreign keys) — the current KV table is intentionally

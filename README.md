@@ -7,19 +7,21 @@ Shared application workspace for:
 
 Atlas is being built as a local-first, self-contained open-source project. The intended distribution model is a user-run desktop or phone package with local services, not a centralized cloud website with mandatory hosted APIs.
 
-Architecture and product requirements live in:
+Original product planning docs (design-stage source, largely superseded by the implementation
+status in `docs/production-todo.md`):
 
 - `docs/master-product-architecture.md`
 - `docs/prd-feature-1-endurance-capability.md`
 - `docs/prd-feature-2-nutrition-cooking-cost.md`
-- `docs/execution-tracker.md`
-- `docs/local-packaging-and-security.md`
-- `docs/prod-readiness-audit.md`
-- `docs/production-todo.md` — master production backlog with agent handoff
+
+Living implementation docs (start here):
+
+- `docs/production-todo.md` — master production backlog + status + agent handoff
 - `docs/packaging-and-installation.md` — dev install, desktop/Android packaging, release gates
 - `docs/ollama-on-device-and-agents.md` — on-device AI wiring and agent integration
 - `docs/nutrition-endurance-feature-spec.md` — refresh, calendar, prep hacks, videos, support links
 - `docs/mobile-architecture.md` — companion-mode mobile app, pairing, Android/iOS status
+- `docs/prod-readiness-audit.md` — archived; superseded by the docs above, kept as a short pointer
 
 ## Current workspace shape
 
@@ -46,11 +48,7 @@ Architecture and product requirements live in:
 - Agent prompts should stay comprehensive in guardrails but lean in token use.
 - See `docs/ollama-on-device-and-agents.md` for the full wiring and the provider fallback chain.
 
-## Local development notes
-
-Frontend dependencies have not been installed yet. Backend dependencies have also not been installed yet.
-
-Expected next local commands once you want to run the scaffold:
+## Local development
 
 ```bash
 npm install
@@ -65,6 +63,10 @@ python -m venv .venv
 pip install -r apps/api/requirements.txt
 python -m uvicorn app.main:app --reload --app-dir apps/api
 ```
+
+Full test suite: `npm run test:all` (backend pytest + web lint/build + Playwright E2E). Desktop
+and mobile have their own build commands — see `docs/packaging-and-installation.md` and
+`docs/mobile-architecture.md`.
 
 Useful smoke tests once the backend is running:
 

@@ -163,7 +163,7 @@ lines. History is trimmed to `max_context_items`; `max_context_tokens` and
 
 ## 5. Production wiring requirements
 
-These extend `prod-readiness-audit.md` section 4. Status as of this iteration:
+Status as of this iteration:
 
 ### 5.1 Loopback safety — DONE
 - The settings UI (`ai-runtime-settings-form.tsx`) shows a visible warning banner
