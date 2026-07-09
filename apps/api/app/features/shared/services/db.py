@@ -68,6 +68,83 @@ class LocalStateDatabase:
         rows = self._connection.execute("SELECT key FROM app_state").fetchall()
         return [row[0] for row in rows]
 
+    def export_all(self) -> dict[str, dict | list]:
+        rows = self._connection.execute("SELECT key, value FROM app_state").fetchall()
+        return {key: json.loads(value) for key, value in rows}
+
+    def record_sync_event(self, *, source: str, status: str, detail: dict | None = None) -> None:
+        with self._transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO connector_sync_history (source, status, detail, synced_at)
+                VALUES (?, ?, ?, datetime('now'))
+                """,
+                (source, status, json.dumps(detail or {})),
+            )
+            connection.execute(
+                """
+                DELETE FROM connector_sync_history
+                WHERE source = ? AND id NOT IN (
+                    SELECT id FROM connector_sync_history
+                    WHERE source = ? ORDER BY id DESC LIMIT ?
+                )
+                """,
+                (source, source, _SYNC_HISTORY_LIMIT_PER_SOURCE),
+            )
+
+    def list_sync_history(self, *, source: str | None = None, limit: int = 50) -> list[dict]:
+        if source is None:
+            rows = self._connection.execute(
+                "SELECT source, status, detail, synced_at FROM connector_sync_history "
+                "ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        else:
+            rows = self._connection.execute(
+                "SELECT source, status, detail, synced_at FROM connector_sync_history "
+                "WHERE source = ? ORDER BY id DESC LIMIT ?",
+                (source, limit),
+            ).fetchall()
+        return [
+            {
+                "source": row[0],
+                "status": row[1],
+                "detail": json.loads(row[2]) if row[2] else {},
+                "synced_at": row[3],
+            }
+            for row in rows
+        ]
+
+    def record_planner_generation(self, *, reason: str, plan_snapshot: dict) -> None:
+        with self._transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO planner_generation_history (reason, plan_snapshot, generated_at)
+                VALUES (?, ?, datetime('now'))
+                """,
+                (reason, json.dumps(plan_snapshot)),
+            )
+            connection.execute(
+                """
+                DELETE FROM planner_generation_history
+                WHERE id NOT IN (
+                    SELECT id FROM planner_generation_history ORDER BY id DESC LIMIT ?
+                )
+                """,
+                (_PLANNER_HISTORY_LIMIT,),
+            )
+
+    def list_planner_generation_history(self, *, limit: int = 20) -> list[dict]:
+        rows = self._connection.execute(
+            "SELECT reason, plan_snapshot, generated_at FROM planner_generation_history "
+            "ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [
+            {"reason": row[0], "plan_snapshot": json.loads(row[1]), "generated_at": row[2]}
+            for row in rows
+        ]
+
     def is_empty(self) -> bool:
         row = self._connection.execute("SELECT COUNT(*) FROM app_state").fetchone()
         return row is None or row[0] == 0
@@ -102,6 +179,38 @@ def _migration_001_initial_schema(connection: sqlite3.Connection) -> None:
     )
 
 
+def _migration_002_history_tables(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS connector_sync_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            status TEXT NOT NULL,
+            detail TEXT NOT NULL,
+            synced_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_connector_sync_history_source "
+        "ON connector_sync_history (source, id DESC)"
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS planner_generation_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reason TEXT NOT NULL,
+            plan_snapshot TEXT NOT NULL,
+            generated_at TEXT NOT NULL
+        )
+        """
+    )
+
+
 _MIGRATIONS = [
     _migration_001_initial_schema,
+    _migration_002_history_tables,
 ]
+
+_SYNC_HISTORY_LIMIT_PER_SOURCE = 50
+_PLANNER_HISTORY_LIMIT = 20

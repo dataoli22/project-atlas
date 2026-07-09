@@ -24,6 +24,17 @@
 
         </activity>
 
+        <!-- Required so the Health Connect app can show Atlas as a data-reading client and
+             deep-link back here to manage/revoke permissions. -->
+        <activity-alias
+            android:name=".HealthConnectPermissionsRationaleActivity"
+            android:exported="true"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity-alias>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -38,4 +49,13 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Health Connect read permissions - matches HealthConnectPlugin.kt's requiredPermissions.
+         Health Connect additionally requires runtime consent via PermissionController; these
+         manifest entries only declare intent, they do not grant access by themselves. -->
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_HYDRATION" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
 </manifest>

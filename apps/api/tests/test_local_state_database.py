@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from app.features.shared.services.db import LocalStateDatabase
+from app.features.shared.services.db import _MIGRATIONS, LocalStateDatabase
 
 
 def test_set_and_get_json_round_trips(tmp_path: Path):
@@ -78,8 +78,55 @@ def test_reopening_is_idempotent_and_does_not_reset_version(tmp_path: Path):
     row_count = connection.execute("SELECT COUNT(*) FROM app_state").fetchone()[0]
     connection.close()
 
-    assert version == 1
+    assert version == len(_MIGRATIONS)
     assert row_count == 0
+
+
+def test_export_all_returns_every_stored_key(tmp_path: Path):
+    db = LocalStateDatabase(tmp_path / "atlas.db")
+
+    db.set_many_json({"shared_state": {"a": 1}, "other_key": [1, 2, 3]})
+
+    assert db.export_all() == {"shared_state": {"a": 1}, "other_key": [1, 2, 3]}
+    db.close()
+
+
+def test_sync_history_records_and_lists_most_recent_first(tmp_path: Path):
+    db = LocalStateDatabase(tmp_path / "atlas.db")
+
+    db.record_sync_event(source="strava", status="ok", detail={"activities": 3})
+    db.record_sync_event(source="strava", status="ok", detail={"activities": 5})
+    db.record_sync_event(source="health_connect", status="ok", detail={})
+
+    strava_history = db.list_sync_history(source="strava")
+    assert [entry["detail"]["activities"] for entry in strava_history] == [5, 3]
+
+    all_history = db.list_sync_history()
+    assert len(all_history) == 3
+    db.close()
+
+
+def test_sync_history_is_capped_per_source(tmp_path: Path):
+    db = LocalStateDatabase(tmp_path / "atlas.db")
+
+    for i in range(60):
+        db.record_sync_event(source="strava", status="ok", detail={"i": i})
+
+    history = db.list_sync_history(source="strava", limit=100)
+    assert len(history) == 50
+    assert history[0]["detail"]["i"] == 59
+    db.close()
+
+
+def test_planner_generation_history_records_and_lists_most_recent_first(tmp_path: Path):
+    db = LocalStateDatabase(tmp_path / "atlas.db")
+
+    db.record_planner_generation(reason="scheduled", plan_snapshot={"week": 1})
+    db.record_planner_generation(reason="manual", plan_snapshot={"week": 2})
+
+    history = db.list_planner_generation_history()
+    assert [entry["reason"] for entry in history] == ["manual", "scheduled"]
+    db.close()
 
 
 def test_set_many_json_writes_multiple_keys_atomically(tmp_path: Path):

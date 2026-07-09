@@ -363,5 +363,34 @@ class ChatResponse(BaseModel):
     applied_prompt_title: str
     grounding: list[ChatGroundingItem] = Field(default_factory=list)
     provider_error_kind: ProviderErrorKind | None = None
+
+
+class BackupExportResponse(BaseModel):
+    backup_format_version: int
+    exported_at: str
+    app_state: dict[str, object]
+
+
+class BackupImportRequest(BaseModel):
+    backup_format_version: int
+    exported_at: str
+    app_state: dict[str, object]
+
+
+class BackupImportResponse(BaseModel):
+    imported_at: str
+
+
+class SyncHistoryEntry(BaseModel):
+    source: str
+    status: str
+    detail: dict[str, object]
+    synced_at: str
+
+
+class PlannerGenerationHistoryEntry(BaseModel):
+    reason: str
+    plan_snapshot: dict[str, object]
+    generated_at: str
     """Structured classification of why the primary provider was unavailable, when
     `provider == "stub"`. None when the primary provider answered successfully."""

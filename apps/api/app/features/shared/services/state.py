@@ -281,7 +281,17 @@ class SharedStateStore:
                 }
             )
             self._persist_state_unlocked()
+            if self._db is not None:
+                self._db.record_sync_event(
+                    source=source, status="sync-stubbed", detail={"stub": True}
+                )
             return self._integration_with_runtime_summary_unlocked(source)
+
+    def get_sync_history(self, *, source: str | None = None, limit: int = 50) -> list[dict]:
+        with self._lock:
+            if self._db is None:
+                return []
+            return self._db.list_sync_history(source=source, limit=limit)
 
     def prepare_strava_oauth(self) -> str:
         with self._lock:
@@ -521,6 +531,16 @@ class SharedStateStore:
             self._nutrition_runtime["refresh_due_at"] = refresh_due_at
             self._nutrition_runtime["refresh_reason"] = refresh_reason
             self._persist_state_unlocked()
+            if self._db is not None:
+                self._db.record_planner_generation(
+                    reason=refresh_reason, plan_snapshot=dict(outgoing_entry)
+                )
+
+    def get_planner_generation_history(self, *, limit: int = 20) -> list[dict]:
+        with self._lock:
+            if self._db is None:
+                return []
+            return self._db.list_planner_generation_history(limit=limit)
 
     def get_app_lock_settings(self) -> AppLockSettings:
         with self._lock:
@@ -812,6 +832,29 @@ class SharedStateStore:
             if isinstance(devices, dict):
                 self._pairing["devices"] = devices
 
+        preferences_payload = payload.get("preferences")
+        if isinstance(preferences_payload, dict):
+            self._preferences = self._preferences.model_copy(update=preferences_payload)
+
+        profile_payload = payload.get("profile")
+        if isinstance(profile_payload, dict):
+            self._profile = self._profile.model_copy(update=profile_payload)
+
+        localization_payload = payload.get("localization")
+        if isinstance(localization_payload, dict):
+            self._localization = self._localization.model_copy(update=localization_payload)
+
+        ai_settings_payload = payload.get("ai_settings")
+        if isinstance(ai_settings_payload, dict):
+            self._ai_settings = self._ai_settings.model_copy(update=ai_settings_payload)
+
+        self._ollama_api_key = self._secret_protector.unprotect(
+            payload.get("ollama_api_key_protected"), key="ollama_api_key"
+        ) or self._ollama_api_key
+        self._groq_api_key = self._secret_protector.unprotect(
+            payload.get("groq_api_key_protected"), key="groq_api_key"
+        ) or self._groq_api_key
+
         self._restore_protected_runtime_secrets_unlocked()
 
     def _persist_state_unlocked(self) -> None:
@@ -837,6 +880,16 @@ class SharedStateStore:
                 "attempts": self._pairing["attempts"],
                 "devices": self._pairing["devices"],
             },
+            "preferences": self._preferences.model_dump(mode="json"),
+            "profile": self._profile.model_dump(mode="json"),
+            "localization": self._localization.model_dump(mode="json"),
+            "ai_settings": self._ai_settings.model_dump(mode="json"),
+            "ollama_api_key_protected": self._secret_protector.protect(
+                self._ollama_api_key, key="ollama_api_key"
+            ),
+            "groq_api_key_protected": self._secret_protector.protect(
+                self._groq_api_key, key="groq_api_key"
+            ),
         }
         self._db.set_json("shared_state", payload)
 
@@ -876,6 +929,44 @@ class SharedStateStore:
         )
         strava_runtime["access_token_set"] = bool(strava_runtime["access_token"])
         strava_runtime["refresh_token_set"] = bool(strava_runtime["refresh_token"])
+
+    def export_backup(self) -> dict[str, object]:
+        """Export the full local database as a portable backup payload.
+
+        Secrets (API keys, OAuth tokens) are exported in their already-protected form
+        (OS-native encrypted/keychain-backed), never in plaintext, so the backup file is safe to
+        move between the same user's own devices but is not a generic "share this with anyone"
+        artifact - protected secrets tied to macOS Keychain/libsecret entries only unprotect on
+        the machine that created them; DPAPI-protected secrets only unprotect for the same
+        Windows user account.
+        """
+        with self._lock:
+            if self._db is None:
+                raise ValueError("Local persistence is disabled; nothing to export.")
+            return {
+                "backup_format_version": 1,
+                "exported_at": datetime.now(timezone.utc).isoformat(),
+                "app_state": self._db.export_all(),
+            }
+
+    def import_backup(self, payload: dict[str, object]) -> None:
+        """Restore a backup previously produced by `export_backup`.
+
+        Overwrites all current local app_state keys with the backup's contents, then reloads
+        in-memory state from the restored database so the running process reflects the backup
+        immediately (no restart required).
+        """
+        with self._lock:
+            if self._db is None:
+                raise ValueError("Local persistence is disabled; nothing to import into.")
+            if payload.get("backup_format_version") != 1:
+                raise ValueError("Unrecognized backup format version.")
+            app_state = payload.get("app_state")
+            if not isinstance(app_state, dict):
+                raise ValueError("Backup payload's app_state must be an object.")
+            if app_state:
+                self._db.set_many_json(app_state)
+            self._load_persisted_state()
 
 
 def _build_default_integrations() -> dict[IntegrationSourceKey, IntegrationSourceStatus]:

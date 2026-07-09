@@ -46,13 +46,22 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       JSON, with legacy-JSON one-time import, WAL mode, and corruption recovery.
 - [x] OS-native secret storage (`secure_storage.py`): DPAPI (Windows), Keychain (macOS),
       libsecret (Linux), base64 fallback — no new pip dependencies.
-- [ ] Alembic migrations — deliberately deferred until a real relational schema (e.g. connector
-      sync history, planner generation history with foreign keys) replaces the current
-      single-KV-table approach.
+- [x] Local backup / export / import (`GET/POST /api/v1/backup/export|import`,
+      `SharedStateStore.export_backup`/`import_backup`) — round-trips the full local SQLite
+      `app_state` table, secrets stay in their already-OS-protected form (never plaintext in the
+      backup file). Found and fixed a real bug while building this: profile, localization, AI
+      settings, and the Ollama/Groq API keys were updated in memory and "persisted" but never
+      actually written into the persisted payload (`_persist_state_unlocked` silently omitted
+      them) — they now round-trip across restarts, with a regression test
+      (`test_backup.py::test_profile_localization_ai_settings_and_api_keys_survive_reload`).
+- [x] Durable tables: `connector_sync_history` (capped at 50 rows/source) and
+      `planner_generation_history` (capped at 20 rows), added via SQLite migration 002 in `db.py`,
+      wired into `sync_integration()` and `record_nutrition_refresh()`. Exposed via
+      `GET /api/v1/history/sync` and `GET /api/v1/history/planner`.
+- [ ] Alembic migrations — still deferred; the KV-table + versioned-migration approach in `db.py`
+      comfortably absorbed the two new tables above without needing it yet.
 - [ ] Separate secret storage from general app state (secrets currently live in the same
       `app_state` table, just protected).
-- [ ] Local backup / export / import.
-- [ ] Durable tables: connector sync history, planner generation history + refresh metadata.
 
 ## 3. Authentication & permissions — P1 — DONE
 
@@ -124,15 +133,25 @@ desktop, and the hard iOS blocker.)
 - [x] Desktop pairing UI; `mobile/` Capacitor scaffold (Vite+React+TypeScript), Android platform
       added via `npx cap add android`, pair + sync screens, builds clean.
 - [x] **Hardened**: mobile sync retry with backoff on network/5xx failures, not on 4xx.
-- [ ] **No `.apk` built or run** — no Android SDK/JDK 17+/emulator in this environment. See
-      `mobile-architecture.md` section 3 for what's needed on a real machine.
-- [ ] Native Health Connect SDK plugin (`mobile/src/health-connect-plugin.ts` documents the
-      interface; not implemented blind since it can't be verified without a device).
+- [x] Native Health Connect SDK plugin (`HealthConnectPlugin.kt`) written and registered in
+      `MainActivity.java`, with the Health Connect Gradle dependency, manifest permissions, and a
+      `minSdkVersion` bump to 26 (required by the SDK). **Unbuilt and untested** — no Android SDK
+      in this environment; build and exercise permission grant/deny flows in Android Studio.
+- [ ] **No `.apk` built or run yet** — do this now that Android Studio is being set up locally.
+      See `mobile-architecture.md` section 3 for the full checklist (emulator or device with
+      Health Connect installed, `HealthConnectPlugin.kt` permission-flow testing, real sync
+      end-to-end against a paired desktop).
 - [ ] Samsung Health SDK bridge for mobile (not started).
-- [ ] iOS: **hard blocked** on Xcode/macOS access + Apple Developer Program enrollment.
+- [x] iOS: Capacitor scaffold committed (`mobile/ios/`, via `npx cap add ios`); ships as a
+      self-compiled build (free Apple ID / Personal Team, 7-day resign) rather than through the
+      App Store — see `mobile-architecture.md` section 4 for the full build/sideload flow.
+- [ ] iOS: `HealthKitPlugin.swift` implementation (`mobile/src/healthkit-plugin.ts` documents the
+      interface; needs a Mac + Xcode + physical iPhone to write and test — HealthKit mostly
+      doesn't work in the Simulator).
 - [ ] Backend-side sync retry queue/backoff, token refresh scheduler, permission revocation.
 - [ ] Richer sync payload mapping for all three connectors.
-- [ ] App icon/branding; Play Store / App Store listing and release process.
+- [ ] App icon/branding; Play Store listing and release process (Android only — iOS is
+      self-compiled, no App Store distribution planned).
 - [ ] Rate limiting on `/api/v1/pairing/start` itself (low severity — each new code invalidates
       the previous one, and only the desktop operator sees it).
 

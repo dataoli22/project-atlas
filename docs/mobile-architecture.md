@@ -195,31 +195,68 @@ real Android tooling needs to:
 
 ---
 
-## 4. iOS (blocked, not started)
+## 4. iOS (scaffolded; self-compile model, no App Store distribution)
 
-Building for iOS requires **Xcode running on macOS**, plus an **Apple Developer Program**
-enrollment ($99/year) for device testing, TestFlight, and App Store distribution. Neither is
-available in this environment — this is a hard tooling blocker, not a scope decision.
+There is no Apple Developer Program enrollment ($99/year) and no macOS build machine dedicated to
+this project, and Xcode itself only runs on macOS — App Store/TestFlight distribution is out of
+scope. Instead, iOS ships as **source you (or the end user) compile and install directly onto
+their own iPhone from a Mac they own**, which Apple allows for free:
 
-Once macOS + Xcode access exists: `npx cap add ios` from `mobile/` generates the native iOS
-project the same way `cap add android` did here. The `desktop-api.ts`/`pairing-store.ts`/UI layer
-is already platform-agnostic (Capacitor abstracts `Preferences` across platforms). The
-HealthKit-equivalent of `health-connect-plugin.ts` still needs to be written and implemented
-natively in Swift — same shape, different native APIs (HealthKit's `HKHealthStore` instead of
-Health Connect's `HealthConnectClient`).
+- A **free Apple ID** ("Personal Team" in Xcode) can sign and install an app directly onto an
+  iPhone connected over USB, no paid enrollment required.
+- The only catch: a free-signed app's provisioning profile expires after **7 days**, after which
+  Xcode has to re-sign and reinstall it (one click: plug in the phone, hit Run again). This is an
+  Apple platform limit, not something Atlas can work around without the $99/year program — worth
+  it only if wide distribution beyond the user's own device is ever wanted.
+- No jailbreak, no third-party sideloading store, no TestFlight needed for this flow.
+
+**Scaffold status**: `npx cap add ios` has been run from `mobile/` — `mobile/ios/App/App.xcworkspace`
+exists and is committed, generated the same way `cap add android` generated `mobile/android/`.
+`pod install` and `xcodebuild` were skipped when scaffolding (no CocoaPods/Xcode in this
+environment); run `pod install` inside `mobile/ios/App` the first time you open the project on a
+Mac. The `desktop-api.ts`/`pairing-store.ts`/UI layer is already platform-agnostic (Capacitor
+abstracts `Preferences` across platforms), so no web-layer changes are needed for iOS.
+
+**To build and install on your own iPhone once you have a Mac with Xcode:**
+
+1. `npm run mobile:build` (builds the Vite web assets and runs `cap sync`).
+2. `cd mobile/ios/App && pod install` (installs CocoaPods dependencies — one-time, and again after
+   any native dependency change).
+3. Open `mobile/ios/App/App.xcworkspace` in Xcode (not the `.xcodeproj` — CocoaPods requires the
+   workspace).
+4. In the project's Signing & Capabilities tab, choose your Apple ID as the team (Xcode will
+   offer to create a free "Personal Team" if you sign in with an Apple ID that has no paid
+   enrollment).
+5. Plug in the iPhone, select it as the run destination, hit Run. First launch requires trusting
+   the developer certificate on the phone: Settings → General → VPN & Device Management.
+6. Re-run from Xcode every 7 days to refresh the provisioning profile (or move to the paid
+   Developer Program if that friction becomes unacceptable).
+
+**Still needed before this is a real companion app** (not blocked on tooling, just not written
+yet — see `mobile/src/healthkit-plugin.ts` for the documented-but-unimplemented interface):
+implement `HealthKitPlugin.swift` using `HKHealthStore`, matching the same shape as
+`health-connect-plugin.ts`/`HealthConnectPlugin.kt` on Android (same `SyncPayload` fields, so
+`desktop-api.ts` and the sync screen need no changes). This has to be written and tested on an
+actual Mac + iPhone, which is outside this environment.
 
 ---
 
 ## 5. Open items
 
 - [ ] Real Android build + device/emulator test (needs Android Studio + JDK 17+ on a real machine)
-- [ ] Native `HealthConnectPlugin.kt` implementation
+- [x] Native `HealthConnectPlugin.kt` implementation — written, registered in `MainActivity.java`,
+      Health Connect Gradle dependency + manifest permissions added; **unbuilt and untested**
+      (no Android SDK in this environment) — build and exercise permission flows in Android
+      Studio before relying on it.
 - [x] In-app "restart to apply" UX for the LAN pairing toggle — done, see section 2
 - [x] Pairing code brute-force protection — done, see section 2
 - [x] Mobile sync retry/backoff on transient network failures — done, see section 2
-- [ ] iOS: `cap add ios`, HealthKit plugin, Apple Developer Program enrollment
+- [x] iOS: `cap add ios` scaffold committed (`mobile/ios/`); self-compile/sideload build flow
+      documented in section 4 — no App Store distribution planned
+- [ ] iOS: `HealthKitPlugin.swift` implementation (needs a Mac + Xcode + iPhone to write and test)
 - [ ] App icon / branding for the mobile app (Capacitor's default template icons are in place)
-- [ ] Play Store / App Store listing and release process
+- [ ] Play Store listing and release process (Android only — iOS ships self-compiled, not via
+      App Store, see section 4)
 - [ ] Rate limiting on `/api/v1/pairing/start` itself (currently unlimited — a LAN attacker could
       keep generating fresh codes; low severity since each new code invalidates the previous one
       and only the desktop operator sees the code, but worth tightening later)

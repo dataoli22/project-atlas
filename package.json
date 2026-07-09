@@ -27,7 +27,8 @@
     "desktop:dev": "npm run build:web && npm --workspace @atlas/desktop run dev",
     "desktop:dist": "npm run build:web && npm run desktop:build:api && npm --workspace @atlas/desktop run dist",
     "mobile:build": "npm --workspace @atlas/mobile run build",
-    "mobile:android": "npm --workspace @atlas/mobile run cap:android"
+    "mobile:android": "npm --workspace @atlas/mobile run cap:android",
+    "mobile:ios": "npm --workspace @atlas/mobile run cap:ios"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1"
