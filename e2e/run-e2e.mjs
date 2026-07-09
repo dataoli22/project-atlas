@@ -79,10 +79,14 @@ try {
   rmSync("apps/web/.next", { recursive: true, force: true });
   await run("npm", ["run", "build:web"]);
 
-  server = spawn("node", ["../../node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", String(port)], {
+  // apps/web builds with output: "standalone" (see next.config.ts - needed for lean Electron
+  // packaging), which next start warns is unsupported. Run the standalone server.js directly
+  // instead, matching how desktop/electron/main.js spawns it.
+  server = spawn("node", [".next/standalone/apps/web/server.js"], {
     cwd: "apps/web",
     stdio: "inherit",
-    shell: isWindows
+    shell: isWindows,
+    env: { ...process.env, PORT: String(port), HOSTNAME: "127.0.0.1" }
   });
 
   await waitForServer(baseURL);

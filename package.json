@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "desktop"
   ],
   "scripts": {
     "dev:web": "npm --workspace apps/web run dev",
@@ -20,7 +21,10 @@
     "security:python": "python -m pip_audit -r apps/api/requirements.txt",
     "security:static": "python -m bandit -r apps/api/app",
     "security": "npm run security:npm && npm run security:python && npm run security:static",
-    "release:check": "npm run test:all && npm run security"
+    "release:check": "npm run test:all && npm run security",
+    "desktop:build:web": "cross-env NEXT_PUBLIC_ATLAS_API_URL=http://127.0.0.1:8756 npm --workspace apps/web run build",
+    "desktop:dev": "npm run desktop:build:web && npm --workspace @atlas/desktop run dev",
+    "desktop:dist": "npm run desktop:build:web && npm --workspace @atlas/desktop run dist"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1"

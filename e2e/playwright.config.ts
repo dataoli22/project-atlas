@@ -22,9 +22,12 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: `node ../../node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port ${port}`,
+        // apps/web builds with output: "standalone" (see next.config.ts), which next start warns
+        // is unsupported - run the standalone server.js directly instead.
+        command: `node .next/standalone/apps/web/server.js`,
         cwd: webAppRoot,
         url: baseURL,
+        env: { PORT: String(port), HOSTNAME: "127.0.0.1" },
         reuseExistingServer: !process.env.CI,
         timeout: 120_000
       },

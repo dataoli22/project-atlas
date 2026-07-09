@@ -117,13 +117,18 @@ Current posture:
 
 ## 1. Platform Packaging And Installation
 
-### Current state
+> **Superseded July 9, 2026** — see `docs/packaging-and-installation.md` section 4 for the
+> current, authoritative state. Summary: a `desktop/` **Electron** shell now exists (not Tauri —
+> see below), with a working sidecar lifecycle manager, verified live. The `Tauri v2`
+> recommendation immediately below is the original, superseded choice, kept for history.
+
+### Current state (original, superseded)
 
 - Dev-only monorepo workflow
 - `infra/docker-compose.yml` includes local Postgres and Ollama containers, but Atlas is not yet packaged as a desktop app or Android app
 - No installer generation, updater, sidecar lifecycle management, or signed release pipeline
 
-### Must implement
+### Must implement (original, superseded)
 
 - Choose desktop shell: `Tauri v2` is the recommended fit for a local-first app with a small native footprint
 - Define backend packaging strategy:

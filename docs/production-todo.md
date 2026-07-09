@@ -32,6 +32,11 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
   `ollama-on-device-and-agents.md`.
 - Remaining P0 in section 2: separate secret storage from general app state, local
   backup/export/import, Alembic migrations once relational tables are needed.
+- Packaging: a `desktop/` **Electron** shell now exists (product decision, supersedes the
+  originally recommended Tauri v2 — `electron-updater` + GitHub Releases was chosen for
+  auto-update maturity). Sidecar lifecycle verified live (real window, both processes
+  health-checked). Still open: PyInstaller sidecar binary for packaged mode, dynamic ports,
+  signing, branding, macOS/Linux targets. See section 9 and `packaging-and-installation.md`.
 - This iteration also added: nutrition refresh + 7-day calendar + meal prep hacks + video links,
   and endurance coach support links (see `nutrition-endurance-feature-spec.md`).
 
@@ -245,16 +250,39 @@ this summary.)
 - [ ] Sync retry queue + backoff; token refresh scheduler; permission revocation handling.
 - [ ] Richer sync payload mapping for all three connectors.
 
-## 9. Packaging & installers — Shared shell agent · P0/P1
+## 9. Packaging & installers — Shared shell agent · P0/P1 — DESKTOP SHELL STARTED
 
-(Details: `packaging-and-installation.md`.)
+(Details: `packaging-and-installation.md` section 4 — read it, not just this summary.)
 
-- [ ] `desktop/` Tauri v2 project wrapping `apps/web`.
-- [ ] FastAPI PyInstaller sidecar + lifecycle manager (dynamic port, health, restart, clean stop).
-- [ ] OS app-data user-data path via `ATLAS_LOCAL_STATE_PATH`.
-- [ ] Signed Windows + macOS installers + updater preserving user data/secrets/model settings.
-- [ ] `android/` shell + native bridges + Keystore (P1/P2).
-- [ ] Packaged smoke test matrix.
+> **Shell choice changed from the originally recommended Tauri v2 to Electron** (explicit
+> product decision: `electron-updater` + GitHub Releases is more mature for the "regular app
+> updates" requirement than Tauri v2's newer updater). `docs/prod-readiness-audit.md`'s original
+> Tauri recommendation is now superseded — see the note there.
+
+- [x] `desktop/` **Electron** project wrapping `apps/web` — verified live: real window launched
+      (title "Project Atlas"), both sidecars spawned and passed health checks.
+- [x] Sidecar lifecycle manager: start both child processes (FastAPI + Next.js standalone
+      server), poll health, kill on quit (including nested children via `taskkill /T /F` on
+      Windows). **Fixed ports** (API `8756`, web `4173`), not dynamic — see the packaging doc for
+      why (client-component `NEXT_PUBLIC_*` values are baked into the browser bundle at build
+      time, so a desktop-specific build step bakes in the fixed port).
+- [ ] FastAPI **PyInstaller sidecar binary** — not built. Packaged-mode Python resolution
+      explicitly throws with a message pointing here; the desktop shell currently only runs
+      `apps/api` from source (dev mode).
+- [ ] Dynamic port allocation + collision handling.
+- [ ] OS app-data user-data path via `ATLAS_LOCAL_STATE_PATH` / `ATLAS_LOCAL_DB_PATH` — packaged
+      builds still write to `apps/api/.local` by default, not a real OS app-data directory.
+- [x] `electron-updater` wired (GitHub Releases provider, `checkForUpdatesAndNotify` on packaged
+      launch) — **not yet verified against a real published release**, only that it's wired.
+- [ ] Signed Windows + macOS installers — no code-signing certificate configured; unsigned builds
+      trigger SmartScreen/Gatekeeper warnings.
+- [ ] App icon / branding assets (`desktop/build/` is a placeholder).
+- [ ] macOS / Linux `electron-builder` targets — Windows-only for now, matching the only platform
+      this was actually built and tested on.
+- [ ] `android/` shell + native bridges + Keystore (P1/P2) — Electron is desktop-only; Android
+      remains a separate native track, unaffected by this section's work.
+- [ ] Packaged smoke test matrix (beyond the one manual `npm run desktop:dev` verification done
+      here).
 
 ## 10. Frontend hardening — Shared shell + feature agents · P1
 
