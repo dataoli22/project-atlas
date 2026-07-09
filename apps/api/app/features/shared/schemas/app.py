@@ -178,6 +178,7 @@ class AISettingsUpdate(BaseModel):
 class AIRuntimeHealthCheckRequest(BaseModel):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1:8b"
+    ollama_embed_model: str | None = None
     ollama_api_key: str | None = None
 
 
@@ -188,8 +189,25 @@ class AIRuntimeHealthCheckResponse(BaseModel):
     provider: Literal["ollama"] = "ollama"
     message: str
     version: str | None = None
+    installed: bool | None = None
+    """Whether the `ollama` binary is on PATH. Only meaningful for a local target - Atlas
+    cannot detect a remote installation, so this is None for non-local base URLs."""
     model_checked: str | None = None
     model_available: bool | None = None
+    embed_model_checked: str | None = None
+    embed_model_available: bool | None = None
+
+
+class OllamaPullRequest(BaseModel):
+    model: str = Field(..., min_length=1, max_length=200)
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_api_key: str | None = None
+
+
+class OllamaPullResponse(BaseModel):
+    ok: bool
+    model: str
+    message: str
 
 
 class IntegrationSourceStatus(BaseModel):
@@ -298,6 +316,11 @@ class ChatGroundingItem(BaseModel):
     value: str
 
 
+ProviderErrorKind = Literal[
+    "service_down", "model_missing", "timeout", "connection_refused", "auth_rejected", "other"
+]
+
+
 class ChatResponse(BaseModel):
     feature: Literal["shared", "endurance", "nutrition"]
     provider: Literal["ollama", "groq", "stub"]
@@ -307,3 +330,6 @@ class ChatResponse(BaseModel):
     token_strategy_note: str
     applied_prompt_title: str
     grounding: list[ChatGroundingItem] = Field(default_factory=list)
+    provider_error_kind: ProviderErrorKind | None = None
+    """Structured classification of why the primary provider was unavailable, when
+    `provider == "stub"`. None when the primary provider answered successfully."""

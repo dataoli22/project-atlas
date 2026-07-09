@@ -14,7 +14,7 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ## 0. Current status snapshot
 
-- Backend tests: **72 passing** (`npm run test:api`).
+- Backend tests: **89 passing** (`npm run test:api`).
 - Web production build: fixed with a clean-before-build step; green in CI and locally.
 - Repo is a git repository, pushed to `https://github.com/dataoli22/project-atlas` (private).
 - CI is live at `.github/workflows/ci.yml` (api / web / security / e2e), all green.
@@ -25,10 +25,15 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 - Identity/permissions: **single-user local model codified**, cloud-style login stub removed,
   optional local **app lock** (PIN) shipped end-to-end (backend + settings UI + shell gate), and
   a confirmation gate on the one existing destructive action (integration disconnect).
+- AI runtime: **cloud-first with automatic on-device Ollama fallback** (`local_only_mode` default
+  flipped `true` → `false`), a real first-run detection wizard, a model pull button, structured
+  provider error classification in chat, and a fixed model-tag-matching bug — all verified live
+  against a real running Ollama instance, not just mocks. See section 4 and
+  `ollama-on-device-and-agents.md`.
 - Remaining P0 in section 2: separate secret storage from general app state, local
   backup/export/import, Alembic migrations once relational tables are needed.
-- This iteration added: nutrition refresh + 7-day calendar + meal prep hacks + video links, and
-  endurance coach support links (see `nutrition-endurance-feature-spec.md`).
+- This iteration also added: nutrition refresh + 7-day calendar + meal prep hacks + video links,
+  and endurance coach support links (see `nutrition-endurance-feature-spec.md`).
 
 ### CI security scan triage (July 9, 2026)
 
@@ -145,18 +150,49 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       preserves prior state in swap history rather than destroying it (see section 6a).
       Full suite: 72 tests passing (was 61).
 
-## 4. Ollama on-device — Shared shell agent · P0/P1
+## 4. Ollama on-device / cloud-first AI runtime — Shared shell agent · P0/P1 — MOSTLY DONE
 
-(Details: `ollama-on-device-and-agents.md` section 5.)
+(Details: `ollama-on-device-and-agents.md`, fully rewritten this iteration — read it, not just
+this summary.)
 
-- [ ] P0: bind loopback by default; warn on non-local base URL in the settings UI.
-- [ ] P0: first-run detection wizard (installed? running? chat model? embed model?).
-- [ ] P1: model bootstrap UX (pull button + progress + disk usage + cancel/retry).
-- [ ] P1: validate selected model on save; clear fallback when missing.
-- [ ] P1: consistent structured provider errors in chat (not only settings).
-- [ ] P1: on-device token + latency telemetry and per-feature budgeting.
-- [ ] P0: onboarding "nothing leaves this device" copy; label Groq as the only egress path.
-- [ ] P2: embedding pipeline (only when retrieval/memory features arrive).
+> **Posture pivot**: Atlas now prefers a cloud provider once configured (Groq free tier, or
+> Ollama pointed at a cloud endpoint) for speed/capability, with automatic on-device Ollama
+> fallback on failure. `local_only_mode` default flipped `true` → `false`; it remains available
+> as an opt-in hard on-device guarantee. Keys/prompts still never route through an Atlas-hosted
+> relay either way — only which provider is *preferred* changed, not where routing happens.
+> `README.md`, `docs/prod-readiness-audit.md` section 4 (pointer + history note), and `.env.example`
+> updated to match.
+
+- [x] P0: warn on non-local base URL in the settings UI (`isLocalBaseUrl` banner in
+      `ai-runtime-settings-form.tsx`). Sidecar-itself-binds-loopback-only is still open, tracked
+      under packaging (section 9) since it only applies once a packaged sidecar exists.
+- [x] P0: first-run detection wizard — installed (PATH-detected, local-target-only) / running /
+      chat model / embed model, each with remediation copy, rendered as a numbered checklist in
+      settings. Fixed a real bug found via live testing: Ollama's `/api/tags` returns
+      fully-qualified names (`model:latest`) while configured names are often bare, causing
+      false "not installed" results — `_normalize_model_tag` fixes this.
+- [~] P1: model bootstrap UX — pull button implemented (`POST /settings/ai/pull`, blocking
+      `stream:false`, real success/failure result); live percentage progress, disk usage, and
+      cancel/retry are explicitly deferred (would need an NDJSON streaming proxy).
+- [x] P1: validate selected model — the first-run wizard is the validation surface; chat's
+      automatic local-Ollama fallback is the "clear fallback when missing" behavior.
+- [x] P1: consistent structured provider errors in chat — `ChatResponse.provider_error_kind`
+      (`service_down | model_missing | timeout | connection_refused | auth_rejected | other`),
+      displayed as a distinct panel in the Ask Atlas UI, not just a free-text warning.
+- [ ] P1: on-device token + latency telemetry and per-feature budgeting — not started.
+- [x] P0: onboarding copy — "Where your data goes" section explains the cloud-first-with-local-
+      fallback posture honestly (superseded the original "nothing leaves this device" framing,
+      which is no longer accurate as the *default*; `local_only_mode` still delivers that
+      guarantee when enabled).
+- [ ] P2: embedding pipeline (only when retrieval/memory features arrive) — not started, correctly
+      still deferred.
+- [x] **New this iteration, not originally listed**: real end-to-end verification against a live
+      Ollama 0.31.1 instance (not just mocks) — caught and fixed the tag-normalization bug above,
+      and the OllamaProviderClient timeout being too tight for real local hardware (was 20s,
+      observed ~25s for a 3-word reply from a 7B model on CPU; now 120s). Also added a genuine
+      provider attempt chain in `chat.py` (`_build_provider_attempts`) with dedicated tests
+      (`test_chat_falls_back_to_local_ollama_when_cloud_ollama_fails`, etc.) and two new backend
+      test files (`test_ollama_runtime.py`, `test_ai_runtime_router.py`).
 
 ## 5. Agent orchestration — Shared shell agent · P1
 

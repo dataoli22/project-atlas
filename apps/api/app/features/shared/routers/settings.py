@@ -8,10 +8,12 @@ from app.features.shared.schemas.app import (
     LocalizationSettings,
     LocalizationSettingsUpdate,
     MarketOption,
+    OllamaPullRequest,
+    OllamaPullResponse,
     ProfileSettings,
     ProfileSettingsUpdate,
 )
-from app.features.shared.services.ai import check_ollama_runtime
+from app.features.shared.services.ai import check_ollama_runtime, pull_ollama_model
 from app.features.shared.services.registry import (
     get_markets,
 )
@@ -75,6 +77,23 @@ def check_ai_runtime_health(
         return check_ollama_runtime(
             ollama_base_url=payload.ollama_base_url,
             ollama_model=payload.ollama_model,
+            ollama_embed_model=payload.ollama_embed_model,
+            ollama_api_key=ollama_api_key,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ai/pull", response_model=OllamaPullResponse)
+def pull_ai_runtime_model(payload: OllamaPullRequest) -> OllamaPullResponse:
+    try:
+        ollama_api_key = payload.ollama_api_key
+        if ollama_api_key is None:
+            ollama_api_key = shared_state.get_ollama_api_key()
+
+        return pull_ollama_model(
+            ollama_base_url=payload.ollama_base_url,
+            model=payload.model,
             ollama_api_key=ollama_api_key,
         )
     except ValueError as exc:

@@ -1,13 +1,14 @@
-def test_read_ai_settings_exposes_local_first_defaults(client):
+def test_read_ai_settings_exposes_cloud_first_with_local_fallback_defaults(client):
     response = client.get("/api/v1/settings/ai")
 
     assert response.status_code == 200
     payload = response.json()
 
     assert payload["default_provider"] == "ollama"
-    assert payload["local_only_mode"] is True
+    assert payload["local_only_mode"] is False
     assert payload["allow_groq"] is False
-    assert "device-local operation" in payload["device_notice"]
+    assert "stay on this device" in payload["device_notice"]
+    assert "on-device Ollama" in payload["device_notice"]
     assert {profile["module"] for profile in payload["prompt_profiles"]} == {
         "shared",
         "endurance",

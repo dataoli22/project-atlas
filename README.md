@@ -28,12 +28,18 @@ Architecture and product requirements live in:
 - `packages/config`: shared market, currency, and app defaults
 - `packages/ui`: shared UI package placeholder
 
-## Local-first AI runtime
+## AI runtime posture
 
-- Ollama is the default on-device provider
-- Groq is optional and should only be enabled as a user-controlled remote override
-- AI keys are intended to remain on the same device that runs Atlas
-- Agent prompts should stay comprehensive in guardrails but lean in token use
+- Atlas prefers a cloud provider once configured (Groq's free tier, or Ollama pointed at a
+  cloud/hosted endpoint with an API key) for speed and capability, and automatically falls back
+  to on-device Ollama if that call fails. A fresh install with no keys still runs fully on
+  on-device Ollama by default.
+- AI keys and prompts always route directly from this device to the configured provider — never
+  through an Atlas-hosted relay, regardless of whether that provider is local or cloud.
+- `local_only_mode` is available as an opt-in hard guarantee that forces Ollama and blocks Groq,
+  for users who want inference to never leave the device.
+- Agent prompts should stay comprehensive in guardrails but lean in token use.
+- See `docs/ollama-on-device-and-agents.md` for the full wiring and the provider fallback chain.
 
 ## Local development notes
 

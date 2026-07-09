@@ -201,7 +201,16 @@ Current posture:
 
 ## 4. Ollama On-Device Wiring
 
-### Product requirement
+> **Posture updated July 9, 2026** — see `docs/ollama-on-device-and-agents.md` for the current,
+> authoritative version of this section. Summary: Atlas now prefers a cloud provider once
+> configured (Groq free tier, or Ollama pointed at a cloud endpoint) for speed and capability,
+> and automatically falls back to on-device Ollama if that call fails. Keys and prompts still
+> never route through an Atlas-hosted relay either way. `local_only_mode` remains available as an
+> opt-in hard guarantee that nothing leaves the device. The "Product requirement" line
+> immediately below is the **original** requirement as first written and is kept for history; it
+> no longer reflects current default behavior.
+
+### Product requirement (original, superseded — see note above)
 
 Ollama must remain device-local by default. Atlas should never route prompts through an Atlas-hosted service. If users enable Groq, requests may leave the device only to Groq directly from the local runtime.
 

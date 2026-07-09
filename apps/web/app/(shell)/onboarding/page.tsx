@@ -122,6 +122,21 @@ export default async function OnboardingPage() {
             ))}
           </div>
         </section>
+
+        <section className="atlas-panel atlas-stack">
+          <div className="atlas-panel__eyebrow">Where your data goes</div>
+          <p className="atlas-note">
+            Your profile, settings, and provider keys stay on this device - Atlas never routes them through a
+            hosted relay. For AI features, Atlas prefers a cloud provider once you add a key (Groq&apos;s free
+            tier, or Ollama pointed at a cloud endpoint) for speed and capability, and automatically falls back to
+            on-device Ollama if that call fails. Requests go directly from this device to whichever provider
+            answers - never through an Atlas-owned server.
+          </p>
+          <p className="atlas-note">
+            Prefer a hard guarantee that nothing ever leaves this device? Enable local-only mode in AI runtime
+            settings to force Ollama and block Groq entirely.
+          </p>
+        </section>
       </div>
     </PageScaffold>
   );

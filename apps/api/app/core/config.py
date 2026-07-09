@@ -52,7 +52,13 @@ class Settings(BaseSettings):
     ollama_api_key: str = ""
     groq_model: str = "llama-3.1-8b-instant"
     groq_api_key: str = ""
-    local_only_mode: bool = True
+    # Cloud providers (Groq free tier, or Ollama pointed at a cloud/hosted endpoint with an API
+    # key) are preferred by default once configured, with on-device Ollama as an automatic
+    # resilience fallback - see chat.py's provider attempt chain. Provider keys and prompts are
+    # still never routed through an Atlas-hosted relay: calls go directly from this device to
+    # the provider. Users who want a hard guarantee that nothing ever leaves the device can still
+    # enable local_only_mode, which forces Ollama and blocks Groq.
+    local_only_mode: bool = False
     strava_client_id: str = ""
     strava_client_secret: str = ""
     strava_redirect_uri: str = "http://localhost:8000/api/v1/integrations/strava/callback"

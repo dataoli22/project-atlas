@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from socket import timeout as SocketTimeout
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, urlunparse
@@ -11,14 +12,22 @@ from app.features.shared.schemas.app import (
     AIRuntimeHealthCheckResponse,
     AgentPromptProfile,
     GuardrailLevel,
+    OllamaPullResponse,
     PromptStyle,
 )
 
 
+OLLAMA_DOWNLOAD_URL = "https://ollama.com/download"
+OLLAMA_LIBRARY_URL = "https://ollama.com/library"
+OLLAMA_API_DOCS_URL = "https://github.com/ollama/ollama/blob/main/docs/api.md"
+
+
 DEVICE_NOTICE = (
-    "Atlas is configured for device-local operation. Provider keys stay on the same phone or desktop "
-    "that runs the app, and Ollama remains the default fully local provider. If Groq is enabled, requests "
-    "leave the device only to Groq directly from this user-owned runtime."
+    "Provider keys and prompts stay on this device and are sent directly to whichever provider you "
+    "configure - Atlas never routes them through a hosted relay. By default Atlas prefers a cloud "
+    "provider once you add a key (Groq's free tier, or Ollama pointed at a cloud endpoint) for speed "
+    "and capability, and automatically falls back to on-device Ollama if that call fails. Enable "
+    "local-only mode for a hard guarantee that nothing ever leaves this device."
 )
 
 
@@ -177,6 +186,15 @@ def build_ai_settings_response(
     )
 
 
+def _normalize_model_tag(name: str) -> str:
+    """Ollama's `/api/tags` always returns fully-qualified names (e.g. `llama3.1:8b`,
+    `nomic-embed-text:latest`), but configured model names are often left bare (no `:tag`),
+    which implicitly means `:latest`. Without this normalization, a bare-named but genuinely
+    installed model is falsely reported as missing."""
+    stripped = name.strip()
+    return stripped if ":" in stripped else f"{stripped}:latest"
+
+
 def _normalize_ollama_base_url(raw_url: str) -> tuple[str, str, bool]:
     candidate = raw_url.strip() or "http://localhost:11434"
     parsed = urlparse(candidate if "://" in candidate else f"http://{candidate}")
@@ -209,15 +227,24 @@ def _read_json(url: str, headers: dict[str, str]) -> dict:
     return json.loads(payload) if payload else {}
 
 
+def _is_ollama_binary_present() -> bool:
+    return shutil.which("ollama") is not None
+
+
 def check_ollama_runtime(
     *,
     ollama_base_url: str,
     ollama_model: str,
+    ollama_embed_model: str | None = None,
     ollama_api_key: str | None,
 ) -> AIRuntimeHealthCheckResponse:
     target, _hostname, local_target = _normalize_ollama_base_url(ollama_base_url)
     model_name = ollama_model.strip() or None
+    embed_model_name = (ollama_embed_model or "").strip() or None
     headers = _ollama_headers(ollama_api_key.strip() if ollama_api_key else None)
+    # Atlas can only check binary presence on the same machine it runs on, which is only a
+    # meaningful signal when the target is the local loopback runtime.
+    installed = _is_ollama_binary_present() if local_target else None
 
     try:
         version_payload = _read_json(f"{target}/api/version", headers)
@@ -236,26 +263,49 @@ def check_ollama_runtime(
             target=target,
             local_target=local_target,
             message=message,
+            installed=installed,
         )
     except (URLError, SocketTimeout):
         locality = "local" if local_target else "configured"
+        if local_target and installed is False:
+            message = (
+                f"Ollama does not appear to be installed on this device. Download it from {OLLAMA_DOWNLOAD_URL} "
+                "and run it, then test again."
+            )
+        else:
+            message = (
+                f"Atlas could not reach the {locality} Ollama runtime at {target}. Make sure Ollama is running "
+                "on this device and reachable from Atlas."
+            )
         return AIRuntimeHealthCheckResponse(
             ok=False,
             target=target,
             local_target=local_target,
-            message=f"Atlas could not reach the {locality} Ollama runtime at {target}. Make sure Ollama is running on this device and reachable from Atlas.",
+            message=message,
+            installed=installed,
         )
 
     available_models = {
-        model.get("model", "").strip()
+        _normalize_model_tag(model.get("model", ""))
         for model in tags_payload.get("models", [])
         if isinstance(model, dict)
     }
-    model_available = model_name in available_models if model_name else None
+    model_available = (
+        _normalize_model_tag(model_name) in available_models if model_name else None
+    )
+    embed_model_available = (
+        _normalize_model_tag(embed_model_name) in available_models if embed_model_name else None
+    )
 
     if model_name and model_available is False:
         message = (
-            f"Reached Ollama at {target}, but the selected model '{model_name}' is not installed on this runtime."
+            f"Reached Ollama at {target}, but the selected model '{model_name}' is not installed on this runtime. "
+            f"Pull it or browse {OLLAMA_LIBRARY_URL} for alternatives."
+        )
+    elif embed_model_name and embed_model_available is False:
+        message = (
+            f"Reached Ollama at {target}, but the embedding model '{embed_model_name}' is not installed on this "
+            "runtime."
         )
     else:
         locality = "local" if local_target else "configured"
@@ -264,11 +314,71 @@ def check_ollama_runtime(
     version = version_payload.get("version")
 
     return AIRuntimeHealthCheckResponse(
-        ok=model_available is not False,
+        ok=model_available is not False and embed_model_available is not False,
         target=target,
         local_target=local_target,
         message=message,
         version=version if isinstance(version, str) else None,
+        # Successfully reaching the runtime is strictly stronger evidence than PATH detection -
+        # some installs run Ollama as a service without registering the CLI on PATH.
+        installed=True if local_target else installed,
         model_checked=model_name,
         model_available=model_available,
+        embed_model_checked=embed_model_name,
+        embed_model_available=embed_model_available,
     )
+
+
+def pull_ollama_model(
+    *,
+    ollama_base_url: str,
+    model: str,
+    ollama_api_key: str | None,
+) -> OllamaPullResponse:
+    """Pull (download or verify) a model on the local Ollama runtime.
+
+    Uses `stream: false` for a simple blocking request/response rather than proxying Ollama's
+    NDJSON progress stream - a real, functional pull with a clear success/failure result. Live
+    percentage progress would need a streaming proxy through FastAPI and a streaming reader on
+    the frontend; that is tracked as a follow-up, not implemented here.
+    """
+
+    target, _hostname, _local_target = _normalize_ollama_base_url(ollama_base_url)
+    model_name = model.strip()
+    if not model_name:
+        raise ValueError("Enter a model name to pull, such as llama3.1:8b.")
+
+    headers = _ollama_headers(ollama_api_key.strip() if ollama_api_key else None)
+    headers["Content-Type"] = "application/json"
+    payload = json.dumps({"model": model_name, "stream": False}).encode("utf-8")
+    req = Request(f"{target}/api/pull", data=payload, headers=headers, method="POST")
+
+    try:
+        with urlopen(req, timeout=600) as response:
+            body = json.loads(response.read().decode("utf-8") or "{}")
+    except HTTPError as exc:
+        try:
+            detail = json.loads(exc.read().decode("utf-8"))
+            error_message = detail.get("error", str(exc))
+        except (ValueError, AttributeError):
+            error_message = str(exc)
+        return OllamaPullResponse(
+            ok=False,
+            model=model_name,
+            message=f"Ollama could not pull '{model_name}': {error_message}",
+        )
+    except (URLError, SocketTimeout):
+        return OllamaPullResponse(
+            ok=False,
+            model=model_name,
+            message=f"Atlas could not reach the Ollama runtime at {target} to pull '{model_name}'.",
+        )
+
+    status = body.get("status", "")
+    ok = status not in {"", None} and "error" not in status
+    message = (
+        f"Ollama confirmed '{model_name}' is ready on this runtime."
+        if ok
+        else f"Ollama returned an unexpected pull status for '{model_name}': {status or 'unknown'}"
+    )
+    return OllamaPullResponse(ok=ok, model=model_name, message=message)

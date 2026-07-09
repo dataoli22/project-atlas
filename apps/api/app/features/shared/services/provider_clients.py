@@ -68,7 +68,12 @@ class OllamaProviderClient(ProviderClient):
             headers=headers,
             method="POST",
         )
-        with request.urlopen(req, timeout=20) as response:
+        # Ollama generation is local, CPU/GPU-bound compute, not a fast hosted API call - a
+        # cold model load or a larger model on modest hardware can easily exceed 20s even for a
+        # short response (observed ~25s for a 3-word reply from a 7B model on a CPU-bound
+        # device). 120s balances staying responsive against not false-classifying a merely slow
+        # local device as "timeout".
+        with request.urlopen(req, timeout=120) as response:
             body = json.loads(response.read().decode("utf-8"))
             answer = body.get("message", {}).get("content", "").strip()
             return ProviderResult(provider="ollama", model=model, answer=answer)

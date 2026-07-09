@@ -121,8 +121,17 @@ type AIRuntimeHealthCheckApiResponse = {
   provider: "ollama";
   message: string;
   version: string | null;
+  installed: boolean | null;
   model_checked: string | null;
   model_available: boolean | null;
+  embed_model_checked: string | null;
+  embed_model_available: boolean | null;
+};
+
+type OllamaPullApiResponse = {
+  ok: boolean;
+  model: string;
+  message: string;
 };
 
 type IntegrationSourceKey = "strava" | "health_connect" | "samsung_health";
@@ -236,8 +245,17 @@ export type AIRuntimeHealthCheckData = {
   provider: "ollama";
   message: string;
   version: string | null;
+  installed: boolean | null;
   modelChecked: string | null;
   modelAvailable: boolean | null;
+  embedModelChecked: string | null;
+  embedModelAvailable: boolean | null;
+};
+
+export type OllamaPullData = {
+  ok: boolean;
+  model: string;
+  message: string;
 };
 
 export type IntegrationSourceData = {
@@ -540,8 +558,19 @@ function mapAIRuntimeHealthCheck(
     provider: response.provider,
     message: response.message,
     version: response.version,
+    installed: response.installed,
     modelChecked: response.model_checked,
-    modelAvailable: response.model_available
+    modelAvailable: response.model_available,
+    embedModelChecked: response.embed_model_checked,
+    embedModelAvailable: response.embed_model_available
+  };
+}
+
+function mapOllamaPull(response: OllamaPullApiResponse): OllamaPullData {
+  return {
+    ok: response.ok,
+    model: response.model,
+    message: response.message
   };
 }
 
@@ -804,13 +833,14 @@ export async function saveAISettings(
 }
 
 export async function testAIRuntimeHealth(
-  ai: Pick<AISettingsData, "ollamaBaseUrl" | "ollamaModel"> & {
+  ai: Pick<AISettingsData, "ollamaBaseUrl" | "ollamaModel" | "ollamaEmbedModel"> & {
     ollamaApiKey?: string;
   }
 ): Promise<DataEnvelope<AIRuntimeHealthCheckData>> {
   const payload = {
     ollama_base_url: ai.ollamaBaseUrl,
     ollama_model: ai.ollamaModel,
+    ollama_embed_model: ai.ollamaEmbedModel,
     ollama_api_key: ai.ollamaApiKey?.trim() ? ai.ollamaApiKey : undefined
   };
 
@@ -822,8 +852,11 @@ export async function testAIRuntimeHealth(
     message:
       "Atlas could not reach its local settings API from this page, so the Ollama test stayed in local-only fallback mode.",
     version: null,
+    installed: null,
     model_checked: ai.ollamaModel,
-    model_available: null
+    model_available: null,
+    embed_model_checked: ai.ollamaEmbedModel,
+    embed_model_available: null
   };
 
   const result = await requestJson<AIRuntimeHealthCheckApiResponse>("/api/v1/settings/ai/health", {
@@ -834,6 +867,35 @@ export async function testAIRuntimeHealth(
 
   return {
     data: mapAIRuntimeHealthCheck(result.data),
+    source: result.source
+  };
+}
+
+export async function pullOllamaModel(input: {
+  model: string;
+  ollamaBaseUrl: string;
+  ollamaApiKey?: string;
+}): Promise<DataEnvelope<OllamaPullData>> {
+  const payload = {
+    model: input.model,
+    ollama_base_url: input.ollamaBaseUrl,
+    ollama_api_key: input.ollamaApiKey?.trim() ? input.ollamaApiKey : undefined
+  };
+
+  const fallback: OllamaPullApiResponse = {
+    ok: false,
+    model: input.model,
+    message: "Atlas could not reach its local settings API from this page, so the pull request did not run."
+  };
+
+  const result = await requestJson<OllamaPullApiResponse>("/api/v1/settings/ai/pull", {
+    method: "POST",
+    body: payload,
+    fallback
+  });
+
+  return {
+    data: mapOllamaPull(result.data),
     source: result.source
   };
 }

@@ -12,6 +12,14 @@ export type ChatMessage = {
   content: string;
 };
 
+export type ProviderErrorKind =
+  | "service_down"
+  | "model_missing"
+  | "timeout"
+  | "connection_refused"
+  | "auth_rejected"
+  | "other";
+
 export type ChatResponseData = {
   feature: ChatFeatureScope;
   provider: "ollama" | "groq" | "stub";
@@ -21,6 +29,7 @@ export type ChatResponseData = {
   tokenStrategyNote: string;
   appliedPromptTitle: string;
   grounding: ChatGroundingItem[];
+  providerErrorKind: ProviderErrorKind | null;
 };
 
 type ChatApiResponse = {
@@ -32,6 +41,7 @@ type ChatApiResponse = {
   token_strategy_note: string;
   applied_prompt_title: string;
   grounding: ChatGroundingItem[];
+  provider_error_kind: ProviderErrorKind | null;
 };
 
 function mapChatResponse(response: ChatApiResponse): ChatResponseData {
@@ -43,7 +53,8 @@ function mapChatResponse(response: ChatApiResponse): ChatResponseData {
     warnings: response.warnings,
     tokenStrategyNote: response.token_strategy_note,
     appliedPromptTitle: response.applied_prompt_title,
-    grounding: response.grounding
+    grounding: response.grounding,
+    providerErrorKind: response.provider_error_kind ?? null
   };
 }
 
@@ -61,7 +72,8 @@ export async function askAtlas(input: {
     warnings: ["The local API was unavailable, so the request stayed in fallback mode."],
     token_strategy_note: "Keep only the most relevant recent turns and structured signals in context.",
     applied_prompt_title: "Fallback prompt",
-    grounding: []
+    grounding: [],
+    provider_error_kind: "service_down"
   };
 
   const result = await requestJson<ChatApiResponse>("/api/v1/chat", {

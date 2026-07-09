@@ -3,10 +3,25 @@
 import { useState, useTransition } from "react";
 
 import type { ApiDataSource } from "@/lib/api";
-import { askAtlas, type ChatFeatureScope, type ChatMessage, type ChatResponseData } from "@/lib/chat-data";
+import {
+  askAtlas,
+  type ChatFeatureScope,
+  type ChatMessage,
+  type ChatResponseData,
+  type ProviderErrorKind
+} from "@/lib/chat-data";
 
 type AskAtlasFormProps = {
   initialFeature: ChatFeatureScope;
+};
+
+const PROVIDER_ERROR_COPY: Record<ProviderErrorKind, string> = {
+  service_down: "The provider responded with an error. Check the runtime and try again.",
+  model_missing: "The selected model is not installed on the runtime. Pull it in AI runtime settings.",
+  timeout: "The provider took too long to respond. Local models can be slow on modest hardware - try again.",
+  connection_refused: "Atlas could not reach the provider. Make sure it is running and reachable.",
+  auth_rejected: "The provider rejected the credentials. Check the stored API key in AI runtime settings.",
+  other: "The provider was unavailable for an unclassified reason."
 };
 
 export function AskAtlasForm({ initialFeature }: AskAtlasFormProps) {
@@ -145,6 +160,13 @@ export function AskAtlasForm({ initialFeature }: AskAtlasFormProps) {
                 </div>
               ))}
             </div>
+
+            {result.providerErrorKind ? (
+              <div className="atlas-list-card" style={{ borderColor: "var(--atlas-warm)" }}>
+                <div className="atlas-list-card__title">Provider issue: {result.providerErrorKind.replace(/_/g, " ")}</div>
+                <div className="atlas-list-card__meta">{PROVIDER_ERROR_COPY[result.providerErrorKind]}</div>
+              </div>
+            ) : null}
 
             {result.warnings.length > 0 ? (
               <div className="atlas-stack">

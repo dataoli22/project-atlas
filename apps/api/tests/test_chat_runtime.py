@@ -28,13 +28,22 @@ def _build_ai_settings(**overrides):
     return build_ai_settings_response(**payload)
 
 
-def test_chat_uses_stub_fallback_when_remote_provider_is_selected():
+def test_chat_uses_stub_fallback_when_remote_provider_unset_and_local_fallback_fails(monkeypatch):
     ai_settings = _build_ai_settings(
         default_provider="groq",
         local_only_mode=False,
         allow_groq=True,
         groq_model="llama-3.3-70b-versatile",
     )
+
+    class FailingOllamaClient:
+        def __init__(self, *, base_url: str, api_key: str) -> None:
+            assert base_url == chat_service.LOCAL_OLLAMA_BASE_URL
+
+        def complete(self, *, model: str, messages: list[dict[str, str]], response_token_budget: int):
+            raise URLError("connection refused")
+
+    monkeypatch.setattr(chat_service, "OllamaProviderClient", FailingOllamaClient)
 
     response = chat_service.build_chat_response(
         ChatRequest(feature="shared", question="What should I review next?"),
@@ -46,15 +55,18 @@ def test_chat_uses_stub_fallback_when_remote_provider_is_selected():
     assert response.provider == "stub"
     assert response.model == "llama-3.3-70b-versatile"
     assert response.applied_prompt_title == "Shared shell agent"
-    assert any("Groq is not enabled with a local device key" in warning for warning in response.warnings)
+    assert any("Ollama (on-device fallback) was unavailable" in warning for warning in response.warnings)
     assert any(item.label == "AI runtime" and item.value == "Local-first Atlas" for item in response.grounding)
 
 
-def test_chat_uses_stub_fallback_when_ollama_call_fails(monkeypatch):
+def test_chat_uses_stub_fallback_when_local_ollama_is_already_primary_and_fails(monkeypatch):
     ai_settings = _build_ai_settings()
+    construct_count = 0
 
     class FailingOllamaClient:
         def __init__(self, *, base_url: str, api_key: str) -> None:
+            nonlocal construct_count
+            construct_count += 1
             assert base_url == "http://localhost:11434"
             assert api_key == "atlas-key"
 
@@ -73,8 +85,41 @@ def test_chat_uses_stub_fallback_when_ollama_call_fails(monkeypatch):
     assert response.provider == "stub"
     assert response.model == "llama3.1:8b"
     assert "Should I push volume this week?" in response.answer
-    assert any("Primary provider was unavailable" in warning for warning in response.warnings)
+    assert any("Ollama was unavailable" in warning for warning in response.warnings)
     assert response.applied_prompt_title == "Endurance coach agent"
+    # Primary was already the local target, so no duplicate fallback attempt should be built.
+    assert construct_count == 1
+
+
+def test_chat_falls_back_to_local_ollama_when_cloud_ollama_fails(monkeypatch):
+    ai_settings = _build_ai_settings(ollama_base_url="https://cloud.ollama.example.com")
+
+    class CloudThenLocalOllamaClient:
+        def __init__(self, *, base_url: str, api_key: str) -> None:
+            self._base_url = base_url
+
+        def complete(self, *, model: str, messages: list[dict[str, str]], response_token_budget: int):
+            if self._base_url == chat_service.LOCAL_OLLAMA_BASE_URL:
+                return ProviderResult(
+                    provider="ollama",
+                    model=model,
+                    answer="Answered locally after the cloud endpoint failed.",
+                )
+            raise URLError("cloud endpoint unreachable")
+
+    monkeypatch.setattr(chat_service, "OllamaProviderClient", CloudThenLocalOllamaClient)
+
+    response = chat_service.build_chat_response(
+        ChatRequest(feature="shared", question="Ping?"),
+        ai_settings,
+        ollama_api_key="cloud-key",
+        groq_api_key="",
+    )
+
+    assert response.provider == "ollama"
+    assert response.model == "llama3.1:8b"
+    assert response.answer == "Answered locally after the cloud endpoint failed."
+    assert any("Ollama (cloud) was unavailable" in warning for warning in response.warnings)
 
 
 def test_chat_returns_ollama_response_when_runtime_succeeds(monkeypatch):

@@ -3,13 +3,20 @@
 import { useState, useTransition } from "react";
 
 import type { ApiDataSource } from "@/lib/api";
-import type { AISettingsData, AIRuntimeHealthCheckData } from "@/lib/settings-data";
-import { saveAISettings, testAIRuntimeHealth } from "@/lib/settings-data";
+import type { AISettingsData, AIRuntimeHealthCheckData, OllamaPullData } from "@/lib/settings-data";
+import { pullOllamaModel, saveAISettings, testAIRuntimeHealth } from "@/lib/settings-data";
+
+const OLLAMA_DOWNLOAD_URL = "https://ollama.com/download";
+const OLLAMA_LIBRARY_URL = "https://ollama.com/library";
 
 type AIRuntimeSettingsFormProps = {
   initialSettings: AISettingsData;
   initialSource: ApiDataSource;
 };
+
+function isLocalBaseUrl(url: string): boolean {
+  return url.includes("localhost") || url.includes("127.0.0.1") || url.includes("::1");
+}
 
 export function AIRuntimeSettingsForm({
   initialSettings,
@@ -24,8 +31,11 @@ export function AIRuntimeSettingsForm({
   const [status, setStatus] = useState("AI runtime settings are ready to save.");
   const [healthStatus, setHealthStatus] = useState<AIRuntimeHealthCheckData | null>(null);
   const [healthSource, setHealthSource] = useState<ApiDataSource | null>(null);
+  const [pullStatus, setPullStatus] = useState<OllamaPullData | null>(null);
   const [isSaving, startSaveTransition] = useTransition();
   const [isTesting, startTestTransition] = useTransition();
+  const [isPulling, startPullTransition] = useTransition();
+  const [isPullingEmbed, startPullEmbedTransition] = useTransition();
 
   function updateLocalOnlyMode(nextValue: boolean) {
     setSettings((current) => ({
@@ -65,11 +75,28 @@ export function AIRuntimeSettingsForm({
       const result = await testAIRuntimeHealth({
         ollamaBaseUrl: settings.ollamaBaseUrl,
         ollamaModel: settings.ollamaModel,
+        ollamaEmbedModel: settings.ollamaEmbedModel,
         ollamaApiKey
       });
 
       setHealthStatus(result.data);
       setHealthSource(result.source);
+    });
+  }
+
+  function pullModel(model: string, kind: "chat" | "embed") {
+    const startTransitionFn = kind === "chat" ? startPullTransition : startPullEmbedTransition;
+    startTransitionFn(async () => {
+      const result = await pullOllamaModel({
+        model,
+        ollamaBaseUrl: settings.ollamaBaseUrl,
+        ollamaApiKey
+      });
+
+      setPullStatus(result.data);
+      if (result.data.ok) {
+        runOllamaHealthCheck();
+      }
     });
   }
 
@@ -355,40 +382,95 @@ export function AIRuntimeSettingsForm({
       </div>
 
       <p className="atlas-note">{status}</p>
+
+      {!isLocalBaseUrl(settings.ollamaBaseUrl) ? (
+        <div className="atlas-control-card" style={{ borderColor: "var(--atlas-warm)" }}>
+          <div className="atlas-control-card__content">
+            <div className="atlas-control-card__title">Advanced: non-local Ollama target</div>
+            <div className="atlas-control-card__meta">
+              This base URL is not a loopback address. Requests will leave this device to reach it. Only use a
+              non-local target if you intentionally configured a cloud/hosted Ollama endpoint.
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="atlas-stack">
         <div className="atlas-control-card">
           <div className="atlas-control-card__content">
-            <div className="atlas-control-card__title">Ollama runtime check</div>
+            <div className="atlas-control-card__title">Ollama first-run check</div>
             <div className="atlas-control-card__meta">
-              Test whether Atlas can reach the configured Ollama runtime on this device before saving. Keys are never shown back in the result.
+              Verifies the runtime is installed, running, and has the chat and embedding models available. Keys
+              are never shown back in the result.
             </div>
             {healthStatus ? (
               <div className="atlas-stack">
                 <div className="atlas-note">{healthStatus.message}</div>
                 <div className="atlas-detail-list">
                   <div className="atlas-detail-list__row">
-                    <dt>Target</dt>
-                    <dd>{healthStatus.target}</dd>
+                    <dt>1. Installed</dt>
+                    <dd>
+                      {healthStatus.installed === null
+                        ? "Unknown (non-local target)"
+                        : healthStatus.installed
+                          ? "Yes"
+                          : `No - download from ${OLLAMA_DOWNLOAD_URL}`}
+                    </dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>2. Running</dt>
+                    <dd>{healthStatus.version ? `Yes (v${healthStatus.version})` : "No - start the Ollama app or service"}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>3. Chat model</dt>
+                    <dd>
+                      {healthStatus.modelChecked
+                        ? healthStatus.modelAvailable === false
+                          ? `${healthStatus.modelChecked} - not installed`
+                          : `${healthStatus.modelChecked} - ready`
+                        : "Not checked"}
+                    </dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>4. Embedding model</dt>
+                    <dd>
+                      {healthStatus.embedModelChecked
+                        ? healthStatus.embedModelAvailable === false
+                          ? `${healthStatus.embedModelChecked} - not installed`
+                          : `${healthStatus.embedModelChecked} - ready`
+                        : "Not checked"}
+                    </dd>
                   </div>
                   <div className="atlas-detail-list__row">
                     <dt>Runtime location</dt>
                     <dd>{healthStatus.localTarget ? "Local device" : "Non-local target"}</dd>
                   </div>
-                  <div className="atlas-detail-list__row">
-                    <dt>Ollama version</dt>
-                    <dd>{healthStatus.version ?? "Unavailable"}</dd>
-                  </div>
-                  <div className="atlas-detail-list__row">
-                    <dt>Selected model</dt>
-                    <dd>
-                      {healthStatus.modelChecked
-                        ? healthStatus.modelAvailable === false
-                          ? `${healthStatus.modelChecked} (not installed)`
-                          : healthStatus.modelChecked
-                        : "Not checked"}
-                    </dd>
-                  </div>
                 </div>
+                {healthStatus.modelAvailable === false ? (
+                  <button
+                    type="button"
+                    className="atlas-button"
+                    onClick={() => pullModel(settings.ollamaModel, "chat")}
+                    disabled={isPulling}
+                  >
+                    {isPulling ? "Pulling..." : `Pull ${settings.ollamaModel}`}
+                  </button>
+                ) : null}
+                {healthStatus.embedModelAvailable === false ? (
+                  <button
+                    type="button"
+                    className="atlas-button"
+                    onClick={() => pullModel(settings.ollamaEmbedModel, "embed")}
+                    disabled={isPullingEmbed}
+                  >
+                    {isPullingEmbed ? "Pulling..." : `Pull ${settings.ollamaEmbedModel}`}
+                  </button>
+                ) : null}
+                {pullStatus ? <p className="atlas-note">{pullStatus.message}</p> : null}
+                <p className="atlas-note">
+                  Browse more models at {OLLAMA_LIBRARY_URL}. Pulling can take a while for large models - this
+                  page waits for a final result rather than showing live progress.
+                </p>
               </div>
             ) : null}
           </div>
@@ -399,7 +481,7 @@ export function AIRuntimeSettingsForm({
               onClick={runOllamaHealthCheck}
               disabled={isTesting}
             >
-              {isTesting ? "Testing..." : "Test Ollama connection"}
+              {isTesting ? "Testing..." : "Run first-run check"}
             </button>
           </div>
         </div>
