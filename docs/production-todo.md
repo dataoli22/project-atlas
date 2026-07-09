@@ -32,11 +32,13 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
   `ollama-on-device-and-agents.md`.
 - Remaining P0 in section 2: separate secret storage from general app state, local
   backup/export/import, Alembic migrations once relational tables are needed.
-- Packaging: a `desktop/` **Electron** shell now exists (product decision, supersedes the
-  originally recommended Tauri v2 — `electron-updater` + GitHub Releases was chosen for
-  auto-update maturity). Sidecar lifecycle verified live (real window, both processes
-  health-checked). Still open: PyInstaller sidecar binary for packaged mode, dynamic ports,
-  signing, branding, macOS/Linux targets. See section 9 and `packaging-and-installation.md`.
+- Packaging: **a real Windows installer now builds and runs** (`Atlas Setup 0.1.0.exe`, Electron —
+  product decision, supersedes the originally recommended Tauri v2 for `electron-updater`'s
+  auto-update maturity). PyInstaller sidecar, dynamic ports, and OS app-data paths all built and
+  verified against the packaged output, not just dev mode. Still open: code signing (blocked on a
+  real certificate), branding/icon, macOS/Linux builds actually run on those OSes (config-only
+  today), Android (separate native track) and iOS (blocked on macOS/Xcode access). See section 9
+  and `packaging-and-installation.md`.
 - This iteration also added: nutrition refresh + 7-day calendar + meal prep hacks + video links,
   and endurance coach support links (see `nutrition-endurance-feature-spec.md`).
 
@@ -250,7 +252,7 @@ this summary.)
 - [ ] Sync retry queue + backoff; token refresh scheduler; permission revocation handling.
 - [ ] Richer sync payload mapping for all three connectors.
 
-## 9. Packaging & installers — Shared shell agent · P0/P1 — DESKTOP SHELL STARTED
+## 9. Packaging & installers — Shared shell agent · P0/P1 — DESKTOP: WINDOWS INSTALLER WORKING
 
 (Details: `packaging-and-installation.md` section 4 — read it, not just this summary.)
 
@@ -259,30 +261,52 @@ this summary.)
 > updates" requirement than Tauri v2's newer updater). `docs/prod-readiness-audit.md`'s original
 > Tauri recommendation is now superseded — see the note there.
 
-- [x] `desktop/` **Electron** project wrapping `apps/web` — verified live: real window launched
-      (title "Project Atlas"), both sidecars spawned and passed health checks.
-- [x] Sidecar lifecycle manager: start both child processes (FastAPI + Next.js standalone
-      server), poll health, kill on quit (including nested children via `taskkill /T /F` on
-      Windows). **Fixed ports** (API `8756`, web `4173`), not dynamic — see the packaging doc for
-      why (client-component `NEXT_PUBLIC_*` values are baked into the browser bundle at build
-      time, so a desktop-specific build step bakes in the fixed port).
-- [ ] FastAPI **PyInstaller sidecar binary** — not built. Packaged-mode Python resolution
-      explicitly throws with a message pointing here; the desktop shell currently only runs
-      `apps/api` from source (dev mode).
-- [ ] Dynamic port allocation + collision handling.
-- [ ] OS app-data user-data path via `ATLAS_LOCAL_STATE_PATH` / `ATLAS_LOCAL_DB_PATH` — packaged
-      builds still write to `apps/api/.local` by default, not a real OS app-data directory.
+A real, fully-packaged Windows installer (`Atlas Setup 0.1.0.exe`, ~128MB) now builds via
+`npm run desktop:dist` and was verified running from its packaged, unpacked output — not dev
+mode — with the real PyInstaller API binary, dynamically allocated ports, and correct OS app-data
+persistence.
+
+- [x] `desktop/` **Electron** project wrapping `apps/web` — verified via the packaged installer.
+- [x] Sidecar lifecycle manager: start both child processes on **dynamically allocated** free
+      ports, poll health, kill on quit (including nested children via `taskkill /T /F` on
+      Windows).
+- [x] **Dynamic port allocation** — the real fix: client components that call `fetch` directly
+      get `NEXT_PUBLIC_ATLAS_API_URL` inlined at build time, which a runtime port can't satisfy.
+      Fixed by injecting the resolved API URL into `preload.js` via `additionalArguments` and
+      exposing it through `contextBridge`; `apps/web/lib/api.ts`'s `resolveApiBaseUrl()` checks
+      `window.atlasDesktop?.apiBaseUrl` first. This also means desktop no longer needs a
+      special fixed-port web build — it uses the same `apps/web` build as everything else.
+- [x] FastAPI **PyInstaller sidecar binary** — `apps/api/sidecar_entry.py` +
+      `desktop/scripts/build-api-sidecar.mjs`. Verified standalone (health, nutrition, endurance,
+      SQLite-backed app-lock state all responded with zero source tree present) and verified
+      running *inside* the packaged app (`atlas-api.exe` launched from `resources/api-sidecar/`).
+- [x] OS app-data user-data path — `app.getPath("userData")` → `ATLAS_LOCAL_DB_PATH` /
+      `ATLAS_LOCAL_STATE_PATH` env vars, picked up by `pydantic-settings`. **Found and fixed a
+      real bug**: without `app.setName("Atlas")`, Electron derives the user-data folder from
+      package.json's npm name (`@atlas/desktop`), landing state at
+      `AppData\Roaming\@atlas\desktop\` instead of a clean `AppData\Roaming\Atlas\` — caught by
+      launching the packaged build, writing real state, and checking where it landed on disk.
 - [x] `electron-updater` wired (GitHub Releases provider, `checkForUpdatesAndNotify` on packaged
       launch) — **not yet verified against a real published release**, only that it's wired.
-- [ ] Signed Windows + macOS installers — no code-signing certificate configured; unsigned builds
-      trigger SmartScreen/Gatekeeper warnings.
-- [ ] App icon / branding assets (`desktop/build/` is a placeholder).
-- [ ] macOS / Linux `electron-builder` targets — Windows-only for now, matching the only platform
-      this was actually built and tested on.
+- [x] macOS / Linux **zip** targets configured (per explicit product decision: no native
+      installers for those platforms, users download a zip and set it up themselves) — **not
+      built or run on those OSes**, config-only.
+- [ ] Signed Windows + macOS installers — **blocked on a real code-signing certificate**, not an
+      engineering task. `electron-builder` auto-detects the standard `CSC_LINK`/`CSC_KEY_PASSWORD`
+      env vars and signs automatically once a cert is provided; unsigned builds today trigger
+      Windows SmartScreen warnings (confirmed in build output).
+- [ ] App icon / branding assets (`desktop/build/` is a placeholder; default Electron icon used).
 - [ ] `android/` shell + native bridges + Keystore (P1/P2) — Electron is desktop-only; Android
-      remains a separate native track, unaffected by this section's work.
-- [ ] Packaged smoke test matrix (beyond the one manual `npm run desktop:dev` verification done
-      here).
+      remains a separate native track. **iOS is a new requirement** as of this iteration and has
+      a hard blocker: building for iOS requires Xcode running on macOS plus an Apple Developer
+      Program enrollment, neither available in this environment. See the Android/iOS scoping
+      discussion in this session's transcript before starting either.
+- [~] Packaged smoke test — done manually on this machine twice (dev mode + the real installer);
+      not yet automated into CI.
+- [ ] npm-workspace + electron-builder quirks hit and fixed along the way: Electron version
+      auto-detection failing through hoisted `node_modules` (fixed: explicit `electronVersion`),
+      electron-builder's internal dependency-install step corrupting the hoisted tree entirely
+      (fixed: `"npmRebuild": false`).
 
 ## 10. Frontend hardening — Shared shell + feature agents · P1
 

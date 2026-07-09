@@ -5,40 +5,43 @@
 // Next server. Both processes are killed on quit. Nothing here talks to any Atlas-hosted
 // service; everything is loopback-only local process orchestration.
 //
-// Ports are currently FIXED (not dynamically allocated) because the web build bakes
-// NEXT_PUBLIC_ATLAS_API_URL into the client bundle at build time, which the desktop build step
-// (see package.json's `build:web:desktop`) sets to match API_PORT below. Dynamic port
-// allocation + collision handling is tracked as a follow-up in docs/production-todo.md section 9
-// - it needs a way to inject the resolved API URL into the already-built client bundle at
-// runtime (e.g. a small pre-hydration config script) rather than relying on a build-time env var.
+// Ports are allocated dynamically (bind to port 0, read back the OS-assigned port) rather than
+// fixed. The API port is handed to the renderer via preload.js's additionalArguments, since
+// client components that call fetch directly would otherwise need NEXT_PUBLIC_ATLAS_API_URL
+// baked into the bundle at build time - see apps/web/lib/api.ts's resolveApiBaseUrl().
 
 const { app, BrowserWindow, dialog, shell } = require("electron");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
+const net = require("node:net");
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
-const API_PORT = 8756;
-const WEB_PORT = 4173;
-const API_HEALTH_URL = `http://127.0.0.1:${API_PORT}/api/v1/health`;
-const WEB_URL = `http://127.0.0.1:${WEB_PORT}`;
 const IS_PACKAGED = app.isPackaged;
+
+// Without this, Electron derives app.getPath("userData") from package.json's npm "name" field
+// (@atlas/desktop), landing local state in a scoped-package-shaped folder like
+// AppData\Roaming\@atlas\desktop instead of a clean AppData\Roaming\Atlas - found by actually
+// launching the packaged build and checking where it wrote the database.
+app.setName("Atlas");
 
 let apiProcess = null;
 let webProcess = null;
 let mainWindow = null;
 
-function resolvePythonExecutable() {
-  // Packaged builds should point at a PyInstaller-built sidecar binary instead of a system/venv
-  // Python interpreter - not built yet (tracked in docs/packaging-and-installation.md section 4).
-  // For now this only supports running from source, which is the honest state of this scaffold.
-  if (IS_PACKAGED) {
-    throw new Error(
-      "Packaged Python sidecar is not built yet. See docs/packaging-and-installation.md section 4 " +
-        "(FastAPI PyInstaller sidecar) - this desktop shell currently only runs against apps/api from source."
-    );
-  }
+function findFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+  });
+}
 
+function resolvePythonExecutable() {
   // ATLAS_PYTHON_PATH lets a developer point at a specific interpreter (e.g. a venv) when the
   // platform's default "python"/"python3" resolves to something broken - on Windows this is
   // commonly the Microsoft Store app-execution-alias stub, which prints an install prompt
@@ -46,36 +49,54 @@ function resolvePythonExecutable() {
   if (process.env.ATLAS_PYTHON_PATH) {
     return process.env.ATLAS_PYTHON_PATH;
   }
-
   return process.platform === "win32" ? "python" : "python3";
 }
 
-function spawnApiSidecar() {
-  const pythonExecutable = resolvePythonExecutable();
-  // Run from REPO_ROOT with --app-dir (not cwd: apps/api) so relative paths in
-  // apps/api/app/core/config.py (e.g. local_db_path="apps/api/.local/atlas.db") resolve the same
-  // way they do for pytest and the documented `python -m uvicorn ... --app-dir apps/api` dev
-  // flow. Using cwd: apps/api instead double-nests those paths to apps/api/apps/api/.local/... -
-  // found and fixed by actually running this and inspecting what got written to disk.
-  const child = spawn(
-    pythonExecutable,
-    [
-      "-m",
-      "uvicorn",
-      "app.main:app",
-      "--host",
-      "127.0.0.1",
-      "--port",
-      String(API_PORT),
-      "--app-dir",
-      "apps/api",
-    ],
-    {
-      cwd: REPO_ROOT,
-      stdio: "inherit",
-      env: { ...process.env },
-    }
-  );
+function resolvePackagedSidecarBinary() {
+  const binaryName = process.platform === "win32" ? "atlas-api.exe" : "atlas-api";
+  return path.join(process.resourcesPath, "api-sidecar", binaryName);
+}
+
+function spawnApiSidecar(apiPort, userDataDir) {
+  // apps/api/app/core/config.py reads ATLAS_-prefixed env vars via pydantic-settings; pointing
+  // these at Electron's per-OS user data directory (not the source tree's apps/api/.local)
+  // keeps packaged-app state out of the (potentially read-only, or reinstall-wiped) install
+  // location - the OS app-data directory is the correct place for a packaged app's local state.
+  const sharedEnv = {
+    ...process.env,
+    ATLAS_LOCAL_DB_PATH: path.join(userDataDir, "atlas.db"),
+    ATLAS_LOCAL_STATE_PATH: path.join(userDataDir, "shared-state.json"),
+  };
+
+  const child = IS_PACKAGED
+    ? spawn(resolvePackagedSidecarBinary(), ["--host", "127.0.0.1", "--port", String(apiPort)], {
+        stdio: "inherit",
+        env: sharedEnv,
+      })
+    : spawn(
+        resolvePythonExecutable(),
+        [
+          "-m",
+          "uvicorn",
+          "app.main:app",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          String(apiPort),
+          "--app-dir",
+          "apps/api",
+        ],
+        {
+          // Run from REPO_ROOT with --app-dir (not cwd: apps/api) so relative-path fallbacks in
+          // config.py resolve the same way they do for pytest and the documented dev flow. Using
+          // cwd: apps/api instead double-nests local state paths - found and fixed by actually
+          // running this and inspecting what got written to disk.
+          cwd: REPO_ROOT,
+          stdio: "inherit",
+          env: sharedEnv,
+        }
+      );
+
   child.on("exit", (code) => {
     if (code !== 0 && code !== null) {
       console.error(`Atlas API sidecar exited with code ${code}`);
@@ -84,7 +105,7 @@ function spawnApiSidecar() {
   return child;
 }
 
-function spawnWebServer() {
+function spawnWebServer(webPort) {
   const serverEntry = IS_PACKAGED
     ? path.join(process.resourcesPath, "web-standalone", "apps", "web", "server.js")
     : path.join(REPO_ROOT, "apps", "web", ".next", "standalone", "apps", "web", "server.js");
@@ -93,7 +114,7 @@ function spawnWebServer() {
     stdio: "inherit",
     env: {
       ...process.env,
-      PORT: String(WEB_PORT),
+      PORT: String(webPort),
       HOSTNAME: "127.0.0.1",
       NODE_ENV: "production",
       ELECTRON_RUN_AS_NODE: "1",
@@ -150,7 +171,7 @@ function killChild(child) {
   child.kill("SIGTERM");
 }
 
-async function createWindow() {
+async function createWindow(webUrl, apiBaseUrl) {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -160,6 +181,9 @@ async function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // The only way to hand launch-time data (the dynamically resolved API port) into a
+      // preload script - preload.js reads this back off process.argv.
+      additionalArguments: [`--atlas-api-base-url=${apiBaseUrl}`],
     },
   });
 
@@ -169,16 +193,25 @@ async function createWindow() {
     return { action: "deny" };
   });
 
-  await mainWindow.loadURL(WEB_URL);
+  await mainWindow.loadURL(webUrl);
 }
 
 async function startSidecarsAndShowWindow() {
-  try {
-    apiProcess = spawnApiSidecar();
-    webProcess = spawnWebServer();
+  let apiPort;
+  let webPort;
 
-    await Promise.all([waitForHealthy(API_HEALTH_URL), waitForHealthy(WEB_URL)]);
-    await createWindow();
+  try {
+    [apiPort, webPort] = await Promise.all([findFreePort(), findFreePort()]);
+
+    const userDataDir = app.getPath("userData");
+    const apiHealthUrl = `http://127.0.0.1:${apiPort}/api/v1/health`;
+    const webUrl = `http://127.0.0.1:${webPort}`;
+
+    apiProcess = spawnApiSidecar(apiPort, userDataDir);
+    webProcess = spawnWebServer(webPort);
+
+    await Promise.all([waitForHealthy(apiHealthUrl), waitForHealthy(webUrl)]);
+    await createWindow(webUrl, `http://127.0.0.1:${apiPort}`);
 
     if (IS_PACKAGED) {
       const { autoUpdater } = require("electron-updater");
@@ -189,7 +222,9 @@ async function startSidecarsAndShowWindow() {
   } catch (error) {
     dialog.showErrorBox(
       "Atlas failed to start",
-      `${error.message}\n\nCheck that nothing else is using ports ${API_PORT}/${WEB_PORT}.`
+      `${error.message}${
+        apiPort && webPort ? `\n\nAllocated ports: API ${apiPort}, web ${webPort}.` : ""
+      }`
     );
     app.quit();
   }

@@ -1,4 +1,4 @@
-import { requestJson, type ApiDataSource } from "@/lib/api";
+import { requestJson, resolveApiBaseUrl, type ApiDataSource } from "@/lib/api";
 
 export type DataEnvelope<T> = {
   data: T;
@@ -44,7 +44,7 @@ export async function updateAppLock(input: {
   pin?: string;
   currentPin?: string;
 }): Promise<{ ok: true; data: AppLockSettingsData } | { ok: false; message: string }> {
-  const baseUrl = process.env.NEXT_PUBLIC_ATLAS_API_URL ?? "http://localhost:8000";
+  const baseUrl = resolveApiBaseUrl();
 
   try {
     const response = await fetch(`${baseUrl}/api/v1/app/lock`, {
@@ -80,7 +80,7 @@ export async function updateAppLock(input: {
 export async function verifyAppLockPin(
   pin: string
 ): Promise<{ ok: true; unlocked: boolean } | { ok: false }> {
-  const baseUrl = process.env.NEXT_PUBLIC_ATLAS_API_URL ?? "http://localhost:8000";
+  const baseUrl = resolveApiBaseUrl();
 
   try {
     const response = await fetch(`${baseUrl}/api/v1/app/lock/verify`, {

@@ -1,0 +1,3 @@
+# Packaging-only dependencies - not needed for running the API or the test suite.
+# Install with: pip install -r apps/api/requirements.txt -r apps/api/requirements-build.txt
+pyinstaller>=6.21,<7.0

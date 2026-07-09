@@ -3,14 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "description": "Atlas desktop shell (Electron) - wraps the local FastAPI sidecar and Next.js standalone server in a native window with auto-updates via GitHub Releases.",
+  "author": "Project Atlas",
   "main": "electron/main.js",
   "scripts": {
     "dev": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
   },
   "devDependencies": {
-    "cross-env": "^7.0.3",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8"
   },
@@ -21,6 +23,8 @@
     "appId": "com.projectatlas.desktop",
     "productName": "Atlas",
     "asar": true,
+    "electronVersion": "33.4.11",
+    "npmRebuild": false,
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -39,8 +43,8 @@
         "to": "web-standalone/apps/web/.next/static"
       },
       {
-        "from": "../apps/web/public",
-        "to": "web-standalone/apps/web/public"
+        "from": "resources/api-sidecar",
+        "to": "api-sidecar"
       }
     ],
     "win": {
@@ -50,6 +54,14 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
+    },
+    "mac": {
+      "target": "zip",
+      "category": "public.app-category.healthcare-fitness"
+    },
+    "linux": {
+      "target": "zip",
+      "category": "Utility"
     },
     "publish": {
       "provider": "github",

@@ -12,11 +12,23 @@ type RequestJsonOptions<T> = {
   body?: unknown;
 };
 
+export function resolveApiBaseUrl(): string {
+  // In the Electron shell, the API sidecar's port is allocated dynamically at launch (see
+  // desktop/electron/main.js), so it can't be baked into the client bundle at build time the way
+  // NEXT_PUBLIC_ATLAS_API_URL normally is. preload.js exposes the actual resolved port via
+  // contextBridge; prefer that when present. This check is a runtime property read (not a
+  // process.env.X token), so it survives Next's build-time env substitution correctly.
+  if (typeof window !== "undefined" && window.atlasDesktop?.apiBaseUrl) {
+    return window.atlasDesktop.apiBaseUrl;
+  }
+  return process.env.NEXT_PUBLIC_ATLAS_API_URL ?? DEFAULT_API_URL;
+}
+
 export async function requestJson<T>(path: string, options: RequestJsonOptions<T>): Promise<{
   data: T;
   source: ApiDataSource;
 }> {
-  const baseUrl = process.env.NEXT_PUBLIC_ATLAS_API_URL ?? DEFAULT_API_URL;
+  const baseUrl = resolveApiBaseUrl();
 
   try {
     const response = await fetch(`${baseUrl}${path}`, {

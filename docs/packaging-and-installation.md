@@ -119,13 +119,18 @@ Required build hygiene:
 
 ---
 
-## 4. Desktop packaging — Electron (implemented this iteration)
+## 4. Desktop packaging — Electron (implemented and packaged this iteration)
 
 **Shell: Electron + `electron-builder` + `electron-updater`.** Chosen over Tauri specifically for
 `electron-updater`'s maturity — regular, reliable auto-updates were a hard product requirement,
-and Tauri v2's updater is comparatively newer. `electron-builder` publishes signed installers as
+and Tauri v2's updater is comparatively newer. `electron-builder` publishes installers as
 **GitHub Releases** on this repo (`dataoli22/project-atlas`); `electron-updater` checks there
 automatically. No separate update-hosting infrastructure needed.
+
+**A real, fully-packaged Windows installer now builds and runs end to end** — `Atlas Setup
+0.1.0.exe`, ~128MB, produced by `npm run desktop:dist`. This was launched from the packaged
+`win-unpacked` output (not dev mode) and verified: real window, real PyInstaller API binary (not
+Python-from-source), dynamically allocated ports, and correct OS app-data persistence.
 
 ### Architecture (as built)
 
@@ -133,11 +138,13 @@ automatically. No separate update-hosting infrastructure needed.
 ┌───────────────────────────────────────────────┐
 │  Electron BrowserWindow                        │
 │  ┌─────────────────────────────────────────┐  │
-│  │  Next.js standalone server (child proc)  │  │  http://127.0.0.1:4173
+│  │  Next.js standalone server (child proc)  │  │  http://127.0.0.1:<dynamic>
 │  └─────────────────────────────────────────┘  │
 │            │ loopback HTTP                      │
 │  ┌─────────────────────────────────────────┐  │
-│  │  FastAPI sidecar (child process)         │  │  http://127.0.0.1:8756
+│  │  FastAPI sidecar (child process)         │  │  http://127.0.0.1:<dynamic>
+│  │  dev: python -m uvicorn ...               │  │
+│  │  packaged: resources/api-sidecar/atlas-api│  │
 │  └─────────────────────────────────────────┘  │
 │            │ loopback HTTP                      │
 │  ┌─────────────────────────────────────────┐  │
@@ -147,40 +154,67 @@ automatically. No separate update-hosting infrastructure needed.
 ```
 
 The Electron **main process** (`desktop/electron/main.js`) owns the sidecar lifecycle: it spawns
-both child processes, polls each until healthy, then opens the window pointed at the local Next
-server. Both children are killed on quit (including via `taskkill /T /F` on Windows, so nested
-child processes don't leak). External links (support/doc URLs) open in the OS browser via
-`setWindowOpenHandler`, never inside the app window.
+both child processes on **dynamically allocated free ports**, polls each until healthy, then opens
+the window pointed at the local Next server. Both children are killed on quit (including via
+`taskkill /T /F` on Windows, so nested child processes don't leak). External links (support/doc
+URLs) open in the OS browser via `setWindowOpenHandler`, never inside the app window.
 
-### Fixed ports — a real constraint, not an oversight
+### Dynamic ports — the real fix, not a config toggle
 
-Ports are currently **fixed** (API `8756`, web `4173`), not dynamically allocated. This is a
-direct consequence of how Next.js handles `NEXT_PUBLIC_*` env vars: server-component data loaders
-read `process.env.NEXT_PUBLIC_ATLAS_API_URL` at **runtime** (fine for dynamic ports), but **client
-components** that call `fetch` directly (`app-lock-data.ts`'s `verifyAppLockPin`/`updateAppLock`,
-similar patterns elsewhere) get that value **inlined into the browser bundle at build time** —
-verified by grepping the built `.next/static/chunks` for the literal URL. A desktop-specific build
-step (`npm run desktop:build:web`, sets `NEXT_PUBLIC_ATLAS_API_URL=http://127.0.0.1:8756` via
-`cross-env`) bakes the fixed port in before Electron ever runs. Dynamic port allocation would need
-a way to inject the resolved URL into an already-built client bundle at runtime (e.g. a small
-pre-hydration config script tag) instead of relying on a build-time env var — tracked as a
-follow-up, not yet implemented.
+Ports are allocated dynamically (bind to port `0`, read back the OS-assigned port) rather than
+fixed. The hard part wasn't the allocation itself — it was that **client components calling
+`fetch` directly get `NEXT_PUBLIC_ATLAS_API_URL` inlined into the browser bundle at build time**,
+which a runtime-chosen port can't satisfy. The fix: `preload.js` receives the resolved API URL via
+`BrowserWindow`'s `webPreferences.additionalArguments` (the only way to hand launch-time data into
+a preload script), reads it back off `process.argv`, and exposes it via
+`contextBridge.exposeInMainWorld("atlasDesktop", { apiBaseUrl })`. `apps/web/lib/api.ts`'s
+`resolveApiBaseUrl()` checks `window.atlasDesktop?.apiBaseUrl` first — a runtime property read,
+not a `process.env.X` token, so it survives Next's build-time substitution correctly — falling
+back to `NEXT_PUBLIC_ATLAS_API_URL ?? DEFAULT_API_URL` for the regular browser deployment. This
+means the desktop build now uses the **same** `apps/web` build as everything else; no
+desktop-specific build step is needed anymore.
+
+### OS app-data user-data path
+
+`app.getPath("userData")` is passed into the sidecar as `ATLAS_LOCAL_DB_PATH` /
+`ATLAS_LOCAL_STATE_PATH` env vars (picked up automatically by `pydantic-settings`'s
+`ATLAS_`-prefixed config in `apps/api/app/core/config.py`). **Found and fixed a real bug here**:
+without an explicit `app.setName("Atlas")` call, Electron derives the user-data folder name from
+package.json's npm `name` field (`@atlas/desktop`), landing state at
+`AppData\Roaming\@atlas\desktop\` instead of a clean `AppData\Roaming\Atlas\` — caught by actually
+launching the packaged build, triggering a real write (enabling the app lock), and checking where
+the file landed on disk.
+
+### FastAPI PyInstaller sidecar — built and verified
+
+`apps/api/sidecar_entry.py` is the PyInstaller entrypoint (imports the ASGI app directly and calls
+`uvicorn.run()` programmatically, since PyInstaller can't freeze the `python -m uvicorn module:app`
+CLI-discovery flow). `desktop/scripts/build-api-sidecar.mjs` runs
+`pyinstaller --onefile --name atlas-api` and copies the ~33MB binary into
+`desktop/resources/api-sidecar/`, which `electron-builder`'s `extraResources` config bundles into
+the packaged app. Verified working standalone (health check, nutrition/endurance endpoints,
+SQLite-backed app-lock state all responded correctly with zero source tree present) and verified
+running *inside* the packaged Electron app (`Get-Process` showed `atlas-api.exe` launched from
+`resources/api-sidecar/`, not a Python interpreter).
+
+Build it with: `pip install -r apps/api/requirements.txt -r apps/api/requirements-build.txt` then
+`npm run desktop:build:api` (or let `npm run desktop:dist` do it automatically).
 
 ### What's built vs. still open
 
 | Deliverable | Status |
 | --- | --- |
 | `desktop/` Electron project wrapping `apps/web` | **Done** |
-| Next.js **standalone** output (`output: "standalone"` in `next.config.ts`) | **Done** — lean server.js + only-used deps, verified present after build |
-| Sidecar lifecycle manager (start/health-check/kill, both processes) | **Done** — verified live: real Electron window opened, API + web both health-checked, window titled "Project Atlas" |
-| `electron-builder` config: Windows NSIS target, GitHub Releases publish provider | **Done** (`desktop/package.json` `build` block) |
-| `electron-updater` wired (`checkForUpdatesAndNotify` on packaged launch) | **Done**, but **unverified** — needs an actual signed, published release to test against; today it's wired but never exercised end-to-end |
-| FastAPI **PyInstaller** sidecar binary (packaged mode) | **Not built.** `resolvePythonExecutable()` explicitly throws in packaged mode with a message pointing here — the desktop shell today only runs `apps/api` from source (dev mode), which is why `npm run desktop:dev` requires a working `python`/`python3` on PATH (or `ATLAS_PYTHON_PATH` override — see below) |
-| Dynamic port allocation + collision handling | **Not done** — see the fixed-ports note above |
-| User-data location (OS app-data dir, not fixed to `apps/api/.local`) | **Not done** — packaged builds still need to point `ATLAS_LOCAL_DB_PATH`/`ATLAS_LOCAL_STATE_PATH` at the OS app-data directory |
-| Signed binaries | **Not done** — no code-signing certificate configured yet; unsigned builds will trigger SmartScreen/Gatekeeper warnings |
-| App icon / branding assets | **Not done** — `desktop/build/` is a placeholder; `electron-builder` falls back to its default icon |
-| macOS / Linux targets | **Not configured** — Windows-only for now (matches the only platform this was built and tested on); extending to `mac`/`linux` blocks in `electron-builder`'s config is mechanical but each needs to actually be built and smoke-tested on that OS (e.g. via CI matrix), not just declared |
+| Next.js **standalone** output (`output: "standalone"` in `next.config.ts`) | **Done** |
+| Sidecar lifecycle manager (start/health-check/kill, both processes, dynamic ports) | **Done** — verified via a real packaged installer, not just dev mode |
+| FastAPI **PyInstaller** sidecar binary | **Done** — see above |
+| Dynamic port allocation | **Done** — see above |
+| OS app-data user-data path | **Done** — see above, including the `app.setName` fix |
+| `electron-builder` config: Windows NSIS, macOS/Linux **zip**, GitHub Releases publish provider | **Done** for config; **Windows-verified only** — macOS/Linux zip targets are configured (`npm run dist:mac` / `dist:linux`) but never actually built or run on those OSes from this machine |
+| `electron-updater` wired (`checkForUpdatesAndNotify` on packaged launch) | **Done**, but **unverified** — needs an actual published release to test against |
+| Code signing | **Blocked on a real certificate.** `electron-builder` auto-detects the standard `CSC_LINK` (path/URL to a `.pfx`/`.p12`) and `CSC_KEY_PASSWORD` env vars — set them and it signs automatically, no config change needed. Nobody has provided a cert, so builds are unsigned today (confirmed in build output: `no signing info identified, signing is skipped`) and will trigger Windows SmartScreen warnings. Getting a cert (Windows EV/OV code-signing cert from a CA, or an Apple Developer ID for macOS) is a business/purchasing step, not an engineering one. |
+| App icon / branding assets | **Not done** — `desktop/build/` is a placeholder; `electron-builder` falls back to its default icon (confirmed in build output) |
+| `npm run desktop:dev`/`dist` npm-workspace quirks | **Hit and fixed**: `electron-builder` couldn't auto-detect the Electron version through hoisted workspace `node_modules` (fixed with an explicit `electronVersion` field); its internal "install production dependencies" step corrupted the hoisted `node_modules` tree entirely, deleting `electron-builder` itself mid-run (fixed with `"npmRebuild": false` — desktop has no native deps needing a rebuild) |
 
 ### Known environment quirk (not a code bug)
 
@@ -191,32 +225,39 @@ environments set this globally to stop stray GUI processes from launching. If yo
 locally, `unset ELECTRON_RUN_AS_NODE` (or ensure it isn't inherited) before running
 `npm run desktop:dev`.
 
-### Python resolution
+### Python resolution (dev mode only)
 
 `resolvePythonExecutable()` tries, in order: `ATLAS_PYTHON_PATH` env var (explicit override — use
 this if your venv isn't first on PATH), then platform default (`python` on Windows, `python3`
 elsewhere). This exists because Windows commonly resolves a bare `python` to the Microsoft Store
 app-execution-alias stub when no other interpreter is ahead of it on PATH, which prints an install
 prompt instead of running Python — this was hit and worked around during real testing of this
-feature, not a hypothetical.
+feature, not a hypothetical. Packaged builds don't need this at all — they run the PyInstaller
+binary directly, no Python interpreter required on the target machine.
 
 ### Commands
 
 ```bash
-# One-time: build the web app with the fixed desktop API URL baked in
-npm run desktop:build:web
+# Build the API sidecar binary (requires PyInstaller: see above)
+npm run desktop:build:api
 
-# Launch the Electron shell against the dev sidecar (rebuilds web first)
+# Launch the Electron shell against the dev sidecar (builds web first)
 npm run desktop:dev
 
-# Produce a local installer for smoke testing (rebuilds web first)
+# Produce a full Windows installer (builds web + API sidecar first)
 npm run desktop:dist
+
+# macOS / Linux zip targets - configured but never built/run on those OSes
+npm run --workspace @atlas/desktop dist:mac
+npm run --workspace @atlas/desktop dist:linux
 ```
 
-`npm run desktop:dev` was verified end-to-end on this machine: real Electron window opened
-(confirmed via `Get-Process` showing `MainWindowTitle: "Project Atlas"`), both sidecars started
-and passed their health checks, and the window rendered the actual app UI (confirmed via live
-HTTP traffic to `/api/v1/app/lock` from the loaded page).
+Verified end-to-end on this machine, twice — once in dev mode and once against the fully packaged
+`Atlas Setup 0.1.0.exe` installer's unpacked output: real Electron window opened (confirmed via
+`Get-Process` showing `MainWindowTitle: "Project Atlas"`), both sidecars started on dynamically
+allocated ports and passed their health checks, the window rendered the actual app UI (live HTTP
+traffic to `/api/v1/app/lock`), and a real write correctly persisted to
+`AppData\Roaming\Atlas\atlas.db`.
 
 ---
 
@@ -319,11 +360,13 @@ its own sidecar, detects or assists installing Ollama, and all data stays on dev
 - [x] `apps/web` clean-before-build step
 - [x] SQLite persistence (`LocalStateDatabase`) with versioned migrations + legacy JSON import
 - [ ] Release preflight that rejects stale generated artifacts
-- [x] `desktop/` Electron project (verified: real window launches, both sidecars health-check)
-- [ ] FastAPI PyInstaller sidecar (packaged mode currently throws with a clear message — dev-only today)
-- [x] Sidecar lifecycle manager (start/health/kill) — dynamic port allocation still open, see section 4
-- [ ] OS app-data user-data path wired to `ATLAS_LOCAL_DB_PATH` / `ATLAS_LOCAL_STATE_PATH`
-- [ ] Signed Windows + macOS installers
+- [x] `desktop/` Electron project — verified via a real packaged Windows installer (`Atlas Setup
+      0.1.0.exe`), not just dev mode
+- [x] FastAPI PyInstaller sidecar — built, verified standalone and inside the packaged app
+- [x] Sidecar lifecycle manager (start/health/kill, **dynamic** port allocation)
+- [x] OS app-data user-data path wired via `ATLAS_LOCAL_DB_PATH` / `ATLAS_LOCAL_STATE_PATH` env vars
+- [ ] Signed Windows + macOS installers — blocked on a real code-signing certificate; wiring
+      (`CSC_LINK`/`CSC_KEY_PASSWORD`) is ready
 - [x] Updater wired (`electron-updater` + GitHub Releases provider) — not yet exercised against a real published release
 - [ ] Alembic migrations for normalized tables (once relational data is needed)
 - [x] OS-native secret storage (DPAPI / Keychain / libsecret with base64 fallback); Android
@@ -331,5 +374,9 @@ its own sidecar, detects or assists installing Ollama, and all data stays on dev
 - [ ] Backup / export / import
 - [ ] `android/` shell + native bridges + Keystore
 - [x] CI pipeline (`.github/workflows/ci.yml`: api, web, security, e2e — all green)
-- [ ] Clean-room install test script + packaged smoke tests
+- [~] Packaged smoke test — done manually on this machine twice (dev mode + real installer);
+      not yet automated into CI
+- [ ] Clean-room install test script
+- [ ] App icon / branding assets
+- [ ] macOS / Linux zip targets actually built and run (config exists, untested off Windows)
 - [ ] Release gate: `npm run release:check` green + signed artifacts
