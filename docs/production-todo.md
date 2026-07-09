@@ -14,12 +14,25 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ## 0. Current status snapshot
 
-- Backend tests: **38 passing** (`npm run test:api`).
-- Web production build: fragile — must clean `apps/web/.next` first (`EINVAL readlink`).
-- Repo is **not** a git repository yet.
-- Data layer: single JSON file; secrets base64 fallback off-Windows.
-- This iteration adds: nutrition refresh + 7-day calendar + meal prep hacks + video links, and
+- Backend tests: **44 passing** (`npm run test:api`).
+- Web production build: fixed with a clean-before-build step; green in CI and locally.
+- Repo is a git repository, pushed to `https://github.com/dataoli22/project-atlas` (private).
+- CI is live at `.github/workflows/ci.yml` (api / web / security / e2e), all green.
+- Data layer: single JSON file; secrets base64 fallback off-Windows. **Still the top P0 gap.**
+- This iteration added: nutrition refresh + 7-day calendar + meal prep hacks + video links, and
   endurance coach support links (see `nutrition-endurance-feature-spec.md`).
+
+### CI security scan triage (July 9, 2026)
+
+- **Bandit** (12 Low / 7 Medium, 0 High): all false positives — B105 "hardcoded password"
+  flags trigger on dict keys named `access_token`/`refresh_token` whose *value* is `None`, not
+  real secrets. No action needed; consider a `.bandit` skip config for B105 in this file if noise
+  becomes a problem.
+- **npm audit** (1 moderate): PostCSS XSS via Next's transitive `postcss` dependency
+  (GHSA-qx2v-qp2m-jg93). The only fix path is a breaking Next major-version bump — not applied
+  without dedicated testing. Tracked as a P1 dependency upgrade.
+- **pip-audit** (1 low): `pytest` 8.4.2 → fixed in 9.0.3. **Fixed** — bumped
+  `apps/api/requirements.txt` to `pytest>=9,<10` and verified all 44 tests still pass.
 
 ---
 
@@ -140,6 +153,9 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 - [ ] Error boundaries + route-level recovery.
 - [ ] Accessibility audit; responsive QA (desktop + phone).
 - [ ] Production-safe cache strategy; version/build metadata display.
+- [ ] Upgrade Next.js past the `postcss` XSS advisory (GHSA-qx2v-qp2m-jg93); `npm audit fix
+      --force` currently proposes a breaking major bump — needs its own scoped upgrade + full
+      regression pass (lint, build, e2e) before landing.
 
 ## 11. Backend hardening — Shared shell agent · P1
 
