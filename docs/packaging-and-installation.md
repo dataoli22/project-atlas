@@ -213,14 +213,23 @@ rather than a full Alembic/ORM stack — the schema today is one versioned key-v
 (`app_state`) storing the same JSON-shaped payload `state.py` always produced. A one-time
 migration imports the legacy `shared-state.json` on first launch if the database is still empty.
 
+Secrets (currently just Strava OAuth tokens) are protected by
+`app/features/shared/services/secure_storage.py`, which now picks the strongest available
+OS-native store at runtime: **DPAPI** on Windows, **Keychain** via the `security` CLI on macOS,
+**libsecret** via `secret-tool` on Linux, falling back to base64 only when none of those are
+available or a native call fails. All three run without adding a pip dependency — Keychain and
+libsecret shell out to their standard CLI tools the same way DPAPI uses ctypes directly. Android
+Keystore is out of scope for this backend; it belongs in the native Android shell once that
+packaging target exists (section 5).
+
 Still required before packaging GA (details in `prod-readiness-audit.md` section 2 and the master
 TODO):
 
 - Move to normalized, Alembic-managed tables once real relational data arrives (connector sync
   history, planner generation history with foreign keys) — the current KV table is intentionally
   minimal and should not be over-engineered ahead of that need.
-- Separate **secret storage** into OS-native vaults (Credential Manager/DPAPI, Keychain,
-  libsecret, Android Keystore) rather than the current base64 fallback in `secure_storage.py`.
+- Separate secret storage from general app state (secrets currently live inside the same
+  `app_state` SQLite table as everything else, just with the payload protected).
 - Add local **backup / export / import** flows.
 - The updater must run migrations on first launch of a new version and never destroy user data —
   the `PRAGMA user_version` migration list already gives this for the KV schema; extend it as new
@@ -270,8 +279,10 @@ its own sidecar, detects or assists installing Ollama, and all data stays on dev
 - [ ] OS app-data user-data path wired to `ATLAS_LOCAL_DB_PATH` / `ATLAS_LOCAL_STATE_PATH`
 - [ ] Signed Windows + macOS installers + updater
 - [ ] Alembic migrations for normalized tables (once relational data is needed)
-- [ ] OS-native secret storage
+- [x] OS-native secret storage (DPAPI / Keychain / libsecret with base64 fallback); Android
+      Keystore remains for the native Android shell
 - [ ] Backup / export / import
 - [ ] `android/` shell + native bridges + Keystore
-- [ ] CI pipeline + clean-room install test + packaged smoke tests
+- [x] CI pipeline (`.github/workflows/ci.yml`: api, web, security, e2e — all green)
+- [ ] Clean-room install test script + packaged smoke tests
 - [ ] Release gate: `npm run release:check` green + signed artifacts

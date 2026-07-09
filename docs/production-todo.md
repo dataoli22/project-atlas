@@ -14,13 +14,16 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ## 0. Current status snapshot
 
-- Backend tests: **53 passing** (`npm run test:api`).
+- Backend tests: **61 passing** (`npm run test:api`).
 - Web production build: fixed with a clean-before-build step; green in CI and locally.
 - Repo is a git repository, pushed to `https://github.com/dataoli22/project-atlas` (private).
 - CI is live at `.github/workflows/ci.yml` (api / web / security / e2e), all green.
 - Data layer: **SQLite-backed** (`LocalStateDatabase`), replacing the raw JSON file, with a
-  one-time legacy-JSON import path. Secrets still use the base64 fallback off-Windows —
-  **now the top P0 gap** (section 2).
+  one-time legacy-JSON import path.
+- Secrets: **OS-native storage** (DPAPI / Keychain / libsecret) with base64 fallback, replacing
+  the previous Windows-only DPAPI-or-base64 split.
+- Remaining P0 in section 2: separate secret storage from general app state, local
+  backup/export/import, Alembic migrations once relational tables are needed.
 - This iteration added: nutrition refresh + 7-day calendar + meal prep hacks + video links, and
   endurance coach support links (see `nutrition-endurance-feature-spec.md`).
 
@@ -71,8 +74,24 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       Alembic-managed relational tables when a real normalized schema (e.g. connector sync
       history, planner generation history with foreign keys) is introduced. Revisit alongside the
       "durable tables" item below.
-- [ ] OS-native secret storage abstraction (Credential Manager/DPAPI, Keychain, libsecret,
-      Android Keystore) replacing base64 fallback in `secure_storage.py`.
+- [x] OS-native secret storage abstraction: `apps/api/app/features/shared/services/secure_storage.py`
+      now supports **DPAPI** (Windows, unchanged, ctypes-only), **Keychain** (macOS, via the
+      `security` CLI) and **libsecret** (Linux, via the `secret-tool` CLI) — no new pip
+      dependencies, matching the existing ctypes-only DPAPI approach. `build_local_secret_protector()`
+      detects the platform and tool availability (`shutil.which`) and picks the strongest
+      available scheme, falling back to base64 per-secret if a native call fails. Android Keystore
+      is intentionally **not** implemented here — it belongs in the native Android app, not this
+      Python service (tracked in `packaging-and-installation.md` section 5).
+      Architectural note: DPAPI is a true encrypt/decrypt-a-blob API, but Keychain/libsecret are
+      OS-managed secret *stores* — you save a secret under a stable name and look it up later, you
+      don't carry ciphertext yourself. So `protect`/`unprotect` now take a required `key`
+      identifier (e.g. `"strava_access_token"`); DPAPI/base64 ignore it, Keychain/libsecret use it
+      as the vault entry name.
+      Verified: real DPAPI protect/unprotect round-trip and a full Strava-token round-trip through
+      DPAPI + SQLite across a process restart, both manually on this Windows box (only platform
+      testable here). Keychain/libsecret are covered by 6 new tests against mocked `subprocess.run`
+      calls (round-trip + CLI-failure fallback), so the logic is verified on any CI runner even
+      without the real OS vault present. 61 tests total passing (was 53).
 - [ ] Separate secret storage from general app state.
 - [ ] Local backup / export / import.
 - [ ] Durable tables: connector sync history, planner generation history + refresh metadata

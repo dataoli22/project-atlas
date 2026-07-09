@@ -648,10 +648,10 @@ class SharedStateStore:
             access_token = strava_runtime.pop("access_token", None)
             refresh_token = strava_runtime.pop("refresh_token", None)
             strava_runtime["access_token_protected"] = self._secret_protector.protect(
-                str(access_token or "")
+                str(access_token or ""), key="strava_access_token"
             )
             strava_runtime["refresh_token_protected"] = self._secret_protector.protect(
-                str(refresh_token or "")
+                str(refresh_token or ""), key="strava_refresh_token"
             )
         return payload
 
@@ -663,8 +663,12 @@ class SharedStateStore:
         protected_access = strava_runtime.pop("access_token_protected", None)
         protected_refresh = strava_runtime.pop("refresh_token_protected", None)
 
-        strava_runtime["access_token"] = self._secret_protector.unprotect(protected_access)
-        strava_runtime["refresh_token"] = self._secret_protector.unprotect(protected_refresh)
+        strava_runtime["access_token"] = self._secret_protector.unprotect(
+            protected_access, key="strava_access_token"
+        )
+        strava_runtime["refresh_token"] = self._secret_protector.unprotect(
+            protected_refresh, key="strava_refresh_token"
+        )
         strava_runtime["access_token_set"] = bool(strava_runtime["access_token"])
         strava_runtime["refresh_token_set"] = bool(strava_runtime["refresh_token"])
 
