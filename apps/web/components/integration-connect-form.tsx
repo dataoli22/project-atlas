@@ -145,6 +145,13 @@ export function IntegrationConnectForm({
       return;
     }
 
+    const confirmed = window.confirm(
+      `Disconnect ${selected.title}? This clears the locally stored tokens and synced data for this connector.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
     startTransition(async () => {
       const result = await disconnectIntegrationSource(selected.key);
       replaceIntegration(result.data.integration);

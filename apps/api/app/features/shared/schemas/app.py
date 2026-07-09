@@ -28,15 +28,32 @@ class HealthCheckResponse(BaseModel):
     enabled_features: list[FeatureKey]
 
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str = Field(..., min_length=1)
+class AppLockSettings(BaseModel):
+    """Optional local PIN gate for shared devices.
+
+    Atlas is single-user and local-only: this is a device-level access deterrent for shared
+    computers, not a real authentication/session system. There is no server, no account, and no
+    password recovery - if a user forgets their PIN, the only path is disabling it via direct
+    local file/database access, which is by design for a local-first app.
+    """
+
+    enabled: bool = False
+    has_pin: bool = False
+    updated_at: str | None = None
 
 
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: UserSummary
+class AppLockUpdateRequest(BaseModel):
+    enabled: bool
+    pin: str | None = Field(default=None, min_length=4, max_length=32)
+    current_pin: str | None = Field(default=None, min_length=1, max_length=32)
+
+
+class AppLockVerifyRequest(BaseModel):
+    pin: str = Field(..., min_length=1, max_length=32)
+
+
+class AppLockVerifyResponse(BaseModel):
+    unlocked: bool
 
 
 class FeatureSummary(BaseModel):
@@ -199,6 +216,17 @@ class IntegrationConnectResponse(BaseModel):
     integration: IntegrationSourceStatus
     launch_url: str | None = None
     local_only_notice: str
+
+
+class IntegrationDisconnectRequest(BaseModel):
+    """Explicit confirmation required for a destructive action.
+
+    Disconnecting an integration clears its locally stored tokens and synced runtime data.
+    Requiring `confirm: true` prevents an accidental or stray request from silently discarding
+    that state.
+    """
+
+    confirm: bool = False
 
 
 class DeviceSessionRecord(BaseModel):

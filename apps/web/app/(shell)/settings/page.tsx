@@ -1,8 +1,10 @@
 import Link from "next/link";
 
+import { AppLockSettingsForm } from "@/components/app-lock-settings-form";
 import { FeaturePreferencesForm } from "@/components/feature-preferences-form";
 import { PageScaffold } from "@/components/page-scaffold";
 import { DataSourceBadge, SettingsDataList } from "@/components/settings-data-list";
+import { getAppLockSettingsData } from "@/lib/app-lock-data";
 import { getSettingsPageData } from "@/lib/settings-data";
 
 function formatFeatureLabel(featureKey: string) {
@@ -10,7 +12,7 @@ function formatFeatureLabel(featureKey: string) {
 }
 
 export default async function SettingsPage() {
-  const settings = await getSettingsPageData();
+  const [settings, appLock] = await Promise.all([getSettingsPageData(), getAppLockSettingsData()]);
   const activeFeature =
     settings.featureRegistry.data.features.find((feature) => feature.key === settings.featureRegistry.data.activeFeature) ??
     settings.featureRegistry.data.features[0];
@@ -69,6 +71,8 @@ export default async function SettingsPage() {
           initialPreferences={settings.appPreferences.data}
           initialSource={settings.appPreferences.source}
         />
+
+        <AppLockSettingsForm initialSettings={appLock.data} initialSource={appLock.source} />
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Profile defaults</div>

@@ -4,8 +4,9 @@ Minimal FastAPI backend scaffold for the shared Project Atlas API surface.
 
 ## Included
 
-- shared auth endpoint
-- shared `/me` endpoint
+- shared `/me` endpoint (local device identity - Atlas is single-user and local-only, there is
+  no account system or server-side session; see `docs/production-todo.md` section 3)
+- optional local app-lock PIN endpoints for shared devices
 - app feature registry and preferences endpoints
 - shared profile, markets, and localization settings endpoints
 - shared local AI runtime settings endpoint for Ollama and optional Groq
@@ -35,8 +36,10 @@ python -m uvicorn app.main:app --reload --app-dir apps/api
 
 Shared shell endpoints currently include:
 
-- `POST /api/v1/auth/login`
 - `GET /api/v1/me`
+- `GET /api/v1/app/lock`
+- `PUT /api/v1/app/lock`
+- `POST /api/v1/app/lock/verify`
 - `GET /api/v1/health`
 - `GET /api/v1/app/features`
 - `GET /api/v1/app/preferences`

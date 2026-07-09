@@ -11,6 +11,8 @@ from app.core.config import build_market_registry, get_settings
 from app.features.shared.schemas.app import (
     AISettings,
     AISettingsUpdate,
+    AppLockSettings,
+    AppLockUpdateRequest,
     AppPreferences,
     AppPreferencesUpdate,
     IntegrationConnectMode,
@@ -22,6 +24,7 @@ from app.features.shared.schemas.app import (
     ProfileSettingsUpdate,
 )
 from app.features.shared.services.ai import build_ai_settings_response
+from app.features.shared.services.app_lock import hash_pin, verify_pin
 from app.features.shared.services.db import LocalStateDatabase
 from app.features.shared.services.registry import (
     get_default_ai_settings,
@@ -43,6 +46,7 @@ class SharedStateStore:
         self._integrations = _build_default_integrations()
         self._integration_runtime = _build_default_integration_runtime()
         self._nutrition_runtime = _build_default_nutrition_runtime()
+        self._app_lock = _build_default_app_lock()
         settings = get_settings()
         self._local_state_path = Path(settings.local_state_path)
         self._db = (
@@ -503,6 +507,62 @@ class SharedStateStore:
             self._nutrition_runtime["refresh_reason"] = refresh_reason
             self._persist_state_unlocked()
 
+    def get_app_lock_settings(self) -> AppLockSettings:
+        with self._lock:
+            return AppLockSettings(
+                enabled=self._app_lock["enabled"],
+                has_pin=self._app_lock["pin_hash"] is not None,
+                updated_at=self._app_lock["updated_at"],
+            )
+
+    def update_app_lock(self, payload: AppLockUpdateRequest) -> AppLockSettings:
+        with self._lock:
+            currently_enabled = self._app_lock["enabled"]
+
+            if currently_enabled and self._app_lock["pin_hash"] is not None:
+                if not payload.current_pin or not verify_pin(
+                    payload.current_pin,
+                    salt_hex=self._app_lock["salt"],
+                    hash_hex=self._app_lock["pin_hash"],
+                    iterations=self._app_lock["iterations"],
+                ):
+                    raise ValueError("The current PIN is required to change or disable the app lock.")
+
+            if payload.enabled:
+                if payload.pin:
+                    hashed = hash_pin(payload.pin)
+                    self._app_lock["pin_hash"] = hashed.hash_hex
+                    self._app_lock["salt"] = hashed.salt_hex
+                    self._app_lock["iterations"] = hashed.iterations
+                elif self._app_lock["pin_hash"] is None:
+                    raise ValueError("A PIN is required to enable the app lock.")
+                self._app_lock["enabled"] = True
+            else:
+                self._app_lock["enabled"] = False
+                self._app_lock["pin_hash"] = None
+                self._app_lock["salt"] = None
+
+            self._app_lock["updated_at"] = datetime.now(timezone.utc).isoformat()
+            self._persist_state_unlocked()
+
+            return AppLockSettings(
+                enabled=self._app_lock["enabled"],
+                has_pin=self._app_lock["pin_hash"] is not None,
+                updated_at=self._app_lock["updated_at"],
+            )
+
+    def verify_app_lock_pin(self, pin: str) -> bool:
+        with self._lock:
+            if not self._app_lock["enabled"] or self._app_lock["pin_hash"] is None:
+                return True
+
+            return verify_pin(
+                pin,
+                salt_hex=self._app_lock["salt"],
+                hash_hex=self._app_lock["pin_hash"],
+                iterations=self._app_lock["iterations"],
+            )
+
     def get_integration_runtime_snapshot(self) -> dict[str, dict[str, object | None]]:
         with self._lock:
             return {
@@ -614,6 +674,12 @@ class SharedStateStore:
                 if key in nutrition_payload:
                     self._nutrition_runtime[key] = nutrition_payload[key]
 
+        app_lock_payload = payload.get("app_lock", {})
+        if isinstance(app_lock_payload, dict):
+            for key in ("enabled", "pin_hash", "salt", "iterations", "updated_at"):
+                if key in app_lock_payload:
+                    self._app_lock[key] = app_lock_payload[key]
+
         self._restore_protected_runtime_secrets_unlocked()
 
     def _persist_state_unlocked(self) -> None:
@@ -632,6 +698,7 @@ class SharedStateStore:
                 "refresh_due_at": self._nutrition_runtime["refresh_due_at"],
                 "refresh_reason": self._nutrition_runtime["refresh_reason"],
             },
+            "app_lock": dict(self._app_lock),
         }
         self._db.set_json("shared_state", payload)
 
@@ -780,6 +847,16 @@ def _build_default_nutrition_runtime() -> dict[str, object]:
         "last_refreshed_at": None,
         "refresh_due_at": None,
         "refresh_reason": None,
+    }
+
+
+def _build_default_app_lock() -> dict[str, object]:
+    return {
+        "enabled": False,
+        "pin_hash": None,
+        "salt": None,
+        "iterations": None,
+        "updated_at": None,
     }
 
 

@@ -912,6 +912,7 @@ export async function disconnectIntegrationSource(
     `/api/v1/integrations/${source}/disconnect`,
     {
       method: "POST",
+      body: { confirm: true },
       fallback
     }
   );

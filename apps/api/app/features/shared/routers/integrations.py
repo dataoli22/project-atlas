@@ -6,6 +6,7 @@ from app.features.shared.schemas.app import (
     HealthConnectDeviceSyncRequest,
     IntegrationConnectRequest,
     IntegrationConnectResponse,
+    IntegrationDisconnectRequest,
     IntegrationSourceKey,
     IntegrationSourceStatus,
     SamsungHealthDeviceSyncRequest,
@@ -162,7 +163,16 @@ def connect_integration(
 
 
 @router.post("/{source}/disconnect", response_model=IntegrationConnectResponse)
-def disconnect_integration(source: IntegrationSourceKey) -> IntegrationConnectResponse:
+def disconnect_integration(
+    source: IntegrationSourceKey,
+    payload: IntegrationDisconnectRequest | None = None,
+) -> IntegrationConnectResponse:
+    if payload is None or not payload.confirm:
+        raise HTTPException(
+            status_code=400,
+            detail="Disconnecting an integration is destructive. Resend with {\"confirm\": true} to proceed.",
+        )
+
     result = get_integration_adapter(source).disconnect()
     return IntegrationConnectResponse(
         integration=result.integration,

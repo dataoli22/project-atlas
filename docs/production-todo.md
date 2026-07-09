@@ -14,7 +14,7 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ## 0. Current status snapshot
 
-- Backend tests: **61 passing** (`npm run test:api`).
+- Backend tests: **72 passing** (`npm run test:api`).
 - Web production build: fixed with a clean-before-build step; green in CI and locally.
 - Repo is a git repository, pushed to `https://github.com/dataoli22/project-atlas` (private).
 - CI is live at `.github/workflows/ci.yml` (api / web / security / e2e), all green.
@@ -22,6 +22,9 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
   one-time legacy-JSON import path.
 - Secrets: **OS-native storage** (DPAPI / Keychain / libsecret) with base64 fallback, replacing
   the previous Windows-only DPAPI-or-base64 split.
+- Identity/permissions: **single-user local model codified**, cloud-style login stub removed,
+  optional local **app lock** (PIN) shipped end-to-end (backend + settings UI + shell gate), and
+  a confirmation gate on the one existing destructive action (integration disconnect).
 - Remaining P0 in section 2: separate secret storage from general app state, local
   backup/export/import, Alembic migrations once relational tables are needed.
 - This iteration added: nutrition refresh + 7-day calendar + meal prep hacks + video links, and
@@ -101,13 +104,46 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       startup instead of silently discarding state (covered by
       `test_corrupt_db_file_raises_rather_than_silently_losing_data`).
 
-## 3. Authentication & permissions — Shared shell agent · P1
+## 3. Authentication & permissions — Shared shell agent · P1 — DONE
 
-- [ ] Decide identity model (recommend: single-user local, explicitly codified).
-- [ ] Remove cloud-style auth ambiguity from the stub login.
-- [ ] Optional app lock for shared devices.
-- [ ] Permission gates on destructive actions (disconnect, delete history, rotate secrets, reset
-      plans).
+- [x] Decided identity model: **single-user, local-only, explicitly codified.** Atlas has no
+      accounts, no server-side session, and no password auth. `GET /api/v1/me` remains as the
+      honest "local device identity" concept (matches `UserSummary`, unchanged).
+- [x] Removed cloud-style auth ambiguity: deleted `POST /api/v1/auth/login` and the
+      `LoginRequest`/`LoginResponse` schemas (a password-accepting endpoint that returned a fake
+      `"atlas-dev-token"` and was never called by the frontend). `apps/api/README.md` updated.
+- [x] Optional app lock for shared devices: `apps/api/app/features/shared/services/app_lock.py`
+      (PBKDF2-HMAC-SHA256, 200k iterations, per-install random salt, `hmac.compare_digest`
+      constant-time verify — stdlib only, no new dependency) plus `AppLockSettings` /
+      `AppLockUpdateRequest` / `AppLockVerifyRequest` schemas, three new endpoints
+      (`GET/PUT /app/lock`, `POST /app/lock/verify`), and `SharedStateStore` methods persisted
+      through the existing SQLite-backed `_persist_state_unlocked` payload. Deliberately
+      **verify-only** (unlike the OAuth-token secret storage): there is no PIN recovery by
+      design, matching a local-first single-user app — the only reset path is disabling the lock
+      via direct local database access.
+      Frontend: `apps/web/components/app-lock-gate.tsx` (client component wrapping the shell
+      layout — blocks rendering until the correct PIN is verified against the local backend,
+      unlock state cached in `sessionStorage` only) and
+      `apps/web/components/app-lock-settings-form.tsx` (enable/change/disable PIN) wired into
+      `apps/(shell)/layout.tsx` and `/settings`. `getAppLockSettingsData()` fails **open** to
+      "disabled" if the backend is unreachable at layout render (a local-first app with no
+      running backend has nothing to protect yet), but `verifyAppLockPin()` fails **closed** — a
+      network error never auto-unlocks. Verified manually end-to-end against a running server:
+      SSR correctly renders the PIN screen when a lock is set, correct/incorrect PINs behave as
+      expected, and disabling requires the current PIN. Note: this is a device-level UX deterrent
+      for shared computers, not real authentication — the backend has no session/token concept,
+      loopback access to the API itself is still unauthenticated (acceptable for a
+      single-user local app, but worth remembering if the loopback port is ever exposed beyond
+      localhost).
+- [x] Permission gates on destructive actions: `disconnect_integration` now requires an explicit
+      `{"confirm": true}` request body (a body-less or `confirm: false` request now 400s,
+      covered by `test_disconnect_requires_explicit_confirmation`); the frontend disconnect
+      button now shows a native confirm dialog before sending the confirmed request. "Delete
+      history" and "rotate secrets" have no endpoints yet — add the same `confirm: true` gate
+      pattern when those features are built, don't invent new destructive endpoints just to gate
+      them. Nutrition plan refresh was deliberately **not** gated the same way since it already
+      preserves prior state in swap history rather than destroying it (see section 6a).
+      Full suite: 72 tests passing (was 61).
 
 ## 4. Ollama on-device — Shared shell agent · P0/P1
 

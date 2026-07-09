@@ -604,7 +604,10 @@ def test_disconnect_resets_integration_state(client):
         json={"account_label": "Galaxy Watch"},
     )
 
-    response = client.post("/api/v1/integrations/samsung_health/disconnect")
+    response = client.post(
+        "/api/v1/integrations/samsung_health/disconnect",
+        json={"confirm": True},
+    )
 
     assert response.status_code == 200
     payload = response.json()
@@ -613,3 +616,25 @@ def test_disconnect_resets_integration_state(client):
     assert payload["integration"]["status"] == "disconnected"
     assert payload["integration"]["account_label"] is None
     assert payload["integration"]["last_sync_at"] is None
+
+
+def test_disconnect_requires_explicit_confirmation(client):
+    client.post(
+        "/api/v1/integrations/samsung_health/connect",
+        json={"account_label": "Galaxy Watch"},
+    )
+
+    unconfirmed = client.post("/api/v1/integrations/samsung_health/disconnect")
+    assert unconfirmed.status_code == 400
+
+    explicitly_declined = client.post(
+        "/api/v1/integrations/samsung_health/disconnect",
+        json={"confirm": False},
+    )
+    assert explicitly_declined.status_code == 400
+
+    still_connected = client.get("/api/v1/integrations")
+    samsung_health = next(
+        item for item in still_connected.json() if item["key"] == "samsung_health"
+    )
+    assert samsung_health["connected"] is True
