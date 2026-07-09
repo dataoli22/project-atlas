@@ -34,6 +34,11 @@ def restore_shared_state():
                 "refresh_reason": shared_state._nutrition_runtime["refresh_reason"],
             },
             "app_lock": dict(shared_state._app_lock),
+            "pairing": {
+                "pending_code": shared_state._pairing["pending_code"],
+                "pending_expires_at": shared_state._pairing["pending_expires_at"],
+                "devices": {key: dict(value) for key, value in shared_state._pairing["devices"].items()},
+            },
             "ollama_api_key": shared_state._ollama_api_key,
             "groq_api_key": shared_state._groq_api_key,
         }
@@ -49,6 +54,7 @@ def restore_shared_state():
         shared_state._integration_runtime = snapshot["integration_runtime"]
         shared_state._nutrition_runtime = snapshot["nutrition_runtime"]
         shared_state._app_lock = snapshot["app_lock"]
+        shared_state._pairing = snapshot["pairing"]
         shared_state._ollama_api_key = snapshot["ollama_api_key"]
         shared_state._groq_api_key = snapshot["groq_api_key"]
 

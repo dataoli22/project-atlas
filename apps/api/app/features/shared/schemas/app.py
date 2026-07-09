@@ -247,6 +247,38 @@ class IntegrationDisconnectRequest(BaseModel):
     confirm: bool = False
 
 
+class PairingStartResponse(BaseModel):
+    """Generated on the desktop when the user starts phone pairing.
+
+    The code is short-lived and single-use. It is shown on the desktop screen and typed into the
+    companion mobile app manually - there is no cloud relay or push mechanism, the two devices
+    must already be on the same local network.
+    """
+
+    code: str
+    expires_at: str
+    lan_addresses: list[str]
+    port: int
+
+
+class PairingConfirmRequest(BaseModel):
+    code: str = Field(..., min_length=4, max_length=12)
+    device_name: str = Field(..., min_length=1, max_length=80)
+
+
+class PairingConfirmResponse(BaseModel):
+    device_id: str
+    device_token: str
+    device_name: str
+
+
+class PairedDevice(BaseModel):
+    device_id: str
+    device_name: str
+    paired_at: str
+    last_sync_at: str | None = None
+
+
 class DeviceSessionRecord(BaseModel):
     session_label: str = Field(..., min_length=1, max_length=160)
     session_type: str = Field(..., min_length=1, max_length=80)

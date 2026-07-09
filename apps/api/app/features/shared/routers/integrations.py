@@ -1,7 +1,8 @@
 from urllib.parse import parse_qs, urlparse
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.api.deps import require_paired_device_if_present
 from app.features.shared.schemas.app import (
     HealthConnectDeviceSyncRequest,
     IntegrationConnectRequest,
@@ -71,7 +72,11 @@ def exchange_strava_tokens() -> StravaTokenExchangeResponse:
     )
 
 
-@router.post("/health_connect/device-sync", response_model=IntegrationConnectResponse)
+@router.post(
+    "/health_connect/device-sync",
+    response_model=IntegrationConnectResponse,
+    dependencies=[Depends(require_paired_device_if_present)],
+)
 def sync_health_connect_device_records(payload: HealthConnectDeviceSyncRequest) -> IntegrationConnectResponse:
     integration = shared_state.store_health_connect_sync(
         recent_sessions=[
@@ -95,7 +100,11 @@ def sync_health_connect_device_records(payload: HealthConnectDeviceSyncRequest) 
     )
 
 
-@router.post("/samsung_health/device-sync", response_model=IntegrationConnectResponse)
+@router.post(
+    "/samsung_health/device-sync",
+    response_model=IntegrationConnectResponse,
+    dependencies=[Depends(require_paired_device_if_present)],
+)
 def sync_samsung_health_device_records(payload: SamsungHealthDeviceSyncRequest) -> IntegrationConnectResponse:
     integration = shared_state.store_samsung_health_sync(
         recent_sessions=[

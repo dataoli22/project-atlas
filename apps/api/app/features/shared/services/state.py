@@ -20,12 +20,24 @@ from app.features.shared.schemas.app import (
     IntegrationSourceStatus,
     LocalizationSettings,
     LocalizationSettingsUpdate,
+    PairedDevice,
+    PairingConfirmRequest,
+    PairingConfirmResponse,
+    PairingStartResponse,
     ProfileSettings,
     ProfileSettingsUpdate,
 )
 from app.features.shared.services.ai import build_ai_settings_response
 from app.features.shared.services.app_lock import hash_pin, verify_pin
 from app.features.shared.services.db import LocalStateDatabase
+from app.features.shared.services.pairing import (
+    detect_lan_addresses,
+    generate_device_id,
+    generate_device_token,
+    generate_pairing_code,
+    is_expired,
+    pairing_code_expiry,
+)
 from app.features.shared.services.registry import (
     get_default_ai_settings,
     get_default_localization,
@@ -47,6 +59,7 @@ class SharedStateStore:
         self._integration_runtime = _build_default_integration_runtime()
         self._nutrition_runtime = _build_default_nutrition_runtime()
         self._app_lock = _build_default_app_lock()
+        self._pairing = _build_default_pairing()
         settings = get_settings()
         self._local_state_path = Path(settings.local_state_path)
         self._db = (
@@ -563,6 +576,91 @@ class SharedStateStore:
                 iterations=self._app_lock["iterations"],
             )
 
+    def start_device_pairing(self) -> PairingStartResponse:
+        with self._lock:
+            code = generate_pairing_code()
+            expires_at = pairing_code_expiry()
+            self._pairing["pending_code"] = code
+            self._pairing["pending_expires_at"] = expires_at
+            self._persist_state_unlocked()
+
+            return PairingStartResponse(
+                code=code,
+                expires_at=expires_at,
+                lan_addresses=detect_lan_addresses(),
+                port=get_settings().api_port,
+            )
+
+    def confirm_device_pairing(self, payload: PairingConfirmRequest) -> PairingConfirmResponse:
+        with self._lock:
+            pending_code = self._pairing["pending_code"]
+            expires_at = self._pairing["pending_expires_at"]
+
+            if not pending_code or payload.code != pending_code:
+                raise ValueError("Pairing code did not match. Start pairing again on the desktop.")
+            if not expires_at or is_expired(expires_at):
+                raise ValueError("Pairing code expired. Start pairing again on the desktop.")
+
+            self._pairing["pending_code"] = None
+            self._pairing["pending_expires_at"] = None
+
+            device_id = generate_device_id()
+            token = generate_device_token()
+            hashed = hash_pin(token)
+            now = datetime.now(timezone.utc).isoformat()
+
+            self._pairing["devices"][device_id] = {
+                "device_name": payload.device_name.strip(),
+                "token_hash": hashed.hash_hex,
+                "token_salt": hashed.salt_hex,
+                "token_iterations": hashed.iterations,
+                "paired_at": now,
+                "last_sync_at": None,
+            }
+            self._persist_state_unlocked()
+
+            return PairingConfirmResponse(
+                device_id=device_id,
+                device_token=token,
+                device_name=payload.device_name.strip(),
+            )
+
+    def get_paired_devices(self) -> list[PairedDevice]:
+        with self._lock:
+            return [
+                PairedDevice(
+                    device_id=device_id,
+                    device_name=entry["device_name"],
+                    paired_at=entry["paired_at"],
+                    last_sync_at=entry["last_sync_at"],
+                )
+                for device_id, entry in self._pairing["devices"].items()
+            ]
+
+    def revoke_paired_device(self, device_id: str) -> None:
+        with self._lock:
+            if device_id not in self._pairing["devices"]:
+                raise ValueError("No paired device found with that ID.")
+            del self._pairing["devices"][device_id]
+            self._persist_state_unlocked()
+
+    def verify_device_token(self, device_id: str, token: str) -> bool:
+        with self._lock:
+            entry = self._pairing["devices"].get(device_id)
+            if entry is None:
+                return False
+
+            is_valid = verify_pin(
+                token,
+                salt_hex=entry["token_salt"],
+                hash_hex=entry["token_hash"],
+                iterations=entry["token_iterations"],
+            )
+            if is_valid:
+                entry["last_sync_at"] = datetime.now(timezone.utc).isoformat()
+                self._persist_state_unlocked()
+            return is_valid
+
     def get_integration_runtime_snapshot(self) -> dict[str, dict[str, object | None]]:
         with self._lock:
             return {
@@ -680,6 +778,15 @@ class SharedStateStore:
                 if key in app_lock_payload:
                     self._app_lock[key] = app_lock_payload[key]
 
+        pairing_payload = payload.get("pairing", {})
+        if isinstance(pairing_payload, dict):
+            for key in ("pending_code", "pending_expires_at"):
+                if key in pairing_payload:
+                    self._pairing[key] = pairing_payload[key]
+            devices = pairing_payload.get("devices")
+            if isinstance(devices, dict):
+                self._pairing["devices"] = devices
+
         self._restore_protected_runtime_secrets_unlocked()
 
     def _persist_state_unlocked(self) -> None:
@@ -699,6 +806,11 @@ class SharedStateStore:
                 "refresh_reason": self._nutrition_runtime["refresh_reason"],
             },
             "app_lock": dict(self._app_lock),
+            "pairing": {
+                "pending_code": self._pairing["pending_code"],
+                "pending_expires_at": self._pairing["pending_expires_at"],
+                "devices": self._pairing["devices"],
+            },
         }
         self._db.set_json("shared_state", payload)
 
@@ -857,6 +969,14 @@ def _build_default_app_lock() -> dict[str, object]:
         "salt": None,
         "iterations": None,
         "updated_at": None,
+    }
+
+
+def _build_default_pairing() -> dict[str, object]:
+    return {
+        "pending_code": None,
+        "pending_expires_at": None,
+        "devices": {},
     }
 
 

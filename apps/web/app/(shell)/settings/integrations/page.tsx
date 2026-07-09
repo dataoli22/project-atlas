@@ -1,11 +1,17 @@
 import { AIRuntimeSettingsForm } from "@/components/ai-runtime-settings-form";
 import { IntegrationConnectForm } from "@/components/integration-connect-form";
 import { PageScaffold } from "@/components/page-scaffold";
+import { PairingSettingsForm } from "@/components/pairing-settings-form";
 import { DataSourceBadge } from "@/components/settings-data-list";
+import { getPairedDevices } from "@/lib/pairing-data";
 import { getAISettingsData, getIntegrationSourcesData } from "@/lib/settings-data";
 
 export default async function IntegrationsSettingsPage() {
-  const [ai, integrations] = await Promise.all([getAISettingsData(), getIntegrationSourcesData()]);
+  const [ai, integrations, pairing] = await Promise.all([
+    getAISettingsData(),
+    getIntegrationSourcesData(),
+    getPairedDevices()
+  ]);
 
   return (
     <PageScaffold
@@ -54,6 +60,11 @@ export default async function IntegrationsSettingsPage() {
         <IntegrationConnectForm
           initialIntegrations={integrations.data}
           initialSource={integrations.source}
+        />
+
+        <PairingSettingsForm
+          initialDevices={pairing.ok ? pairing.devices : []}
+          devicesLoadOk={pairing.ok}
         />
 
         <section className="atlas-panel atlas-stack">

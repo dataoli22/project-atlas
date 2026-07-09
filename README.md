@@ -19,6 +19,7 @@ Architecture and product requirements live in:
 - `docs/packaging-and-installation.md` — dev install, desktop/Android packaging, release gates
 - `docs/ollama-on-device-and-agents.md` — on-device AI wiring and agent integration
 - `docs/nutrition-endurance-feature-spec.md` — refresh, calendar, prep hacks, videos, support links
+- `docs/mobile-architecture.md` — companion-mode mobile app, pairing, Android/iOS status
 
 ## Current workspace shape
 
@@ -27,6 +28,10 @@ Architecture and product requirements live in:
 - `packages/shared`: shared feature and app contracts
 - `packages/config`: shared market, currency, and app defaults
 - `packages/ui`: shared UI package placeholder
+- `desktop`: Electron desktop shell (Windows installer built and verified; see
+  `docs/packaging-and-installation.md`)
+- `mobile`: Capacitor companion mobile app (Android scaffolded, unbuilt; iOS blocked on macOS
+  access; see `docs/mobile-architecture.md`)
 
 ## AI runtime posture
 

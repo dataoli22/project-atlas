@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     default_active_feature: FeatureKey = "endurance"
 
+    # The actual bind host/port are set on the uvicorn command line (see
+    # desktop/electron/main.js), not read from here directly - these exist so the running
+    # process can report its own port back in pairing.info responses (see
+    # app/features/shared/services/pairing.py) without main.js having to inject it separately.
+    # api_host defaults to loopback-only; LAN pairing requires launching with
+    # ATLAS_API_HOST=0.0.0.0 explicitly - see docs/packaging-and-installation.md.
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
+
     feature_endurance_enabled: bool = True
     feature_nutrition_enabled: bool = True
 

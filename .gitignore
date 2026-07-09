@@ -19,3 +19,4 @@ e2e/playwright-report
 *.log
 desktop/release
 desktop/resources
+*.tsbuildinfo

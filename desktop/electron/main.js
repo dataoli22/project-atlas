@@ -62,14 +62,26 @@ function spawnApiSidecar(apiPort, userDataDir) {
   // these at Electron's per-OS user data directory (not the source tree's apps/api/.local)
   // keeps packaged-app state out of the (potentially read-only, or reinstall-wiped) install
   // location - the OS app-data directory is the correct place for a packaged app's local state.
+  //
+  // LAN pairing (the phone companion app) requires the sidecar to bind beyond loopback. This is
+  // opt-in via ATLAS_ALLOW_LAN_PAIRING=1 set before launching Atlas - there is deliberately no
+  // in-app toggle yet, since changing the bind address requires restarting the sidecar and a
+  // proper "restart to apply" UX is a follow-up, not built here. Binding to 0.0.0.0 means any
+  // device on the same local network can reach the API; the pairing code + device token flow
+  // (see pairing.py) is the only thing gating access to it once bound this way, so anyone who
+  // can intercept the pairing code during its 5-minute window could pair. This is stated plainly
+  // rather than glossed over - it is a real tradeoff of opting into LAN pairing at all.
+  const apiHost = process.env.ATLAS_ALLOW_LAN_PAIRING === "1" ? "0.0.0.0" : "127.0.0.1";
   const sharedEnv = {
     ...process.env,
     ATLAS_LOCAL_DB_PATH: path.join(userDataDir, "atlas.db"),
     ATLAS_LOCAL_STATE_PATH: path.join(userDataDir, "shared-state.json"),
+    ATLAS_API_HOST: apiHost,
+    ATLAS_API_PORT: String(apiPort),
   };
 
   const child = IS_PACKAGED
-    ? spawn(resolvePackagedSidecarBinary(), ["--host", "127.0.0.1", "--port", String(apiPort)], {
+    ? spawn(resolvePackagedSidecarBinary(), ["--host", apiHost, "--port", String(apiPort)], {
         stdio: "inherit",
         env: sharedEnv,
       })
@@ -80,7 +92,7 @@ function spawnApiSidecar(apiPort, userDataDir) {
           "uvicorn",
           "app.main:app",
           "--host",
-          "127.0.0.1",
+          apiHost,
           "--port",
           String(apiPort),
           "--app-dir",

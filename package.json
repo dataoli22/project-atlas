@@ -5,7 +5,8 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "desktop"
+    "desktop",
+    "mobile"
   ],
   "scripts": {
     "dev:web": "npm --workspace apps/web run dev",
@@ -24,7 +25,9 @@
     "release:check": "npm run test:all && npm run security",
     "desktop:build:api": "node desktop/scripts/build-api-sidecar.mjs",
     "desktop:dev": "npm run build:web && npm --workspace @atlas/desktop run dev",
-    "desktop:dist": "npm run build:web && npm run desktop:build:api && npm --workspace @atlas/desktop run dist"
+    "desktop:dist": "npm run build:web && npm run desktop:build:api && npm --workspace @atlas/desktop run dist",
+    "mobile:build": "npm --workspace @atlas/mobile run build",
+    "mobile:android": "npm --workspace @atlas/mobile run cap:android"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1"

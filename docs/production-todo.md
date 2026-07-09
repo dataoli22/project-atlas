@@ -14,7 +14,10 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ## 0. Current status snapshot
 
-- Backend tests: **89 passing** (`npm run test:api`).
+- Backend tests: **102 passing** (`npm run test:api`).
+- Mobile: `mobile/` Capacitor companion app scaffolded (pairing/sync UI, Android platform added),
+  backend pairing/device-token infrastructure built and verified live. No `.apk` built (no
+  Android SDK here). iOS hard-blocked on Xcode/macOS access. See `docs/mobile-architecture.md`.
 - Web production build: fixed with a clean-before-build step; green in CI and locally.
 - Repo is a git repository, pushed to `https://github.com/dataoli22/project-atlas` (private).
 - CI is live at `.github/workflows/ci.yml` (api / web / security / e2e), all green.
@@ -244,13 +247,49 @@ this summary.)
 - [ ] Calendarized training plan / coach follow-up surface.
 - [ ] Explicit escalation flow for medical red flags / overtraining / injury language.
 
-## 8. Connectors & native bridges — Shared shell + Endurance agents · P1
+## 8. Connectors & native bridges — Shared shell + Endurance agents · P1 — MOBILE: SCAFFOLDED
 
-- [ ] Desktop callback capture in the packaged shell (no manual code entry).
-- [ ] Android permission + callback orchestration; native Health Connect / Samsung Health SDK
-      bridges posting to existing local bridge endpoints.
+(Details: `docs/mobile-architecture.md` — read it, not just this summary. Covers why mobile is
+architecturally different from desktop, what's built, and the hard iOS blocker.)
+
+> **Architecture decision**: mobile is "companion mode" — the phone has no backend of its own
+> (FastAPI can't run on iOS at all, and an Android-only embedding wouldn't reach iOS); it collects
+> Health Connect/HealthKit data and syncs it to a **paired desktop** over the local network. The
+> mobile UI is a small dedicated Vite+React app (`mobile/`), not a reuse of `apps/web` — Next.js's
+> static-export mode would require the entire desktop app to give up server rendering, which isn't
+> worth it for a handful of companion screens.
+
+- [x] Backend pairing: `POST /api/v1/pairing/start` (code + LAN address detection) →
+      `POST /api/v1/pairing/confirm` (device token issuance, PBKDF2-hashed at rest, reusing the
+      app-lock hashing helpers) → `GET`/`DELETE /api/v1/pairing/devices`. **Verified live**: full
+      flow against a real running server including real LAN IP detection, wrong-token rejection,
+      and persistence across a server restart. 13 new tests, 102 total passing.
+- [x] Device-token auth on `health_connect`/`samsung_health` device-sync endpoints — opt-in via
+      `X-Atlas-Device-Id`/`Authorization: Bearer` headers, backward-compatible with existing
+      no-auth loopback callers.
+- [x] LAN bind host: `ATLAS_ALLOW_LAN_PAIRING=1` env var switches the sidecar from `127.0.0.1` to
+      `0.0.0.0`. No in-app toggle yet (would need a "restart to apply" UX not yet built).
+- [x] Desktop pairing UI (`/settings/integrations` → "Phone pairing" panel) — verified live
+      against a running server.
+- [x] `mobile/` Capacitor project: Vite+React+TypeScript, Android platform added via
+      `npx cap add android` (real native project generated — Gradle, manifest with `INTERNET`
+      permission, launcher icons). Pair + sync screens built and verified to build cleanly
+      (zero TypeScript errors). Pairing state persisted via `@capacitor/preferences`.
+- [ ] **No `.apk` has been built or run** — this environment has no Android SDK, no JDK 17+ (only
+      JDK 8), and no emulator/device. This is a real, stated limitation, not an oversight — see
+      `docs/mobile-architecture.md` section 3 for exactly what's needed to actually build and run
+      it (Android Studio + JDK 17+ + a device or emulator, on a real machine).
+- [ ] Native Health Connect SDK integration (`mobile/src/health-connect-plugin.ts` documents the
+      exact interface and remaining Kotlin work; deliberately not implemented blind, since native
+      Android health SDK code can't be verified without a real device).
+- [ ] Samsung Health SDK bridge (same shape as Health Connect, not started for mobile).
+- [ ] iOS: **hard blocked** on Xcode + macOS access + an Apple Developer Program enrollment
+      ($99/year), none of which exist in this environment. `cap add ios` + a HealthKit plugin are
+      the next steps once that access exists.
 - [ ] Sync retry queue + backoff; token refresh scheduler; permission revocation handling.
 - [ ] Richer sync payload mapping for all three connectors.
+- [ ] App icon / branding assets for the mobile app.
+- [ ] Play Store / App Store listing and release process.
 
 ## 9. Packaging & installers — Shared shell agent · P0/P1 — DESKTOP: WINDOWS INSTALLER WORKING
 
