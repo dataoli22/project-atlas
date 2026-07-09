@@ -56,6 +56,55 @@ def test_confirm_pairing_with_wrong_code_fails(client):
     assert response.status_code == 400
 
 
+def test_confirm_pairing_invalidates_code_after_max_wrong_attempts(client):
+    from app.features.shared.services.pairing import MAX_PAIRING_ATTEMPTS
+
+    start = client.post("/api/v1/pairing/start").json()
+
+    for _ in range(MAX_PAIRING_ATTEMPTS):
+        response = client.post(
+            "/api/v1/pairing/confirm",
+            json={"code": "000000", "device_name": "Attacker"},
+        )
+        assert response.status_code == 400
+
+    # Even the correct code no longer works - the code was invalidated outright, not just
+    # rate-limited, after MAX_PAIRING_ATTEMPTS wrong guesses.
+    final = client.post(
+        "/api/v1/pairing/confirm",
+        json={"code": start["code"], "device_name": "Legitimate phone"},
+    )
+    assert final.status_code == 400
+    assert "no pairing" in final.json()["detail"].lower() or "expired" in final.json()["detail"].lower() or "attempts" in final.json()["detail"].lower()
+
+
+def test_confirm_pairing_attempts_reset_on_new_pairing_start(client):
+    from app.features.shared.services.pairing import MAX_PAIRING_ATTEMPTS
+
+    client.post("/api/v1/pairing/start")
+    for _ in range(MAX_PAIRING_ATTEMPTS - 1):
+        client.post(
+            "/api/v1/pairing/confirm",
+            json={"code": "000000", "device_name": "Attacker"},
+        )
+
+    # Starting a fresh pairing session should reset the attempt counter, not carry it over.
+    fresh = client.post("/api/v1/pairing/start").json()
+    response = client.post(
+        "/api/v1/pairing/confirm",
+        json={"code": fresh["code"], "device_name": "Legitimate phone"},
+    )
+    assert response.status_code == 200
+
+
+def test_confirm_pairing_without_any_pending_code_fails(client):
+    response = client.post(
+        "/api/v1/pairing/confirm",
+        json={"code": "123456", "device_name": "No pairing started"},
+    )
+    assert response.status_code == 400
+
+
 def test_confirm_pairing_code_is_single_use(client):
     start = client.post("/api/v1/pairing/start").json()
 

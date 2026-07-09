@@ -14,10 +14,12 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ## 0. Current status snapshot
 
-- Backend tests: **102 passing** (`npm run test:api`).
+- Backend tests: **105 passing** (`npm run test:api`).
 - Mobile: `mobile/` Capacitor companion app scaffolded (pairing/sync UI, Android platform added),
   backend pairing/device-token infrastructure built and verified live. No `.apk` built (no
   Android SDK here). iOS hard-blocked on Xcode/macOS access. See `docs/mobile-architecture.md`.
+- Hardening pass: pairing code brute-force protection, a real in-app LAN-pairing toggle (was
+  env-var-only), and mobile sync retry/backoff — all verified live. See section 8.
 - Web production build: fixed with a clean-before-build step; green in CI and locally.
 - Repo is a git repository, pushed to `https://github.com/dataoli22/project-atlas` (private).
 - CI is live at `.github/workflows/ci.yml` (api / web / security / e2e), all green.
@@ -263,18 +265,30 @@ architecturally different from desktop, what's built, and the hard iOS blocker.)
       `POST /api/v1/pairing/confirm` (device token issuance, PBKDF2-hashed at rest, reusing the
       app-lock hashing helpers) → `GET`/`DELETE /api/v1/pairing/devices`. **Verified live**: full
       flow against a real running server including real LAN IP detection, wrong-token rejection,
-      and persistence across a server restart. 13 new tests, 102 total passing.
+      and persistence across a server restart. 105 backend tests total passing.
 - [x] Device-token auth on `health_connect`/`samsung_health` device-sync endpoints — opt-in via
       `X-Atlas-Device-Id`/`Authorization: Bearer` headers, backward-compatible with existing
       no-auth loopback callers.
-- [x] LAN bind host: `ATLAS_ALLOW_LAN_PAIRING=1` env var switches the sidecar from `127.0.0.1` to
-      `0.0.0.0`. No in-app toggle yet (would need a "restart to apply" UX not yet built).
+- [x] **Hardened**: pairing code brute-force protection — `MAX_PAIRING_ATTEMPTS = 5`, code
+      invalidated outright (not just rate-limited) after that many wrong guesses,
+      `hmac.compare_digest` for the comparison. A 6-digit code with unlimited guesses over its
+      5-minute window was a real gap; fixed and covered by 3 new tests.
+- [x] **Hardened**: LAN bind host is now a real **in-app toggle**
+      (Settings → Phone pairing → "Allow phone pairing on this network"), not just the
+      `ATLAS_ALLOW_LAN_PAIRING=1` env var (which still works as a first-run fallback). Persisted
+      via a small `desktop-prefs.json` + IPC bridge (`main.js`/`preload.js`), with an explicit
+      "Restart Atlas to apply" prompt since the bind address can't change without a restart.
+      **Verified live in both directions**: toggle on → sidecar bound `0.0.0.0`, confirmed
+      reachable via the real detected LAN IP; toggle off → reverted to `127.0.0.1`-only.
 - [x] Desktop pairing UI (`/settings/integrations` → "Phone pairing" panel) — verified live
       against a running server.
 - [x] `mobile/` Capacitor project: Vite+React+TypeScript, Android platform added via
       `npx cap add android` (real native project generated — Gradle, manifest with `INTERNET`
       permission, launcher icons). Pair + sync screens built and verified to build cleanly
       (zero TypeScript errors). Pairing state persisted via `@capacitor/preferences`.
+- [x] **Hardened**: mobile sync calls now retry with backoff (500/1500/4000ms) on network
+      failures and 5xx responses, but not on 4xx (auth/validation) failures that retrying can't
+      fix — a phone on Wi-Fi hits transient drops a wired desktop mostly doesn't.
 - [ ] **No `.apk` has been built or run** — this environment has no Android SDK, no JDK 17+ (only
       JDK 8), and no emulator/device. This is a real, stated limitation, not an oversight — see
       `docs/mobile-architecture.md` section 3 for exactly what's needed to actually build and run

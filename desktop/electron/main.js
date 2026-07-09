@@ -10,8 +10,9 @@
 // client components that call fetch directly would otherwise need NEXT_PUBLIC_ATLAS_API_URL
 // baked into the bundle at build time - see apps/web/lib/api.ts's resolveApiBaseUrl().
 
-const { app, BrowserWindow, dialog, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const path = require("node:path");
+const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const net = require("node:net");
@@ -28,6 +29,52 @@ app.setName("Atlas");
 let apiProcess = null;
 let webProcess = null;
 let mainWindow = null;
+
+// Desktop-only preferences (currently just the LAN pairing toggle) live in a plain JSON file in
+// userData rather than in the API's own SQLite state, because the main process needs to read
+// this *before* it decides what host to bind the sidecar to - the sidecar itself can't be the
+// source of truth for a setting that determines how the sidecar gets launched. Read/write via
+// IPC from the renderer (see preload.js's atlasDesktop.lanPairing and
+// pairing-settings-form.tsx's desktop-only toggle).
+function desktopPrefsPath() {
+  return path.join(app.getPath("userData"), "desktop-prefs.json");
+}
+
+function readDesktopPrefs() {
+  try {
+    return JSON.parse(fs.readFileSync(desktopPrefsPath(), "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+function writeDesktopPrefs(patch) {
+  const current = readDesktopPrefs();
+  const next = { ...current, ...patch };
+  fs.mkdirSync(path.dirname(desktopPrefsPath()), { recursive: true });
+  fs.writeFileSync(desktopPrefsPath(), JSON.stringify(next, null, 2), "utf-8");
+  return next;
+}
+
+function resolveAllowLanPairing() {
+  const stored = readDesktopPrefs().allowLanPairing;
+  if (typeof stored === "boolean") {
+    return stored;
+  }
+  // First run (no persisted preference yet): fall back to the env var for anyone who was
+  // already using the pre-toggle opt-in.
+  return process.env.ATLAS_ALLOW_LAN_PAIRING === "1";
+}
+
+ipcMain.handle("atlas:get-lan-pairing", () => resolveAllowLanPairing());
+ipcMain.handle("atlas:set-lan-pairing", (_event, enabled) => {
+  writeDesktopPrefs({ allowLanPairing: Boolean(enabled) });
+  return true;
+});
+ipcMain.handle("atlas:restart-app", () => {
+  app.relaunch();
+  app.exit(0);
+});
 
 function findFreePort() {
   return new Promise((resolve, reject) => {
@@ -63,15 +110,18 @@ function spawnApiSidecar(apiPort, userDataDir) {
   // keeps packaged-app state out of the (potentially read-only, or reinstall-wiped) install
   // location - the OS app-data directory is the correct place for a packaged app's local state.
   //
-  // LAN pairing (the phone companion app) requires the sidecar to bind beyond loopback. This is
-  // opt-in via ATLAS_ALLOW_LAN_PAIRING=1 set before launching Atlas - there is deliberately no
-  // in-app toggle yet, since changing the bind address requires restarting the sidecar and a
-  // proper "restart to apply" UX is a follow-up, not built here. Binding to 0.0.0.0 means any
-  // device on the same local network can reach the API; the pairing code + device token flow
-  // (see pairing.py) is the only thing gating access to it once bound this way, so anyone who
-  // can intercept the pairing code during its 5-minute window could pair. This is stated plainly
-  // rather than glossed over - it is a real tradeoff of opting into LAN pairing at all.
-  const apiHost = process.env.ATLAS_ALLOW_LAN_PAIRING === "1" ? "0.0.0.0" : "127.0.0.1";
+  // LAN pairing (the phone companion app) requires the sidecar to bind beyond loopback. Gated by
+  // the persisted desktop-prefs.json toggle (settable from Settings -> Phone pairing, see
+  // preload.js/pairing-settings-form.tsx), falling back to ATLAS_ALLOW_LAN_PAIRING=1 on first
+  // run. Changing the bind address requires restarting the sidecar - the settings UI shows a
+  // "Restart Atlas to apply" prompt after the toggle changes rather than silently requiring the
+  // user to figure that out. Binding to 0.0.0.0 means any device on the same local network can
+  // reach the API; the pairing code + device token flow (see pairing.py) is the only thing
+  // gating access to it once bound this way, so anyone who can intercept the pairing code during
+  // its 5-minute window (now also bounded to a handful of guesses - see MAX_PAIRING_ATTEMPTS in
+  // pairing.py) could pair. This is stated plainly rather than glossed over - it is a real
+  // tradeoff of opting into LAN pairing at all.
+  const apiHost = resolveAllowLanPairing() ? "0.0.0.0" : "127.0.0.1";
   const sharedEnv = {
     ...process.env,
     ATLAS_LOCAL_DB_PATH: path.join(userDataDir, "atlas.db"),

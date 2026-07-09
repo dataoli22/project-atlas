@@ -6,6 +6,11 @@ from datetime import datetime, timedelta, timezone
 
 PAIRING_CODE_TTL_MINUTES = 5
 
+# A 6-digit code has only 1,000,000 possibilities - bounding guesses per code matters far more
+# here than per-request rate limiting. After this many wrong attempts the code is invalidated
+# outright and a fresh one must be started on the desktop, which a remote attacker cannot do.
+MAX_PAIRING_ATTEMPTS = 5
+
 
 def generate_pairing_code() -> str:
     """A short, human-typeable code shown on the desktop screen and entered on the phone."""

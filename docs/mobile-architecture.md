@@ -71,21 +71,67 @@ confirmation issuing a real token, an authenticated sync call updating `last_syn
 wrong-token call correctly rejected with 401, and paired-device state surviving a full server
 restart (SQLite persistence). 13 new backend tests, 102 total passing.
 
-### LAN bind host (`desktop/electron/main.js`)
+### LAN bind host — in-app toggle (`desktop/electron/main.js`, `preload.js`)
 
-The sidecar binds to `127.0.0.1` by default, same as before. Set `ATLAS_ALLOW_LAN_PAIRING=1`
-before launching Atlas to bind to `0.0.0.0` instead, making the API reachable from other devices
-on the network. **There is deliberately no in-app toggle for this yet** — changing the bind
-address requires restarting the sidecar, and a proper "restart to apply" UX wasn't built. This is
-stated plainly as a real, current limitation, not glossed over.
+The sidecar binds to `127.0.0.1` by default. Phone pairing requires binding to `0.0.0.0` instead,
+toggled from **Settings → Phone pairing → "Allow phone pairing on this network"**, not an env var:
+
+- The preference lives in a small `desktop-prefs.json` file in Electron's `userData` directory,
+  read/written via `readDesktopPrefs`/`writeDesktopPrefs` in `main.js`. It has to live outside the
+  API's own SQLite state because the main process needs to know the bind host **before** it spawns
+  the sidecar that would otherwise be the source of truth for that setting.
+- `preload.js` exposes `window.atlasDesktop.lanPairing.{get,set,restart}` via `ipcRenderer.invoke`
+  against `ipcMain.handle("atlas:get-lan-pairing"/"atlas:set-lan-pairing"/"atlas:restart-app")`.
+- The settings UI (`LanPairingToggle` in `pairing-settings-form.tsx`) only renders inside the
+  Electron shell (`window.atlasDesktop` is undefined in the plain browser dev server) and shows an
+  explicit **"Restart Atlas to apply"** button after a change — the bind address genuinely cannot
+  change without restarting the sidecar process, so the UI says so instead of pretending otherwise.
+- `ATLAS_ALLOW_LAN_PAIRING=1` still works as a first-run fallback (used before any preference has
+  been persisted), for anyone scripting a launch without going through the UI.
+
+**Verified live, both directions**, by writing the prefs file directly and relaunching Electron
+(bypassing the need to click through a UI in a headless environment — the toggle's own logic is a
+thin IPC pass-through to the same `read/writeDesktopPrefs` functions exercised this way):
+`allowLanPairing: true` → sidecar log showed `Uvicorn running on http://0.0.0.0:<port>`, confirmed
+reachable via the real detected LAN IP (`curl http://192.168.0.107:<port>/api/v1/health` and a
+live `/api/v1/pairing/start` call both succeeded from that address); `allowLanPairing: false` →
+reverted to `127.0.0.1`-only on the next launch.
 
 **Threat model note**: binding to `0.0.0.0` means *any* device on the same local network can reach
-the API, not just a phone with a valid pairing code. The pairing code (5-minute window) and device
-token are the only things gating access to the pairing/sync endpoints specifically — other
-endpoints (settings, chat, nutrition, etc.) remain reachable by anyone on the LAN once
-`ATLAS_ALLOW_LAN_PAIRING=1` is set, matching Atlas's existing no-auth-on-loopback posture extended
-to the LAN. Anyone wanting a stricter model should keep LAN pairing off except during an active
-pairing session.
+the API, not just a phone with a valid pairing code. The pairing code/device-token flow is the only
+thing gating access to the pairing/sync endpoints specifically — other endpoints (settings, chat,
+nutrition, etc.) remain reachable by anyone on the LAN once the toggle is on, matching Atlas's
+existing no-auth-on-loopback posture extended to the LAN. Anyone wanting a stricter model should
+keep the toggle off except during an active pairing session.
+
+### Pairing code brute-force protection (`apps/api/app/features/shared/services/pairing.py`, `state.py`)
+
+A 6-digit code has only 1,000,000 possibilities — the original implementation had **no limit** on
+guesses within the 5-minute window, a real vulnerability on a LAN with multiple devices able to
+hit the endpoint. Fixed:
+
+- `MAX_PAIRING_ATTEMPTS = 5` — after this many wrong guesses against one code, the code is
+  **invalidated outright** (not just rate-limited), forcing a fresh code to be started on the
+  desktop, which a remote attacker cannot do.
+- Attempt counting resets when a new pairing session starts (`start_device_pairing`), so a
+  legitimate retry-after-typo doesn't get penalized by a previous session's failed guesses.
+- Code comparison uses `hmac.compare_digest` instead of `!=`, avoiding a (largely theoretical, but
+  free to fix) timing side-channel.
+
+Verified via 3 new tests: invalidation after `MAX_PAIRING_ATTEMPTS` wrong guesses (confirmed the
+*correct* code no longer works afterward, proving the code was invalidated, not just the guess
+rejected), attempt counter resetting on a fresh `start_device_pairing`, and confirming without any
+pending code fails cleanly. 105 backend tests total passing.
+
+### Mobile sync retry with backoff (`mobile/src/desktop-api.ts`)
+
+A phone on Wi-Fi genuinely drops packets and hits transient connection hiccups that a desktop's
+more stable connection mostly doesn't. `syncHealthConnectData` now retries with backoff
+(500ms/1500ms/4000ms) on network-level failures (`fetch` throwing) and `5xx` responses, but
+**not** on `4xx` responses (expired/invalid token, validation errors) — retrying an auth failure
+just wastes battery on a request that cannot succeed until the user re-pairs. Verified via a clean
+`npm run mobile:build` (zero TypeScript errors); not exercised against a real flaky network, since
+that needs a real device.
 
 ### Desktop UI (`apps/web/components/pairing-settings-form.tsx`)
 
@@ -168,7 +214,12 @@ Health Connect's `HealthConnectClient`).
 
 - [ ] Real Android build + device/emulator test (needs Android Studio + JDK 17+ on a real machine)
 - [ ] Native `HealthConnectPlugin.kt` implementation
-- [ ] In-app "restart to apply" UX for the LAN pairing toggle (currently env-var-only)
+- [x] In-app "restart to apply" UX for the LAN pairing toggle — done, see section 2
+- [x] Pairing code brute-force protection — done, see section 2
+- [x] Mobile sync retry/backoff on transient network failures — done, see section 2
 - [ ] iOS: `cap add ios`, HealthKit plugin, Apple Developer Program enrollment
 - [ ] App icon / branding for the mobile app (Capacitor's default template icons are in place)
 - [ ] Play Store / App Store listing and release process
+- [ ] Rate limiting on `/api/v1/pairing/start` itself (currently unlimited — a LAN attacker could
+      keep generating fresh codes; low severity since each new code invalidates the previous one
+      and only the desktop operator sees the code, but worth tightening later)

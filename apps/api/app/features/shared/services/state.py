@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import json
 import os
 from datetime import datetime, timezone
@@ -31,6 +32,7 @@ from app.features.shared.services.ai import build_ai_settings_response
 from app.features.shared.services.app_lock import hash_pin, verify_pin
 from app.features.shared.services.db import LocalStateDatabase
 from app.features.shared.services.pairing import (
+    MAX_PAIRING_ATTEMPTS,
     detect_lan_addresses,
     generate_device_id,
     generate_device_token,
@@ -582,6 +584,7 @@ class SharedStateStore:
             expires_at = pairing_code_expiry()
             self._pairing["pending_code"] = code
             self._pairing["pending_expires_at"] = expires_at
+            self._pairing["attempts"] = 0
             self._persist_state_unlocked()
 
             return PairingStartResponse(
@@ -596,13 +599,35 @@ class SharedStateStore:
             pending_code = self._pairing["pending_code"]
             expires_at = self._pairing["pending_expires_at"]
 
-            if not pending_code or payload.code != pending_code:
-                raise ValueError("Pairing code did not match. Start pairing again on the desktop.")
+            if not pending_code:
+                raise ValueError("No pairing is in progress. Start pairing again on the desktop.")
+
             if not expires_at or is_expired(expires_at):
+                self._pairing["pending_code"] = None
+                self._pairing["pending_expires_at"] = None
+                self._persist_state_unlocked()
                 raise ValueError("Pairing code expired. Start pairing again on the desktop.")
+
+            if not hmac.compare_digest(payload.code, pending_code):
+                self._pairing["attempts"] += 1
+                if self._pairing["attempts"] >= MAX_PAIRING_ATTEMPTS:
+                    # Invalidate the code outright after repeated wrong guesses rather than just
+                    # rate-limiting - a 6-digit code has only 1,000,000 possibilities, so bounding
+                    # the *number of guesses* against one code matters far more than slowing down
+                    # individual requests. A fresh code requires starting pairing again on the
+                    # desktop, which a remote attacker cannot do.
+                    self._pairing["pending_code"] = None
+                    self._pairing["pending_expires_at"] = None
+                    self._persist_state_unlocked()
+                    raise ValueError(
+                        "Too many incorrect attempts. Start pairing again on the desktop."
+                    )
+                self._persist_state_unlocked()
+                raise ValueError("Pairing code did not match. Start pairing again on the desktop.")
 
             self._pairing["pending_code"] = None
             self._pairing["pending_expires_at"] = None
+            self._pairing["attempts"] = 0
 
             device_id = generate_device_id()
             token = generate_device_token()
@@ -780,7 +805,7 @@ class SharedStateStore:
 
         pairing_payload = payload.get("pairing", {})
         if isinstance(pairing_payload, dict):
-            for key in ("pending_code", "pending_expires_at"):
+            for key in ("pending_code", "pending_expires_at", "attempts"):
                 if key in pairing_payload:
                     self._pairing[key] = pairing_payload[key]
             devices = pairing_payload.get("devices")
@@ -809,6 +834,7 @@ class SharedStateStore:
             "pairing": {
                 "pending_code": self._pairing["pending_code"],
                 "pending_expires_at": self._pairing["pending_expires_at"],
+                "attempts": self._pairing["attempts"],
                 "devices": self._pairing["devices"],
             },
         }
@@ -976,6 +1002,7 @@ def _build_default_pairing() -> dict[str, object]:
     return {
         "pending_code": None,
         "pending_expires_at": None,
+        "attempts": 0,
         "devices": {},
     }
 

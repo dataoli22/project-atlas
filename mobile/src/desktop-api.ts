@@ -66,28 +66,57 @@ export async function confirmPairing(
   };
 }
 
+const SYNC_RETRY_DELAYS_MS = [500, 1500, 4000];
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * A phone on Wi-Fi genuinely drops packets and hits transient DNS/connection hiccups that a
+ * desktop's wired/stable connection mostly doesn't - a single failed fetch here is not
+ * necessarily "the desktop is gone", so retry network-level failures and 5xx responses with
+ * backoff. 4xx responses (bad/expired token, validation errors) are NOT retried - retrying an
+ * auth failure just wastes battery hammering a request that cannot succeed until the user
+ * re-pairs.
+ */
 export async function syncHealthConnectData(
   pairing: StoredPairing,
   payload: SyncPayload
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  try {
-    const response = await fetch(`${pairing.desktopBaseUrl}/api/v1/integrations/health_connect/device-sync`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Atlas-Device-Id": pairing.deviceId,
-        Authorization: `Bearer ${pairing.deviceToken}`
-      },
-      body: JSON.stringify(payload)
-    });
+  let lastMessage = "Could not reach the desktop.";
 
-    if (!response.ok) {
+  for (let attempt = 0; attempt <= SYNC_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const response = await fetch(`${pairing.desktopBaseUrl}/api/v1/integrations/health_connect/device-sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Atlas-Device-Id": pairing.deviceId,
+          Authorization: `Bearer ${pairing.deviceToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        return { ok: true };
+      }
+
       const detail = await response.json().catch(() => null);
-      return { ok: false, message: detail?.detail ?? `Sync failed with status ${response.status}` };
+      lastMessage = detail?.detail ?? `Sync failed with status ${response.status}`;
+
+      if (response.status < 500) {
+        // Client error (bad token, validation, etc.) - retrying will not help.
+        return { ok: false, message: lastMessage };
+      }
+    } catch (error) {
+      lastMessage = error instanceof Error ? error.message : "Could not reach the desktop.";
     }
 
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Could not reach the desktop." };
+    if (attempt < SYNC_RETRY_DELAYS_MS.length) {
+      await delay(SYNC_RETRY_DELAYS_MS[attempt]);
+    }
   }
+
+  return { ok: false, message: lastMessage };
 }

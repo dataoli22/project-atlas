@@ -37,6 +37,7 @@ def restore_shared_state():
             "pairing": {
                 "pending_code": shared_state._pairing["pending_code"],
                 "pending_expires_at": shared_state._pairing["pending_expires_at"],
+                "attempts": shared_state._pairing["attempts"],
                 "devices": {key: dict(value) for key, value in shared_state._pairing["devices"].items()},
             },
             "ollama_api_key": shared_state._ollama_api_key,

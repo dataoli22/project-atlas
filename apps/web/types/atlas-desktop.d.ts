@@ -12,6 +12,14 @@ declare global {
     atlasDesktop?: {
       isDesktop: true;
       apiBaseUrl: string;
+      /** LAN pairing toggle - lives outside the API's own state since the Electron main process
+       *  needs to read it before deciding what host to bind the sidecar to. Changing it requires
+       *  a restart (see `restart()`) since the sidecar's bind address can't change while running. */
+      lanPairing: {
+        get: () => Promise<boolean>;
+        set: (enabled: boolean) => Promise<boolean>;
+        restart: () => Promise<void>;
+      };
     };
   }
 }
