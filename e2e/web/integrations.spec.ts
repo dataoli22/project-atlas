@@ -11,6 +11,6 @@ test.describe("integrations page", () => {
     await expect(page.getByRole("button", { name: "Strava", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Health Connect", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Samsung Health", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Test Ollama connection" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Run first-run check" })).toBeVisible();
   });
 });
