@@ -22,6 +22,7 @@ from app.features.shared.schemas.app import (
     ProfileSettingsUpdate,
 )
 from app.features.shared.services.ai import build_ai_settings_response
+from app.features.shared.services.db import LocalStateDatabase
 from app.features.shared.services.registry import (
     get_default_ai_settings,
     get_default_localization,
@@ -44,6 +45,11 @@ class SharedStateStore:
         self._nutrition_runtime = _build_default_nutrition_runtime()
         settings = get_settings()
         self._local_state_path = Path(settings.local_state_path)
+        self._db = (
+            None
+            if self._persistence_disabled()
+            else LocalStateDatabase(Path(settings.local_db_path))
+        )
         self._secret_protector = build_local_secret_protector()
         self._ollama_api_key = settings.ollama_api_key
         self._groq_api_key = settings.groq_api_key
@@ -571,12 +577,20 @@ class SharedStateStore:
         )
 
     def _load_persisted_state(self) -> None:
-        if self._persistence_disabled() or not self._local_state_path.exists():
+        if self._persistence_disabled():
             return
 
-        try:
-            payload = json.loads(self._local_state_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError, TypeError):
+        payload = self._db.get_json("shared_state") if self._db else None
+
+        if payload is None and self._local_state_path.exists():
+            try:
+                payload = json.loads(self._local_state_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, TypeError):
+                payload = None
+            if payload is not None and self._db:
+                self._db.set_json("shared_state", payload)
+
+        if payload is None:
             return
 
         integrations_payload = payload.get("integrations", {})
@@ -603,7 +617,7 @@ class SharedStateStore:
         self._restore_protected_runtime_secrets_unlocked()
 
     def _persist_state_unlocked(self) -> None:
-        if self._persistence_disabled():
+        if self._persistence_disabled() or self._db is None:
             return
 
         payload = {
@@ -619,14 +633,7 @@ class SharedStateStore:
                 "refresh_reason": self._nutrition_runtime["refresh_reason"],
             },
         }
-        try:
-            self._local_state_path.parent.mkdir(parents=True, exist_ok=True)
-            self._local_state_path.write_text(
-                json.dumps(payload, indent=2),
-                encoding="utf-8",
-            )
-        except OSError:
-            return
+        self._db.set_json("shared_state", payload)
 
     def _persistence_disabled(self) -> bool:
         return "PYTEST_CURRENT_TEST" in os.environ

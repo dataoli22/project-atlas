@@ -206,17 +206,25 @@ device, secrets stay on device, sync jobs run on device.
 
 ## 6. Local data + migrations for packaging
 
-Current persistence is a single JSON file (`apps/api/.local/shared-state.json`) written by
-`apps/api/app/features/shared/services/state.py`. This does not survive to production.
+Persistence now lives in a SQLite file at `apps/api/.local/atlas.db`
+(`app/features/shared/services/db.py`, `LocalStateDatabase`), replacing the previous raw JSON
+file. It uses WAL mode, explicit transactions, and a `PRAGMA user_version`-driven migration list
+rather than a full Alembic/ORM stack — the schema today is one versioned key-value table
+(`app_state`) storing the same JSON-shaped payload `state.py` always produced. A one-time
+migration imports the legacy `shared-state.json` on first launch if the database is still empty.
 
-Required before packaging GA (details in `prod-readiness-audit.md` section 2 and the master TODO):
+Still required before packaging GA (details in `prod-readiness-audit.md` section 2 and the master
+TODO):
 
-- Replace JSON with **SQLite** for structured local state.
-- Add **Alembic** migrations with a versioned upgrade path across releases.
+- Move to normalized, Alembic-managed tables once real relational data arrives (connector sync
+  history, planner generation history with foreign keys) — the current KV table is intentionally
+  minimal and should not be over-engineered ahead of that need.
 - Separate **secret storage** into OS-native vaults (Credential Manager/DPAPI, Keychain,
   libsecret, Android Keystore) rather than the current base64 fallback in `secure_storage.py`.
 - Add local **backup / export / import** flows.
-- The updater must run migrations on first launch of a new version and never destroy user data.
+- The updater must run migrations on first launch of a new version and never destroy user data —
+  the `PRAGMA user_version` migration list already gives this for the KV schema; extend it as new
+  migrations are added, and never edit a shipped migration function in place.
 
 ---
 
@@ -252,15 +260,16 @@ its own sidecar, detects or assists installing Ollama, and all data stays on dev
 
 ## 9. Packaging checklist (living)
 
-- [ ] `git init` + `.gitignore` covering `.next`, `__pycache__`, `.local`, `test-results`
-- [ ] `apps/web` clean-before-build step
+- [x] `git init` + `.gitignore` covering `.next`, `__pycache__`, `.local`, `test-results`
+- [x] `apps/web` clean-before-build step
+- [x] SQLite persistence (`LocalStateDatabase`) with versioned migrations + legacy JSON import
 - [ ] Release preflight that rejects stale generated artifacts
 - [ ] `desktop/` Tauri v2 project
 - [ ] FastAPI PyInstaller sidecar
 - [ ] Sidecar lifecycle manager (start/health/restart/stop, dynamic port)
-- [ ] OS app-data user-data path wired to `ATLAS_LOCAL_STATE_PATH`
+- [ ] OS app-data user-data path wired to `ATLAS_LOCAL_DB_PATH` / `ATLAS_LOCAL_STATE_PATH`
 - [ ] Signed Windows + macOS installers + updater
-- [ ] SQLite + Alembic migrations
+- [ ] Alembic migrations for normalized tables (once relational data is needed)
 - [ ] OS-native secret storage
 - [ ] Backup / export / import
 - [ ] `android/` shell + native bridges + Keystore

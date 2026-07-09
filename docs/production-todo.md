@@ -14,11 +14,13 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ## 0. Current status snapshot
 
-- Backend tests: **44 passing** (`npm run test:api`).
+- Backend tests: **53 passing** (`npm run test:api`).
 - Web production build: fixed with a clean-before-build step; green in CI and locally.
 - Repo is a git repository, pushed to `https://github.com/dataoli22/project-atlas` (private).
 - CI is live at `.github/workflows/ci.yml` (api / web / security / e2e), all green.
-- Data layer: single JSON file; secrets base64 fallback off-Windows. **Still the top P0 gap.**
+- Data layer: **SQLite-backed** (`LocalStateDatabase`), replacing the raw JSON file, with a
+  one-time legacy-JSON import path. Secrets still use the base64 fallback off-Windows —
+  **now the top P0 gap** (section 2).
 - This iteration added: nutrition refresh + 7-day calendar + meal prep hacks + video links, and
   endurance coach support links (see `nutrition-endurance-feature-spec.md`).
 
@@ -55,14 +57,30 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ## 2. Data, persistence, secrets — Shared shell agent · P0
 
-- [ ] Replace JSON store (`state.py`) with **SQLite** + repository layer.
-- [ ] **Alembic** migrations + versioned upgrade path preserved by the updater.
+- [x] Replace JSON store (`state.py`) with **SQLite**: `apps/api/app/features/shared/services/db.py`
+      (`LocalStateDatabase`) — a small versioned key-value table (`app_state`) with WAL mode and
+      `PRAGMA user_version`-driven migrations, rather than a full ORM/Alembic stack, since the
+      state shape is still a single JSON-shaped blob per feature area. Wired into `state.py`'s
+      existing `_load_persisted_state` / `_persist_state_unlocked` choke points, so all 15
+      mutating call sites were untouched. One-time JSON→SQLite import runs on first launch when
+      the DB is empty and a legacy `shared-state.json` exists (never overwrites newer DB state).
+      Verified manually: round-trip across process restart, legacy JSON import, and via 9 new
+      tests in `apps/api/tests/test_local_state_database.py` (53 total passing). Persistence
+      stays fully disabled under `PYTEST_CURRENT_TEST`, matching prior behavior exactly.
+- [ ] **Alembic** migrations — deferred. The current schema is one KV table; reach for
+      Alembic-managed relational tables when a real normalized schema (e.g. connector sync
+      history, planner generation history with foreign keys) is introduced. Revisit alongside the
+      "durable tables" item below.
 - [ ] OS-native secret storage abstraction (Credential Manager/DPAPI, Keychain, libsecret,
       Android Keystore) replacing base64 fallback in `secure_storage.py`.
 - [ ] Separate secret storage from general app state.
 - [ ] Local backup / export / import.
-- [ ] Durable tables: connector sync history, planner generation history + refresh metadata.
-- [ ] Transactional guarantees + corruption recovery.
+- [ ] Durable tables: connector sync history, planner generation history + refresh metadata
+      (would motivate moving off the single KV table above).
+- [x] Transactional guarantees + corruption recovery: SQLite WAL mode + explicit
+      commit/rollback in `LocalStateDatabase._transaction`; a corrupt DB file raises loudly at
+      startup instead of silently discarding state (covered by
+      `test_corrupt_db_file_raises_rather_than_silently_losing_data`).
 
 ## 3. Authentication & permissions — Shared shell agent · P1
 

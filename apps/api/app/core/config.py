@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     strava_redirect_uri: str = "http://localhost:8000/api/v1/integrations/strava/callback"
     strava_scopes: str = "read,activity:read_all"
     local_state_path: str = "apps/api/.local/shared-state.json"
+    local_db_path: str = "apps/api/.local/atlas.db"
 
 
 @lru_cache
