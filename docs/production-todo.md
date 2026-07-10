@@ -107,9 +107,20 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 - [x] **6a done**: seven-day calendar, meal prep hacks, curated video links, refresh/provenance
       metadata, `POST /nutrition/planner/refresh` with persisted swap history.
-- [ ] **6b**: replace deterministic blueprints with a real optimizer (recipe library + price
-      layer); pantry inventory / "already have this" logic; recipe source system with a real
-      "why did the plan change" explanation; browser-search fallback provider for links.
+- [x] **6b started — browser-search fallback**: `BraveSearchProvider` (`nutrition/data_sources.py`)
+      implements the previously-unwired `NutritionSearchFallbackProvider` interface against the
+      real Brave Search API. Entirely opt-in and on-device by design (per explicit product
+      decision): the API key is entered in Settings → On-device AI and connector runtime → Nutrition
+      search fallback (`SearchSettingsForm`), sent directly from this device to Brave over HTTPS,
+      never through an Atlas-hosted relay, same guarantee as the Ollama/Groq keys. With no key
+      configured, `get_default_nutrition_data_source_service()` registers zero fallbacks and
+      OpenFoodFacts alone still works exactly as before. New `SearchSettings`/`SearchSettingsUpdate`
+      schemas, state persistence (same protect/unprotect pattern as the other provider keys),
+      `GET/PUT /api/v1/settings/search`. 11 new backend tests + a live build/render check.
+- [ ] **6b remaining**: replace deterministic blueprints with a real optimizer (grounded in the
+      already-integrated OpenFoodFacts data, not fabricated recipe content — explicit product
+      decision); pantry inventory / "already have this" logic; recipe source system with a real
+      "why did the plan change" explanation.
 
 ## 7. Endurance — P1
 

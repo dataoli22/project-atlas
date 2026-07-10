@@ -82,7 +82,7 @@ def search_nutrition_products(
     query: str = Query(min_length=1, max_length=120),
     limit: int = Query(default=10, ge=1, le=25),
 ) -> NutritionProductSearchResponse:
-    service = get_default_nutrition_data_source_service()
+    service = get_default_nutrition_data_source_service(brave_api_key=shared_state.get_brave_api_key())
     market_code = shared_state.get_localization().market
     try:
         outcome = service.search_products(query, market_code=market_code, limit=limit)
@@ -104,7 +104,7 @@ def search_nutrition_products(
 
 @router.get("/products/barcode/{barcode}", response_model=NutritionProductLookupResponse)
 def lookup_nutrition_product_by_barcode(barcode: str) -> NutritionProductLookupResponse:
-    service = get_default_nutrition_data_source_service()
+    service = get_default_nutrition_data_source_service(brave_api_key=shared_state.get_brave_api_key())
     try:
         product = service.get_product_by_barcode(barcode)
     except ValueError as exc:

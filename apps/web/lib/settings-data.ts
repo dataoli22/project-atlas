@@ -355,6 +355,57 @@ const marketsFallback: MarketOptionApiResponse[] = SUPPORTED_MARKETS.map((market
   supported_languages: [...market.languages]
 }));
 
+type SearchSettingsApiResponse = {
+  brave_api_key_set: boolean;
+};
+
+export type SearchSettingsData = {
+  braveApiKeySet: boolean;
+};
+
+const searchSettingsFallback: SearchSettingsApiResponse = {
+  brave_api_key_set: false
+};
+
+function mapSearchSettings(response: SearchSettingsApiResponse): SearchSettingsData {
+  return { braveApiKeySet: response.brave_api_key_set };
+}
+
+export async function getSearchSettingsData(): Promise<DataEnvelope<SearchSettingsData>> {
+  const result = await requestJson<SearchSettingsApiResponse>("/api/v1/settings/search", {
+    fallback: searchSettingsFallback
+  });
+
+  return {
+    data: mapSearchSettings(result.data),
+    source: result.source
+  };
+}
+
+export async function saveSearchSettings(
+  update: { braveApiKey?: string; clearBraveApiKey?: boolean }
+): Promise<DataEnvelope<SearchSettingsData>> {
+  const payload = {
+    brave_api_key: update.braveApiKey,
+    clear_brave_api_key: update.clearBraveApiKey ?? false
+  };
+
+  const fallback: SearchSettingsApiResponse = {
+    brave_api_key_set: payload.clear_brave_api_key ? false : Boolean(update.braveApiKey)
+  };
+
+  const result = await requestJson<SearchSettingsApiResponse>("/api/v1/settings/search", {
+    method: "PUT",
+    body: payload,
+    fallback
+  });
+
+  return {
+    data: mapSearchSettings(result.data),
+    source: result.source
+  };
+}
+
 const aiSettingsFallback: AISettingsApiResponse = {
   default_provider: "ollama",
   local_only_mode: true,

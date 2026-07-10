@@ -12,6 +12,8 @@ from app.features.shared.schemas.app import (
     OllamaPullResponse,
     ProfileSettings,
     ProfileSettingsUpdate,
+    SearchSettings,
+    SearchSettingsUpdate,
 )
 from app.features.shared.services.ai import check_ollama_runtime, pull_ollama_model
 from app.features.shared.services.registry import (
@@ -98,3 +100,13 @@ def pull_ai_runtime_model(payload: OllamaPullRequest) -> OllamaPullResponse:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/search", response_model=SearchSettings)
+def read_search_settings() -> SearchSettings:
+    return shared_state.get_search_settings()
+
+
+@router.put("/search", response_model=SearchSettings)
+def update_search_settings(payload: SearchSettingsUpdate) -> SearchSettings:
+    return shared_state.update_search_settings(payload)

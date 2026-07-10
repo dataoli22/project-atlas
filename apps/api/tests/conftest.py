@@ -42,6 +42,7 @@ def restore_shared_state():
             },
             "ollama_api_key": shared_state._ollama_api_key,
             "groq_api_key": shared_state._groq_api_key,
+            "brave_api_key": shared_state._brave_api_key,
         }
 
     yield
@@ -59,6 +60,7 @@ def restore_shared_state():
         shared_state._pairing_start_call_times = []
         shared_state._ollama_api_key = snapshot["ollama_api_key"]
         shared_state._groq_api_key = snapshot["groq_api_key"]
+        shared_state._brave_api_key = snapshot["brave_api_key"]
 
 
 @pytest.fixture

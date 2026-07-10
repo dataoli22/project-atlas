@@ -167,6 +167,70 @@ class OpenFoodFactsDataSource:
         return payload
 
 
+class BraveSearchProvider:
+    """Optional, opt-in NutritionSearchFallbackProvider backed by the Brave Search API.
+
+    Only ever instantiated when the user has configured a Brave API key in Settings -> Search
+    (see SearchSettings/get_default_nutrition_data_source_service) - the key is supplied by and
+    stays entirely on this device, sent directly to Brave's API over HTTPS and nowhere else, same
+    local-first guarantee as the Ollama/Groq provider keys. If no key is configured, this class
+    is never constructed and OpenFoodFacts remains the only product data source.
+    """
+
+    source_name = "brave_search"
+    _DEFAULT_BASE_URL = "https://api.search.brave.com/res/v1/web/search"
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        base_url: str = _DEFAULT_BASE_URL,
+        timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        opener: Any = urlopen,
+    ) -> None:
+        if not api_key:
+            raise ValueError("BraveSearchProvider requires a non-empty api_key.")
+        self._api_key = api_key
+        self.base_url = base_url.rstrip("/")
+        self.timeout_seconds = timeout_seconds
+        self._opener = opener
+
+    def search(self, query: str, *, market_code: str, limit: int) -> Sequence[NutritionSearchHit]:
+        safe_query = _normalize_query(query)
+        safe_limit = _bounded_limit(limit)
+        params = {"q": safe_query, "count": str(safe_limit)}
+        request = Request(
+            f"{self.base_url}?{urlencode(params)}",
+            headers={
+                "Accept": "application/json",
+                "X-Subscription-Token": self._api_key,
+            },
+        )
+        try:
+            with self._opener(request, timeout=self.timeout_seconds) as response:
+                raw_body = response.read()
+        except (HTTPError, URLError, TimeoutError, OSError) as exc:
+            raise NutritionDataSourceError(f"Brave Search request failed: {exc}") from exc
+
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+        except (UnicodeDecodeError, JSONDecodeError) as exc:
+            raise NutritionDataSourceError("Brave Search returned invalid JSON") from exc
+        if not isinstance(payload, Mapping):
+            raise NutritionDataSourceError("Brave Search returned a non-object JSON payload")
+
+        results = payload.get("web", {})
+        raw_hits = results.get("results", []) if isinstance(results, Mapping) else []
+        if not isinstance(raw_hits, list):
+            return []
+
+        return [
+            hit
+            for hit in (_search_hit_from_brave(item) for item in raw_hits)
+            if hit is not None
+        ][:safe_limit]
+
+
 class SearchScrapeFallbackDataSource:
     source_name = "search_scrape_fallback"
 
@@ -266,8 +330,34 @@ class NutritionDataSourceService:
         return self.primary.get_product_by_barcode(_normalize_barcode(barcode))
 
 
-def get_default_nutrition_data_source_service() -> NutritionDataSourceService:
-    return NutritionDataSourceService()
+def get_default_nutrition_data_source_service(
+    *, brave_api_key: str = ""
+) -> NutritionDataSourceService:
+    """OpenFoodFacts is always the primary source. The Brave-backed search fallback is only
+    registered when a key is actually configured - with no key, this behaves exactly as before
+    (OpenFoodFacts only, no fallback), so the opt-in stays genuinely opt-in rather than silently
+    depending on an unconfigured external service."""
+    fallbacks: list[NutritionProductDataSource] = []
+    if brave_api_key:
+        fallbacks.append(
+            SearchScrapeFallbackDataSource(search_provider=BraveSearchProvider(api_key=brave_api_key))
+        )
+    return NutritionDataSourceService(fallbacks=fallbacks)
+
+
+def _search_hit_from_brave(raw_hit: Any) -> NutritionSearchHit | None:
+    if not isinstance(raw_hit, Mapping):
+        return None
+    title = _first_text(raw_hit.get("title"))
+    url = _first_text(raw_hit.get("url"))
+    if title is None or url is None:
+        return None
+    return NutritionSearchHit(
+        title=title,
+        url=url,
+        snippet=_first_text(raw_hit.get("description")) or "",
+        source_name=BraveSearchProvider.source_name,
+    )
 
 
 def _product_from_open_food_facts(raw_product: Any) -> NutritionProduct | None:

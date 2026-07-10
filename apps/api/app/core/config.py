@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     ollama_api_key: str = ""
     groq_model: str = "llama-3.1-8b-instant"
     groq_api_key: str = ""
+    # Optional, opt-in: powers the nutrition browser-search fallback (data_sources.py's
+    # SearchScrapeFallbackDataSource) when OpenFoodFacts alone doesn't have a product. Same
+    # local-first guarantee as the AI provider keys above - sent directly from this device to
+    # Brave's API, never through an Atlas-hosted relay. Empty by default; the fallback provider
+    # is simply never registered if this is unset.
+    brave_api_key: str = ""
     # Cloud providers (Groq free tier, or Ollama pointed at a cloud/hosted endpoint with an API
     # key) are preferred by default once configured, with on-device Ollama as an automatic
     # resilience fallback - see chat.py's provider attempt chain. Provider keys and prompts are

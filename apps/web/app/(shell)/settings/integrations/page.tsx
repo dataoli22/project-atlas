@@ -2,15 +2,17 @@ import { AIRuntimeSettingsForm } from "@/components/ai-runtime-settings-form";
 import { IntegrationConnectForm } from "@/components/integration-connect-form";
 import { PageScaffold } from "@/components/page-scaffold";
 import { PairingSettingsForm } from "@/components/pairing-settings-form";
+import { SearchSettingsForm } from "@/components/search-settings-form";
 import { DataSourceBadge } from "@/components/settings-data-list";
 import { getPairedDevices } from "@/lib/pairing-data";
-import { getAISettingsData, getIntegrationSourcesData } from "@/lib/settings-data";
+import { getAISettingsData, getIntegrationSourcesData, getSearchSettingsData } from "@/lib/settings-data";
 
 export default async function IntegrationsSettingsPage() {
-  const [ai, integrations, pairing] = await Promise.all([
+  const [ai, integrations, pairing, search] = await Promise.all([
     getAISettingsData(),
     getIntegrationSourcesData(),
-    getPairedDevices()
+    getPairedDevices(),
+    getSearchSettingsData()
   ]);
 
   return (
@@ -66,6 +68,8 @@ export default async function IntegrationsSettingsPage() {
           initialDevices={pairing.ok ? pairing.devices : []}
           devicesLoadOk={pairing.ok}
         />
+
+        <SearchSettingsForm initialSettings={search.data} initialSource={search.source} />
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Prompt guardrails</div>

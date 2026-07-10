@@ -27,6 +27,8 @@ from app.features.shared.schemas.app import (
     PairingStartResponse,
     ProfileSettings,
     ProfileSettingsUpdate,
+    SearchSettings,
+    SearchSettingsUpdate,
 )
 from app.features.shared.services.ai import build_ai_settings_response
 from app.features.shared.services.app_lock import hash_pin, verify_pin
@@ -79,6 +81,7 @@ class SharedStateStore:
         self._secret_protector = build_local_secret_protector()
         self._ollama_api_key = settings.ollama_api_key
         self._groq_api_key = settings.groq_api_key
+        self._brave_api_key = settings.brave_api_key
         self._load_persisted_state()
 
     def get_preferences(self) -> AppPreferences:
@@ -197,6 +200,24 @@ class SharedStateStore:
             )
             self._persist_state_unlocked()
             return self._ai_settings.model_copy(deep=True)
+
+    def get_search_settings(self) -> SearchSettings:
+        with self._lock:
+            return SearchSettings(brave_api_key_set=bool(self._brave_api_key))
+
+    def get_brave_api_key(self) -> str:
+        with self._lock:
+            return self._brave_api_key
+
+    def update_search_settings(self, payload: SearchSettingsUpdate) -> SearchSettings:
+        with self._lock:
+            if payload.clear_brave_api_key:
+                self._brave_api_key = ""
+            elif payload.brave_api_key is not None:
+                self._brave_api_key = payload.brave_api_key.strip()
+
+            self._persist_state_unlocked()
+            return SearchSettings(brave_api_key_set=bool(self._brave_api_key))
 
     def get_integrations(self) -> list[IntegrationSourceStatus]:
         with self._lock:
@@ -873,6 +894,9 @@ class SharedStateStore:
         self._groq_api_key = self._secret_protector.unprotect(
             payload.get("groq_api_key_protected"), key="groq_api_key"
         ) or self._groq_api_key
+        self._brave_api_key = self._secret_protector.unprotect(
+            payload.get("brave_api_key_protected"), key="brave_api_key"
+        ) or self._brave_api_key
 
         self._restore_protected_runtime_secrets_unlocked()
 
@@ -908,6 +932,9 @@ class SharedStateStore:
             ),
             "groq_api_key_protected": self._secret_protector.protect(
                 self._groq_api_key, key="groq_api_key"
+            ),
+            "brave_api_key_protected": self._secret_protector.protect(
+                self._brave_api_key, key="brave_api_key"
             ),
         }
         self._db.set_json("shared_state", payload)

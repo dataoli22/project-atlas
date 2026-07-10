@@ -203,7 +203,7 @@ def test_nutrition_product_search_endpoint_uses_injected_data_source(client, mon
 
     monkeypatch.setattr(
         "app.features.nutrition.router.get_default_nutrition_data_source_service",
-        lambda: FakeService(),
+        lambda **kwargs: FakeService(),
     )
 
     response = client.get("/api/v1/nutrition/products/search", params={"query": "oats", "limit": 3})

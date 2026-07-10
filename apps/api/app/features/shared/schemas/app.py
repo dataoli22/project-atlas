@@ -175,6 +175,23 @@ class AISettingsUpdate(BaseModel):
     response_token_budget: int = Field(default=450, ge=64, le=2048)
 
 
+class SearchSettings(BaseModel):
+    """User-supplied key for the optional nutrition browser-search fallback.
+
+    Same local-first guarantee as the Ollama/Groq keys in AISettings: this key is sent directly
+    from this device to Brave's API and nowhere else - never through an Atlas-hosted relay, never
+    logged. Search stays entirely opt-in; with no key set the fallback provider is simply never
+    registered and OpenFoodFacts remains the only product data source.
+    """
+
+    brave_api_key_set: bool = False
+
+
+class SearchSettingsUpdate(BaseModel):
+    brave_api_key: str | None = None
+    clear_brave_api_key: bool = False
+
+
 class AIRuntimeHealthCheckRequest(BaseModel):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1:8b"
