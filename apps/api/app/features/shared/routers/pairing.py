@@ -6,7 +6,7 @@ from app.features.shared.schemas.app import (
     PairingConfirmResponse,
     PairingStartResponse,
 )
-from app.features.shared.services.state import shared_state
+from app.features.shared.services.state import PairingRateLimitedError, shared_state
 
 router = APIRouter(prefix="/pairing")
 
@@ -20,7 +20,10 @@ def start_pairing() -> PairingStartResponse:
     docs/packaging-and-installation.md's LAN pairing section for the ATLAS_API_HOST=0.0.0.0
     requirement.
     """
-    return shared_state.start_device_pairing()
+    try:
+        return shared_state.start_device_pairing()
+    except PairingRateLimitedError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
 
 
 @router.post("/confirm", response_model=PairingConfirmResponse)

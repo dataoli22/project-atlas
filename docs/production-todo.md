@@ -154,8 +154,9 @@ desktop, and the hard iOS blocker.)
 - [ ] Richer sync payload mapping for all three connectors.
 - [ ] App icon/branding; Play Store listing and release process (Android only — iOS is
       self-compiled, no App Store distribution planned).
-- [ ] Rate limiting on `/api/v1/pairing/start` itself (low severity — each new code invalidates
-      the previous one, and only the desktop operator sees it).
+- [x] Rate limiting on `/api/v1/pairing/start`: a sliding-window cap (20 calls/60s, not a
+      per-call cooldown, so legitimate back-to-back re-starts from a human aren't blocked) — 429
+      once exceeded. See `PairingRateLimitedError` in `state.py`.
 
 ## 9. Packaging & installers — P0/P1 — WINDOWS INSTALLER WORKING
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import hmac
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Lock
 from uuid import uuid4
@@ -33,6 +33,8 @@ from app.features.shared.services.app_lock import hash_pin, verify_pin
 from app.features.shared.services.db import LocalStateDatabase
 from app.features.shared.services.pairing import (
     MAX_PAIRING_ATTEMPTS,
+    PAIRING_START_RATE_LIMIT_MAX_CALLS,
+    PAIRING_START_RATE_LIMIT_WINDOW_SECONDS,
     detect_lan_addresses,
     generate_device_id,
     generate_device_token,
@@ -50,6 +52,10 @@ from app.features.shared.services.registry import (
 from app.features.shared.services.secure_storage import build_local_secret_protector
 
 
+class PairingRateLimitedError(Exception):
+    """Raised when /pairing/start is called again before the cooldown window has elapsed."""
+
+
 class SharedStateStore:
     def __init__(self) -> None:
         self._lock = Lock()
@@ -62,6 +68,7 @@ class SharedStateStore:
         self._nutrition_runtime = _build_default_nutrition_runtime()
         self._app_lock = _build_default_app_lock()
         self._pairing = _build_default_pairing()
+        self._pairing_start_call_times: list[datetime] = []
         settings = get_settings()
         self._local_state_path = Path(settings.local_state_path)
         self._db = (
@@ -600,6 +607,18 @@ class SharedStateStore:
 
     def start_device_pairing(self) -> PairingStartResponse:
         with self._lock:
+            now = datetime.now(timezone.utc)
+            window_start = now - timedelta(seconds=PAIRING_START_RATE_LIMIT_WINDOW_SECONDS)
+            self._pairing_start_call_times = [
+                call_time for call_time in self._pairing_start_call_times if call_time >= window_start
+            ]
+            if len(self._pairing_start_call_times) >= PAIRING_START_RATE_LIMIT_MAX_CALLS:
+                raise PairingRateLimitedError(
+                    f"Too many pairing attempts started in the last "
+                    f"{PAIRING_START_RATE_LIMIT_WINDOW_SECONDS}s. Wait a moment and try again."
+                )
+            self._pairing_start_call_times.append(now)
+
             code = generate_pairing_code()
             expires_at = pairing_code_expiry()
             self._pairing["pending_code"] = code

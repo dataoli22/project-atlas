@@ -11,6 +11,14 @@ PAIRING_CODE_TTL_MINUTES = 5
 # outright and a fresh one must be started on the desktop, which a remote attacker cannot do.
 MAX_PAIRING_ATTEMPTS = 5
 
+# /pairing/start rate limit: a human clicking "pair a phone" (or re-clicking "get a new code")
+# repeatedly should never be blocked, but a script hammering the endpoint to keep invalidating a
+# code the user is actively typing into their phone should be. A generous sliding-window cap
+# rather than a per-call cooldown, since legitimate re-starts (mistyped code, wants a fresh one)
+# can happen back-to-back.
+PAIRING_START_RATE_LIMIT_MAX_CALLS = 20
+PAIRING_START_RATE_LIMIT_WINDOW_SECONDS = 60
+
 
 def generate_pairing_code() -> str:
     """A short, human-typeable code shown on the desktop screen and entered on the phone."""

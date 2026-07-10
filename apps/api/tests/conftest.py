@@ -56,6 +56,7 @@ def restore_shared_state():
         shared_state._nutrition_runtime = snapshot["nutrition_runtime"]
         shared_state._app_lock = snapshot["app_lock"]
         shared_state._pairing = snapshot["pairing"]
+        shared_state._pairing_start_call_times = []
         shared_state._ollama_api_key = snapshot["ollama_api_key"]
         shared_state._groq_api_key = snapshot["groq_api_key"]
 

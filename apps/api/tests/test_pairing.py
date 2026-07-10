@@ -97,6 +97,17 @@ def test_confirm_pairing_attempts_reset_on_new_pairing_start(client):
     assert response.status_code == 200
 
 
+def test_pairing_start_is_rate_limited_after_too_many_calls_in_window(client):
+    from app.features.shared.services.pairing import PAIRING_START_RATE_LIMIT_MAX_CALLS
+
+    for _ in range(PAIRING_START_RATE_LIMIT_MAX_CALLS):
+        response = client.post("/api/v1/pairing/start")
+        assert response.status_code == 200
+
+    blocked = client.post("/api/v1/pairing/start")
+    assert blocked.status_code == 429
+
+
 def test_confirm_pairing_without_any_pending_code_fails(client):
     response = client.post(
         "/api/v1/pairing/confirm",
