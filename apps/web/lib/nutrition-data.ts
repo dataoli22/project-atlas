@@ -10,6 +10,7 @@ import type {
   NutritionVideoLink
 } from "@atlas/shared";
 
+import type { ApiDataSource } from "@/lib/api";
 import { fetchJson, requestJson } from "@/lib/api";
 
 const stubPlanner: NutritionPlannerData = {
@@ -862,6 +863,19 @@ export async function getNutritionPlannerData(): Promise<NutritionPlannerData> {
   return mapPlannerResponse(response);
 }
 
+/** See lib/endurance-data.ts's getEnduranceDashboardDataWithSource doc comment - same pattern. */
+export async function getNutritionPlannerDataWithSource(): Promise<{
+  data: NutritionPlannerData;
+  source: ApiDataSource;
+}> {
+  const { data: response, source } = await requestJson<NutritionPlannerApiResponse>(
+    "/api/v1/nutrition/planner",
+    { fallback: plannerFallback() }
+  );
+
+  return { data: mapPlannerResponse(response), source };
+}
+
 export async function refreshNutritionPlan(
   reason?: string
 ): Promise<{ data: NutritionPlannerData; source: "api" | "stub" }> {
@@ -884,70 +898,121 @@ export async function refreshNutritionPlan(
   return { data: mapPlannerResponse(result.data), source: result.source };
 }
 
+function shoppingListFallback(): NutritionShoppingListApiResponse {
+  return {
+    generated_at: stubShoppingList.generatedAt,
+    active_feature: stubShoppingList.activeFeature,
+    total_items: stubShoppingList.totalItems,
+    estimated_total: stubShoppingList.estimatedTotal,
+    categories: stubShoppingList.categories,
+    batch_cook_item_count: stubShoppingList.batchCookItemCount,
+    pantry_staple_count: stubShoppingList.pantryStapleCount,
+    items: stubShoppingList.items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      estimated_cost: item.estimatedCost,
+      category: item.category,
+      priority: item.priority,
+      used_in_days: item.usedInDays
+    }))
+  };
+}
+
 export async function getNutritionShoppingListData(): Promise<NutritionShoppingListData> {
   const response = await fetchJson<NutritionShoppingListApiResponse>("/api/v1/nutrition/shopping-list", {
-    fallback: {
-      generated_at: stubShoppingList.generatedAt,
-      active_feature: stubShoppingList.activeFeature,
-      total_items: stubShoppingList.totalItems,
-      estimated_total: stubShoppingList.estimatedTotal,
-      categories: stubShoppingList.categories,
-      batch_cook_item_count: stubShoppingList.batchCookItemCount,
-      pantry_staple_count: stubShoppingList.pantryStapleCount,
-      items: stubShoppingList.items.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        estimated_cost: item.estimatedCost,
-        category: item.category,
-        priority: item.priority,
-        used_in_days: item.usedInDays
-      }))
-    }
+    fallback: shoppingListFallback()
   });
 
   return mapShoppingListResponse(response);
 }
 
+/** See lib/endurance-data.ts's getEnduranceDashboardDataWithSource doc comment - same pattern. */
+export async function getNutritionShoppingListDataWithSource(): Promise<{
+  data: NutritionShoppingListData;
+  source: ApiDataSource;
+}> {
+  const { data: response, source } = await requestJson<NutritionShoppingListApiResponse>(
+    "/api/v1/nutrition/shopping-list",
+    { fallback: shoppingListFallback() }
+  );
+
+  return { data: mapShoppingListResponse(response), source };
+}
+
+function substitutionsFallback(): NutritionSubstitutionsApiResponse {
+  return {
+    generated_at: stubSubstitutions.generatedAt,
+    active_feature: stubSubstitutions.activeFeature,
+    market_note: stubSubstitutions.marketNote,
+    strategy_summary: stubSubstitutions.strategySummary,
+    substitutions: stubSubstitutions.substitutions.map((item) => ({
+      ingredient: item.ingredient,
+      substitute: item.substitute,
+      reason: item.reason,
+      budget_impact: item.budgetImpact,
+      swap_category: item.swapCategory
+    }))
+  };
+}
+
 export async function getNutritionSubstitutionsData(): Promise<NutritionSubstitutionsData> {
   const response = await fetchJson<NutritionSubstitutionsApiResponse>("/api/v1/nutrition/substitutions", {
-    fallback: {
-      generated_at: stubSubstitutions.generatedAt,
-      active_feature: stubSubstitutions.activeFeature,
-      market_note: stubSubstitutions.marketNote,
-      strategy_summary: stubSubstitutions.strategySummary,
-      substitutions: stubSubstitutions.substitutions.map((item) => ({
-        ingredient: item.ingredient,
-        substitute: item.substitute,
-        reason: item.reason,
-        budget_impact: item.budgetImpact,
-        swap_category: item.swapCategory
-      }))
-    }
+    fallback: substitutionsFallback()
   });
 
   return mapSubstitutionsResponse(response);
 }
 
+/** See lib/endurance-data.ts's getEnduranceDashboardDataWithSource doc comment - same pattern. */
+export async function getNutritionSubstitutionsDataWithSource(): Promise<{
+  data: NutritionSubstitutionsData;
+  source: ApiDataSource;
+}> {
+  const { data: response, source } = await requestJson<NutritionSubstitutionsApiResponse>(
+    "/api/v1/nutrition/substitutions",
+    { fallback: substitutionsFallback() }
+  );
+
+  return { data: mapSubstitutionsResponse(response), source };
+}
+
+function cookingPlanFallback(): NutritionCookingPlanApiResponse {
+  return {
+    generated_at: stubCookingPlan.generatedAt,
+    active_feature: stubCookingPlan.activeFeature,
+    batch_day: stubCookingPlan.batchDay,
+    batch_window: stubCookingPlan.batchWindow,
+    today_focus: stubCookingPlan.todayFocus,
+    leftover_strategy: stubCookingPlan.leftoverStrategy,
+    steps: stubCookingPlan.steps.map((step) => ({
+      title: step.title,
+      detail: step.detail,
+      meal_days: step.mealDays,
+      effort: step.effort,
+      equipment: step.equipment
+    }))
+  };
+}
+
 export async function getNutritionCookingPlanData(): Promise<NutritionCookingPlanData> {
   const response = await fetchJson<NutritionCookingPlanApiResponse>("/api/v1/nutrition/cooking-plan", {
-    fallback: {
-      generated_at: stubCookingPlan.generatedAt,
-      active_feature: stubCookingPlan.activeFeature,
-      batch_day: stubCookingPlan.batchDay,
-      batch_window: stubCookingPlan.batchWindow,
-      today_focus: stubCookingPlan.todayFocus,
-      leftover_strategy: stubCookingPlan.leftoverStrategy,
-      steps: stubCookingPlan.steps.map((step) => ({
-        title: step.title,
-        detail: step.detail,
-        meal_days: step.mealDays,
-        effort: step.effort,
-        equipment: step.equipment
-      }))
-    }
+    fallback: cookingPlanFallback()
   });
 
   return mapCookingPlanResponse(response);
+}
+
+/** See lib/endurance-data.ts's getEnduranceDashboardDataWithSource doc comment - same pattern. */
+export async function getNutritionCookingPlanDataWithSource(): Promise<{
+  data: NutritionCookingPlanData;
+  source: ApiDataSource;
+}> {
+  const { data: response, source } = await requestJson<NutritionCookingPlanApiResponse>(
+    "/api/v1/nutrition/cooking-plan",
+    { fallback: cookingPlanFallback() }
+  );
+
+  return { data: mapCookingPlanResponse(response), source };
 }
 
 export async function searchNutritionProducts(query = "oats", limit = 4): Promise<NutritionProductSearchData> {

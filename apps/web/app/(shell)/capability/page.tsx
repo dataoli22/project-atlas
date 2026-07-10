@@ -1,10 +1,12 @@
 import type { EnduranceSupportLink, EnduranceSupportResourceType } from "@atlas/shared";
 
+import { DataSourceBanner } from "@/components/data-source-banner";
 import { PageScaffold } from "@/components/page-scaffold";
+import { combineDataSources } from "@/lib/data-source";
 import {
-  getEnduranceDashboardData,
-  getEnduranceInsightsData,
-  getEnduranceTimelineData
+  getEnduranceDashboardDataWithSource,
+  getEnduranceInsightsDataWithSource,
+  getEnduranceTimelineDataWithSource
 } from "@/lib/endurance-data";
 import { formatLocalizedDateTime } from "@/lib/localization";
 import { getLocalizationSettingsData } from "@/lib/settings-data";
@@ -38,12 +40,14 @@ function getPriorityTone(priority: "high" | "medium" | "low") {
 }
 
 export default async function CapabilityPage() {
-  const [dashboard, timeline, insights, localization] = await Promise.all([
-    getEnduranceDashboardData(),
-    getEnduranceTimelineData(),
-    getEnduranceInsightsData(),
-    getLocalizationSettingsData()
-  ]);
+  const [{ data: dashboard, source: dashboardSource }, { data: timeline, source: timelineSource }, { data: insights, source: insightsSource }, localization] =
+    await Promise.all([
+      getEnduranceDashboardDataWithSource(),
+      getEnduranceTimelineDataWithSource(),
+      getEnduranceInsightsDataWithSource(),
+      getLocalizationSettingsData()
+    ]);
+  const source = combineDataSources(dashboardSource, timelineSource, insightsSource);
 
   return (
     <PageScaffold
@@ -65,6 +69,7 @@ export default async function CapabilityPage() {
         }
       ]}
     >
+      <DataSourceBanner source={source} />
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Capability headline</div>

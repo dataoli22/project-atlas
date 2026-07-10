@@ -1,10 +1,12 @@
 import { revalidatePath } from "next/cache";
 
+import { DataSourceBanner } from "@/components/data-source-banner";
 import { PageScaffold } from "@/components/page-scaffold";
+import { combineDataSources } from "@/lib/data-source";
 import {
-  getNutritionPlannerData,
-  getNutritionShoppingListData,
-  getNutritionSubstitutionsData,
+  getNutritionPlannerDataWithSource,
+  getNutritionShoppingListDataWithSource,
+  getNutritionSubstitutionsDataWithSource,
   refreshNutritionPlan
 } from "@/lib/nutrition-data";
 import type { NutritionCalendarDay, NutritionPlanStatus } from "@atlas/shared";
@@ -72,11 +74,16 @@ function CalendarDayCard({ day }: { day: NutritionCalendarDay }) {
 }
 
 export default async function PlannerPage() {
-  const [planner, shoppingList, substitutions] = await Promise.all([
-    getNutritionPlannerData(),
-    getNutritionShoppingListData(),
-    getNutritionSubstitutionsData()
+  const [
+    { data: planner, source: plannerSource },
+    { data: shoppingList, source: shoppingListSource },
+    { data: substitutions, source: substitutionsSource }
+  ] = await Promise.all([
+    getNutritionPlannerDataWithSource(),
+    getNutritionShoppingListDataWithSource(),
+    getNutritionSubstitutionsDataWithSource()
   ]);
+  const source = combineDataSources(plannerSource, shoppingListSource, substitutionsSource);
 
   const { refresh } = planner;
   const remaining = daysUntil(refresh.refreshDueAt);
@@ -93,6 +100,7 @@ export default async function PlannerPage() {
         { label: "Projected spend", value: planner.projectedSpend }
       ]}
     >
+      <DataSourceBanner source={source} />
       <div className="atlas-grid">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Plan status</div>

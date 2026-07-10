@@ -295,44 +295,74 @@ export async function getEnduranceDashboardDataWithSource(): Promise<{
   return { data: mapDashboardResponse(response), source };
 }
 
+const TIMELINE_FALLBACK: EnduranceTimelineApiResponse = {
+  generated_at: stubTimeline.generatedAt,
+  active_feature: stubTimeline.activeFeature,
+  entries: stubTimeline.entries.map((entry) => ({
+    day_label: entry.dayLabel,
+    session_label: entry.sessionLabel,
+    duration: entry.duration,
+    load: entry.load,
+    source: entry.source
+  }))
+};
+
 export async function getEnduranceTimelineData(): Promise<EnduranceTimelineData> {
   const response = await fetchJson<EnduranceTimelineApiResponse>("/api/v1/endurance/timeline", {
-    fallback: {
-      generated_at: stubTimeline.generatedAt,
-      active_feature: stubTimeline.activeFeature,
-      entries: stubTimeline.entries.map((entry) => ({
-        day_label: entry.dayLabel,
-        session_label: entry.sessionLabel,
-        duration: entry.duration,
-        load: entry.load,
-        source: entry.source
-      }))
-    }
+    fallback: TIMELINE_FALLBACK
   });
 
   return mapTimelineResponse(response);
 }
 
+/** See getEnduranceDashboardDataWithSource's doc comment - same pattern. */
+export async function getEnduranceTimelineDataWithSource(): Promise<{
+  data: EnduranceTimelineData;
+  source: ApiDataSource;
+}> {
+  const { data: response, source } = await requestJson<EnduranceTimelineApiResponse>(
+    "/api/v1/endurance/timeline",
+    { fallback: TIMELINE_FALLBACK }
+  );
+
+  return { data: mapTimelineResponse(response), source };
+}
+
+const INSIGHTS_FALLBACK: EnduranceInsightsApiResponse = {
+  generated_at: stubInsights.generatedAt,
+  active_feature: stubInsights.activeFeature,
+  capability: {
+    headline: stubInsights.capability.headline,
+    areas: stubInsights.capability.areas
+  },
+  insights: stubInsights.insights,
+  support_links: stubInsights.supportLinks.map((link) => ({
+    title: link.title,
+    url: link.url,
+    topic: link.topic,
+    why_recommended: link.whyRecommended,
+    resource_type: link.resourceType,
+    freshness_at: link.freshnessAt ?? null
+  }))
+};
+
 export async function getEnduranceInsightsData(): Promise<EnduranceInsightsData> {
   const response = await fetchJson<EnduranceInsightsApiResponse>("/api/v1/endurance/insights", {
-    fallback: {
-      generated_at: stubInsights.generatedAt,
-      active_feature: stubInsights.activeFeature,
-      capability: {
-        headline: stubInsights.capability.headline,
-        areas: stubInsights.capability.areas
-      },
-      insights: stubInsights.insights,
-      support_links: stubInsights.supportLinks.map((link) => ({
-        title: link.title,
-        url: link.url,
-        topic: link.topic,
-        why_recommended: link.whyRecommended,
-        resource_type: link.resourceType,
-        freshness_at: link.freshnessAt ?? null
-      }))
-    }
+    fallback: INSIGHTS_FALLBACK
   });
 
   return mapInsightsResponse(response);
+}
+
+/** See getEnduranceDashboardDataWithSource's doc comment - same pattern. */
+export async function getEnduranceInsightsDataWithSource(): Promise<{
+  data: EnduranceInsightsData;
+  source: ApiDataSource;
+}> {
+  const { data: response, source } = await requestJson<EnduranceInsightsApiResponse>(
+    "/api/v1/endurance/insights",
+    { fallback: INSIGHTS_FALLBACK }
+  );
+
+  return { data: mapInsightsResponse(response), source };
 }

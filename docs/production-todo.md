@@ -221,15 +221,21 @@ desktop, and the hard iOS blocker.)
 - [x] Stale-data indicator (the "silent staleness" gap this surfaced): `lib/api.ts`'s
       `requestJson` already returned `{data, source: "api" | "stub"}`, but every `lib/*-data.ts`
       helper discarded `source` via the `fetchJson` wrapper — a failed backend call silently
-      rendered hardcoded stub data with zero indication anything was wrong. Added
-      `getEnduranceDashboardDataWithSource()` and a `<DataSourceBanner>` component, wired into
-      the dashboard page as the demonstrated pattern (verified live: banner shows against a
-      stopped backend, disappears once it's reachable). **Not yet extended to other pages'
-      fetches** (capability, timeline, planner, cooking, shopping, log, settings all still
-      silently fall back) — same pattern, same two functions to add per page.
+      rendered hardcoded stub data with zero indication anything was wrong. Added `*WithSource`
+      variants of every primary data-fetch function (`getEnduranceDashboardDataWithSource`,
+      `getEnduranceTimelineDataWithSource`, `getEnduranceInsightsDataWithSource`,
+      `getNutritionPlannerDataWithSource`, `getNutritionShoppingListDataWithSource`,
+      `getNutritionSubstitutionsDataWithSource`, `getNutritionCookingPlanDataWithSource`) plus a
+      `combineDataSources()` helper (`lib/data-source.ts` — pessimistic: any "stub" among several
+      combined fetches wins) and `<DataSourceBanner>`, now wired into **all six** pages that pull
+      live endurance/nutrition data: dashboard, capability, timeline, nutrition, cooking,
+      planner, shopping. Settings/onboarding already had their own equivalent
+      (`DataSourceBadge` in `settings-data.ts`, pre-existing, per-field granularity) and were left
+      as-is rather than converted to a second competing pattern. `log`/`ask` have no backend
+      fetch to be stale. Verified live for all six pages: banner renders with the backend
+      stopped, disappears once it's reachable, for each route individually (not just dashboard).
 - [ ] Empty states per route (distinct from stale/error - "you have no data yet" vs "couldn't
       reach the backend").
-- [ ] Extend the `source`-aware fetch + `<DataSourceBanner>` pattern to the remaining pages.
 - [ ] Accessibility audit; responsive QA (desktop + phone).
 - [ ] Production-safe cache strategy; version/build metadata display.
 - [ ] Upgrade Next.js past the `postcss` XSS advisory (GHSA-qx2v-qp2m-jg93) — `npm audit fix

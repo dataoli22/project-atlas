@@ -1,23 +1,33 @@
+import { DataSourceBanner } from "@/components/data-source-banner";
 import { PageScaffold } from "@/components/page-scaffold";
+import { combineDataSources } from "@/lib/data-source";
 import {
-  getNutritionCookingPlanData,
-  getNutritionPlannerData,
-  getNutritionShoppingListData,
-  getNutritionSubstitutionsData,
+  getNutritionCookingPlanDataWithSource,
+  getNutritionPlannerDataWithSource,
+  getNutritionShoppingListDataWithSource,
+  getNutritionSubstitutionsDataWithSource,
   searchNutritionProducts
 } from "@/lib/nutrition-data";
 import { formatCurrencyDisplay } from "@/lib/localization";
 import { getLocalizationSettingsData } from "@/lib/settings-data";
 
 export default async function NutritionPage() {
-  const [planner, shoppingList, substitutions, cookingPlan, productSearch, localization] = await Promise.all([
-    getNutritionPlannerData(),
-    getNutritionShoppingListData(),
-    getNutritionSubstitutionsData(),
-    getNutritionCookingPlanData(),
+  const [
+    { data: planner, source: plannerSource },
+    { data: shoppingList, source: shoppingListSource },
+    { data: substitutions, source: substitutionsSource },
+    { data: cookingPlan, source: cookingPlanSource },
+    productSearch,
+    localization
+  ] = await Promise.all([
+    getNutritionPlannerDataWithSource(),
+    getNutritionShoppingListDataWithSource(),
+    getNutritionSubstitutionsDataWithSource(),
+    getNutritionCookingPlanDataWithSource(),
     searchNutritionProducts("oats", 4),
     getLocalizationSettingsData()
   ]);
+  const source = combineDataSources(plannerSource, shoppingListSource, substitutionsSource, cookingPlanSource);
 
   const budget = formatCurrencyDisplay(planner.budget, localization.data);
   const projectedSpend = formatCurrencyDisplay(planner.projectedSpend, localization.data);
@@ -36,6 +46,7 @@ export default async function NutritionPage() {
         { label: "Fiber", value: `${planner.nutritionTargets.fiberGrams} g` }
       ]}
     >
+      <DataSourceBanner source={source} />
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Weekly frame</div>

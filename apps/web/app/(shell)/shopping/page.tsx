@@ -1,9 +1,11 @@
 import {
-  getNutritionPlannerData,
-  getNutritionShoppingListData,
-  getNutritionSubstitutionsData
+  getNutritionPlannerDataWithSource,
+  getNutritionShoppingListDataWithSource,
+  getNutritionSubstitutionsDataWithSource
 } from "@/lib/nutrition-data";
+import { DataSourceBanner } from "@/components/data-source-banner";
 import { PageScaffold } from "@/components/page-scaffold";
+import { combineDataSources } from "@/lib/data-source";
 import {
   formatCurrencyDisplay,
   formatLocalizedCurrency,
@@ -22,12 +24,18 @@ function getItemFrequencyByCategory(categories: Array<{ category: string; itemCo
 }
 
 export default async function ShoppingPage() {
-  const [planner, shoppingList, substitutions, localization] = await Promise.all([
-    getNutritionPlannerData(),
-    getNutritionShoppingListData(),
-    getNutritionSubstitutionsData(),
+  const [
+    { data: planner, source: plannerSource },
+    { data: shoppingList, source: shoppingListSource },
+    { data: substitutions, source: substitutionsSource },
+    localization
+  ] = await Promise.all([
+    getNutritionPlannerDataWithSource(),
+    getNutritionShoppingListDataWithSource(),
+    getNutritionSubstitutionsDataWithSource(),
     getLocalizationSettingsData()
   ]);
+  const source = combineDataSources(plannerSource, shoppingListSource, substitutionsSource);
 
   const groupedItems = shoppingList.items.reduce<Record<string, typeof shoppingList.items>>((groups, item) => {
     groups[item.category] ??= [];
@@ -86,6 +94,7 @@ export default async function ShoppingPage() {
         { label: "Days covered", value: `${coveredDays} planned days` }
       ]}
     >
+      <DataSourceBanner source={source} />
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Budget snapshot</div>

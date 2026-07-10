@@ -1,10 +1,12 @@
 import {
-  getNutritionCookingPlanData,
-  getNutritionPlannerData,
-  getNutritionShoppingListData,
-  getNutritionSubstitutionsData
+  getNutritionCookingPlanDataWithSource,
+  getNutritionPlannerDataWithSource,
+  getNutritionShoppingListDataWithSource,
+  getNutritionSubstitutionsDataWithSource
 } from "@/lib/nutrition-data";
+import { DataSourceBanner } from "@/components/data-source-banner";
 import { PageScaffold } from "@/components/page-scaffold";
+import { combineDataSources } from "@/lib/data-source";
 
 function getCarryoverNote(lunch: string, dinner: string) {
   if (lunch.toLowerCase().includes("leftover")) {
@@ -23,12 +25,18 @@ function getCarryoverNote(lunch: string, dinner: string) {
 }
 
 export default async function CookingPage() {
-  const [planner, shoppingList, substitutions, cookingPlan] = await Promise.all([
-    getNutritionPlannerData(),
-    getNutritionShoppingListData(),
-    getNutritionSubstitutionsData(),
-    getNutritionCookingPlanData()
+  const [
+    { data: planner, source: plannerSource },
+    { data: shoppingList, source: shoppingListSource },
+    { data: substitutions, source: substitutionsSource },
+    { data: cookingPlan, source: cookingPlanSource }
+  ] = await Promise.all([
+    getNutritionPlannerDataWithSource(),
+    getNutritionShoppingListDataWithSource(),
+    getNutritionSubstitutionsDataWithSource(),
+    getNutritionCookingPlanDataWithSource()
   ]);
+  const source = combineDataSources(plannerSource, shoppingListSource, substitutionsSource, cookingPlanSource);
 
   const leftoverMeals = planner.meals.filter((meal) => meal.lunch.toLowerCase().includes("leftover")).length;
   const batchAnchors = planner.meals.filter(
@@ -53,6 +61,7 @@ export default async function CookingPage() {
         { label: "Batch anchors", value: `${batchAnchors} dinners` }
       ]}
     >
+      <DataSourceBanner source={source} />
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Prep sequence</div>
