@@ -68,7 +68,7 @@ class HealthConnectPlugin : Plugin() {
     }
 
     @PluginMethod
-    fun requestPermissions(call: PluginCall) {
+    override fun requestPermissions(call: PluginCall) {
         val client = healthConnectClient
         if (client == null) {
             val result = JSObject()

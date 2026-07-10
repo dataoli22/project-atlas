@@ -134,13 +134,15 @@ desktop, and the hard iOS blocker.)
       added via `npx cap add android`, pair + sync screens, builds clean.
 - [x] **Hardened**: mobile sync retry with backoff on network/5xx failures, not on 4xx.
 - [x] Native Health Connect SDK plugin (`HealthConnectPlugin.kt`) written and registered in
-      `MainActivity.java`, with the Health Connect Gradle dependency, manifest permissions, and a
-      `minSdkVersion` bump to 26 (required by the SDK). **Unbuilt and untested** — no Android SDK
-      in this environment; build and exercise permission grant/deny flows in Android Studio.
-- [ ] **No `.apk` built or run yet** — do this now that Android Studio is being set up locally.
-      See `mobile-architecture.md` section 3 for the full checklist (emulator or device with
-      Health Connect installed, `HealthConnectPlugin.kt` permission-flow testing, real sync
-      end-to-end against a paired desktop).
+      `MainActivity.java`. **Now Android Studio is set up locally, `./gradlew assembleDebug`
+      succeeds** — a real debug APK builds and the plugin compiles/links cleanly. Fixed along the
+      way: pinned `connect-client` to `1.1.0-alpha07` (newer alphas need `compileSdk 35`, which
+      this project doesn't target yet), added explicit `jvmTarget = "17"` (Kotlin/Java compiler
+      mismatch), added `override` to `requestPermissions` (collided with Capacitor's base
+      `Plugin` method of the same name). `minSdkVersion` bumped to 26 (required by the SDK).
+- [ ] **APK not yet installed/run on a device or emulator** — permission grant/deny/partial-grant
+      flows and a real end-to-end sync against a paired desktop still need real hardware. See
+      `mobile-architecture.md` section 3.
 - [ ] Samsung Health SDK bridge for mobile (not started).
 - [x] iOS: Capacitor scaffold committed (`mobile/ios/`, via `npx cap add ios`); ships as a
       self-compiled build (free Apple ID / Personal Team, 7-day resign) rather than through the

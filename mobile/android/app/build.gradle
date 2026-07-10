@@ -23,6 +23,13 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 repositories {
@@ -43,10 +50,11 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
 
     // Health Connect - reads Exercise/Hydration/Weight/Steps/TotalCaloriesBurned for
-    // HealthConnectPlugin.kt. Check for a newer stable release in Android Studio before
-    // building for release; alpha here reflects the SDK's own versioning, not instability of
-    // this integration.
-    implementation "androidx.health.connect:connect-client:1.1.0-alpha12"
+    // HealthConnectPlugin.kt. Pinned to alpha07, not a newer alpha, because later alphas
+    // (alpha11+) require compileSdk 35, which needs a broader AGP/Gradle wrapper upgrade this
+    // project hasn't made yet. Bump this and compileSdk/AGP together deliberately, not as a
+    // side effect of an unrelated dependency bump.
+    implementation "androidx.health.connect:connect-client:1.1.0-alpha07"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
 }
 

@@ -147,11 +147,20 @@ A Capacitor project: Vite + React + TypeScript, with the Android platform actual
 `AndroidManifest.xml` with the `INTERNET` permission already present, launcher icons, etc.).
 
 **What's real and verified**: the Vite build compiles cleanly (`npm run mobile:build`, zero
-TypeScript errors), and `npx cap add android` produced a structurally correct native project.
+TypeScript errors), `npx cap add android` produced a structurally correct native project, and —
+now that Android Studio's SDK/JDK are installed — `./gradlew assembleDebug` produces a real,
+installed-nowhere-yet debug APK (`mobile/android/app/build/outputs/apk/debug/app-debug.apk`,
+~5.5MB), with `HealthConnectPlugin.kt` compiling and linking successfully. Getting there fixed
+three real build issues (see `mobile-architecture.md` git history for detail if needed): the
+Health Connect client's newer alphas need `compileSdk 35` (this project targets `compileSdk 34`,
+so the dependency is pinned to `1.1.0-alpha07`, the last version that only needs 34); Kotlin's
+`compileDebugKotlin` needs an explicit `jvmTarget = "17"` to match `compileDebugJavaWithJavac`
+(added to `app/build.gradle`); and the plugin's `requestPermissions` needed an `override` modifier
+since Capacitor's base `Plugin` class already declares that method name.
 
-**What's explicitly NOT verified**: this environment has no Android SDK, no Gradle toolchain
-beyond what npm installed, no JDK 17+ (only JDK 8 present), and no emulator or device. **No `.apk`
-has been built or run.** See section 3.
+**What's explicitly NOT verified yet**: the APK has not been installed on a device/emulator or
+run. Health Connect permission grant/deny/partial-grant flows, and a real end-to-end sync against
+a paired desktop, still need to be exercised on real hardware. See section 3.
 
 Screens (`mobile/src/App.tsx`):
 - **Pair screen**: enter the desktop's LAN address, test connectivity
@@ -164,33 +173,35 @@ Screens (`mobile/src/App.tsx`):
 Pairing state persists on-device via `@capacitor/preferences` (`mobile/src/pairing-store.ts`) —
 the desktop base URL, device ID, and device token, never synced anywhere else.
 
-### Health Connect data collection — NOT implemented
+### Health Connect data collection — implemented, unverified on-device
 
-`mobile/src/health-connect-plugin.ts` defines the intended plugin interface
+`mobile/src/health-connect-plugin.ts` defines the plugin interface
 (`isAvailable`/`requestPermissions`/`readRecentSessions`/`readHydrationMl`/`readBodyWeightKg`/
-`readStepCount`) and documents exactly what native Android work remains: add the Health Connect
-SDK dependency, declare permissions, implement a Kotlin `HealthConnectPlugin` handling the runtime
-permission flow and `HealthConnectClient.readRecords()` calls, map record types into the
-`HealthConnectSession`/`SyncPayload` shapes already defined in `desktop-api.ts`. This was
-deliberately scaffolded rather than implemented blind, since there's no way to test native Android
-health SDK code in this environment — writing it without any way to verify permission flows or
-data shapes against a real device would be guessing, not engineering.
+`readStepCount`), and `mobile/android/app/src/main/java/com/projectatlas/mobile/HealthConnectPlugin.kt`
+implements it against `HealthConnectClient`, registered in `MainActivity.java`. It compiles and
+links (see above), but permission grant/deny/partial-grant flows and the actual record-reading
+logic have not been exercised against a real device or emulator yet — that's the next step, not a
+future implementation task.
 
 ---
 
 ## 3. What you need to actually build and run this
 
-Since this environment has no Android SDK, no compatible JDK, and no device/emulator, someone with
-real Android tooling needs to:
+Android Studio's SDK/JDK are now installed locally, and `./gradlew assembleDebug` has been run
+successfully from this environment (JDK 17 via Android Studio's bundled JBR at
+`Android Studio/jbr`, SDK at `%LOCALAPPDATA%\Android\Sdk`, `local.properties` with `sdk.dir` using
+forward slashes — backslashes there throw an `Invalid file path` error from Gradle's SDK locator
+on Windows). Remaining steps need a device or emulator, which this environment doesn't have:
 
-1. Install **Android Studio** (bundles a compatible JDK and the SDK) or the standalone
-   command-line tools + a JDK 17+.
-2. `cd mobile && npm install && npm run cap:android` — builds the web assets, syncs them into the
-   native project, and opens Android Studio.
-3. Run on a device or emulator with Health Connect installed (Android 14+ has it built in;
-   earlier versions need the Health Connect app from Play Store).
-4. Implement the native `HealthConnectPlugin.kt` per the TODO in `health-connect-plugin.ts`.
-5. Test the full flow: launch desktop with `ATLAS_ALLOW_LAN_PAIRING=1`, start pairing in
+1. `cd mobile && npm install && npm run cap:android` — builds the web assets, syncs them into the
+   native project, and opens Android Studio (or run `./gradlew assembleDebug` from
+   `mobile/android` directly, as already verified here).
+2. Run on a device or emulator with Health Connect installed (Android 14+ has it built in;
+   earlier versions need the Health Connect app from Play Store). Note the app's `minSdkVersion`
+   is now 26 (bumped from Capacitor's default 22 — required by the Health Connect client).
+3. Test the native `HealthConnectPlugin.kt` permission flow for real: grant, deny, and
+   partial-grant, across at least one real device (emulators are inconsistent for Health Connect).
+4. Test the full flow: launch desktop with `ATLAS_ALLOW_LAN_PAIRING=1`, start pairing in
    Settings → Phone pairing, pair the phone, grant Health Connect permissions, sync real data.
 
 ---
