@@ -56,8 +56,19 @@ is tracked in [`docs/production-todo.md`](docs/production-todo.md).
 
 ## For developers
 
-Technical documentation — architecture, local dev setup, build/packaging instructions, API
-reference, and contribution notes — lives under [`docs/`](docs). Start with
-[`docs/packaging-and-installation.md`](docs/packaging-and-installation.md) for local development,
-or [`docs/master-product-architecture.md`](docs/master-product-architecture.md) for the system
-overview.
+All technical documentation lives under [`docs/`](docs), grouped by purpose:
+
+- **Build & run**: [`packaging-and-installation.md`](docs/packaging-and-installation.md) (local
+  dev setup, desktop/Android packaging, release gates) ·
+  [`ollama-on-device-and-agents.md`](docs/ollama-on-device-and-agents.md) (AI runtime wiring,
+  provider fallback chain) · [`agent-prompt-maintenance-guide.md`](docs/agent-prompt-maintenance-guide.md)
+  + [`prompt-changelog.md`](docs/prompt-changelog.md) (changing agent prompts/guardrails)
+- **Feature specs (current)**: [`nutrition-endurance-feature-spec.md`](docs/nutrition-endurance-feature-spec.md)
+  (refresh/calendar/prep-hacks, endurance support links) ·
+  [`mobile-architecture.md`](docs/mobile-architecture.md) (companion mobile app, pairing,
+  Android/iOS status)
+- **Original design docs (historical — superseded by the feature specs above and the backlog
+  below, kept for design-stage context)**:
+  [`master-product-architecture.md`](docs/master-product-architecture.md) ·
+  [`prd-feature-1-endurance-capability.md`](docs/prd-feature-1-endurance-capability.md) ·
+  [`prd-feature-2-nutrition-cooking-cost.md`](docs/prd-feature-2-nutrition-cooking-cost.md)

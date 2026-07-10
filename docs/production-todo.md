@@ -29,6 +29,28 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
   needs a breaking Next.js major-version bump — tracked in section 10, not applied yet.
   `pip-audit`'s pytest advisory was fixed (bumped to `pytest>=9,<10`).
 
+**Architecture, in one paragraph:** Atlas is a local-first monorepo — `apps/web` (Next.js),
+`apps/api` (FastAPI), `packages/*` (shared contracts) — with local-first AI (Ollama default,
+optional cloud), replaceable integration contracts (Strava, Health Connect, Samsung Health), and
+a real backend test suite.
+
+**Definition of "production ready" for this repo** (this bar, not a generic checklist):
+
+- a non-technical user can install it locally without terminal setup
+- Ollama remains available on-device and is easy to validate; cloud providers are opt-in and
+  clearly labeled
+- endurance and nutrition both persist real user state locally
+- nutrition plans refresh every seven days and expose calendar, prep hacks, and resource links
+- endurance views expose support links and confidence-aware coaching
+- connectors work through native local flows
+- secrets are protected with platform-native storage
+- builds, tests, audits, and installers pass in CI
+- release artifacts are signed and recoverable
+
+(This folds in what used to be the standalone `docs/prod-readiness-audit.md` — that file's
+original 761-line long-form audit is superseded by this tracker and the dedicated docs below;
+full original text remains in git history at `git log -- docs/prod-readiness-audit.md`.)
+
 ---
 
 ## 1. Foundation & hygiene — P0 — DONE (except preflight + clean-room script)
