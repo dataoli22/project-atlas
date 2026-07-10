@@ -117,9 +117,25 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 - [x] **7a done**: non-medical coach support links (recovery, strength, base training,
       contextual connector setup) on dashboard + capability pages.
-- [ ] **7b**: real readiness scoring with windowing/decay; connector freshness/confidence
-      surfaced in scores; biometric normalization rules; cross-source dedup; calendarized
-      training plan; escalation flow for medical red flags.
+- [~] **7b started**: cross-source dedup landed (`_dedupe_cross_source_sessions` in
+      `endurance/service.py`) — previously a session synced from both Strava and Health Connect
+      (Samsung Health also writes into Health Connect on modern devices, compounding it) was
+      counted twice, inflating total volume/distance and the capability score derived from them.
+      Sessions are deduped by a 5-minute start-time + duration bucket (exact-timestamp equality
+      would miss the same workout logged with slightly different precision by different
+      connectors), keeping the first source in priority order (Strava > Health Connect > Samsung
+      Health, since Strava's activity data is richer). 4 new unit tests; the existing
+      `test_endurance_multi_source.py` 5-sessions/3-sources assertion still passes unchanged,
+      confirming genuinely distinct sessions aren't over-collapsed.
+      **Still open**: windowing/decay (a session from a month ago currently counts identically to
+      one from today — deliberately not attempted this pass: doing it safely needs an injectable
+      clock so tests don't silently break as real dates age past a fixed window, which is more
+      scope than a drive-by fix), connector freshness/confidence surfaced in scores (each
+      integration already tracks `last_sync_at`; not yet surfaced in the capability response),
+      biometric normalization rules (hydration/sleep are currently combined with ad hoc linear
+      arithmetic, not real normalization), calendarized training plan (not started), escalation
+      flow for medical red flags (not started — this one especially needs product/legal input on
+      wording before writing code, not just engineering).
 
 ## 8. Connectors & mobile — P1 — SCAFFOLDED + HARDENED
 

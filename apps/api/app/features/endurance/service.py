@@ -318,8 +318,56 @@ def _combined_recent_sessions(runtime: dict[str, dict[str, object | None]]) -> l
     sessions.extend(_recent_strava_activities(runtime["strava"]))
     sessions.extend(_runtime_session_list(runtime["health_connect"], key="recent_sessions"))
     sessions.extend(_runtime_session_list(runtime["samsung_health"], key="recent_sessions"))
+    sessions = _dedupe_cross_source_sessions(sessions)
     sessions.sort(key=lambda item: str(item.get("start_date") or ""), reverse=True)
     return sessions
+
+
+def _dedupe_cross_source_sessions(
+    sessions: list[dict[str, object | None]],
+) -> list[dict[str, object | None]]:
+    """Collapses the same physical workout when it's synced from more than one connector.
+
+    A real gap without this: a user with both Strava and Health Connect connected (Samsung
+    Health also writes into Health Connect on modern devices, compounding it) would see the same
+    run counted twice - once per source - inflating total volume, distance, and the capability
+    score derived from them. Sources are appended to `sessions` in a fixed priority order
+    (Strava, then Health Connect, then Samsung Health), and `dict.fromkeys`-style "first wins"
+    dedup keeps whichever source reported it first, so Strava's richer activity data (real name,
+    exact distance) is kept over a coarser Health Connect/Samsung Health record of the same
+    session when both exist.
+
+    Two sessions are considered the same workout if they start within the same 5-minute window
+    and have roughly the same duration (also bucketed to 5 minutes) - different connectors
+    routinely disagree on a workout's exact start second (auto-pause, GPS lock delay, manual
+    start vs. detected start), so exact-timestamp equality would miss real duplicates. 5 minutes
+    is generous enough to catch that skew without being so wide it collapses two genuinely
+    different sessions that happen to start close together (e.g. a warmup walk followed
+    immediately by a run).
+    """
+    seen_keys: set[tuple[int, int]] = set()
+    deduped: list[dict[str, object | None]] = []
+    for item in sessions:
+        key = _session_dedupe_key(item)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        deduped.append(item)
+    return deduped
+
+
+def _session_dedupe_key(item: dict[str, object | None]) -> tuple[int, int]:
+    start_bucket = _session_start_epoch_seconds(item) // 300  # 5-minute buckets
+    duration_bucket = _session_duration_seconds(item) // 300  # 5-minute buckets
+    return (start_bucket, duration_bucket)
+
+
+def _session_start_epoch_seconds(item: dict[str, object | None]) -> int:
+    value = str(item.get("start_date") or "")
+    try:
+        return int(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp())
+    except ValueError:
+        return 0
 
 
 def _runtime_session_list(runtime: dict[str, object | None], *, key: str) -> list[dict[str, object | None]]:
