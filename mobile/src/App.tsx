@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { confirmPairing, syncHealthConnectData, testConnection } from "./desktop-api";
 import { clearPairing, loadPairing, savePairing, type StoredPairing } from "./pairing-store";
 import { HealthConnect } from "./health-connect-plugin";
+import { SamsungHealth } from "./samsung-health-plugin";
 
 export default function App() {
   const [pairing, setPairing] = useState<StoredPairing | null>(null);
@@ -124,11 +125,17 @@ function SyncScreen({ pairing, onUnpair }: { pairing: StoredPairing; onUnpair: (
   const [isError, setIsError] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [healthConnectAvailable, setHealthConnectAvailable] = useState<boolean | null>(null);
+  const [samsungHealthAvailable, setSamsungHealthAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
     HealthConnect.isAvailable()
       .then((result) => setHealthConnectAvailable(result.available))
       .catch(() => setHealthConnectAvailable(false));
+    // Always resolves to unavailable today - see samsung-health-plugin.ts for why (blocked on
+    // Samsung Health Partner Program approval, not just missing native code).
+    SamsungHealth.isAvailable()
+      .then((result) => setSamsungHealthAvailable(result.available))
+      .catch(() => setSamsungHealthAvailable(false));
   }, []);
 
   async function runManualSync() {
@@ -159,6 +166,16 @@ function SyncScreen({ pairing, onUnpair }: { pairing: StoredPairing; onUnpair: (
       <div className="atlas-mobile-list-item">
         <span>Health Connect</span>
         <strong>{healthConnectAvailable === null ? "Checking..." : healthConnectAvailable ? "Available" : "Not implemented"}</strong>
+      </div>
+      <div className="atlas-mobile-list-item">
+        <span>Samsung Health</span>
+        <strong>
+          {samsungHealthAvailable === null
+            ? "Checking..."
+            : samsungHealthAvailable
+              ? "Available"
+              : "Blocked on Samsung Partner Program approval"}
+        </strong>
       </div>
 
       <button className="atlas-mobile-button" onClick={runManualSync} disabled={isSyncing}>

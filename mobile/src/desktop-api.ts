@@ -19,6 +19,16 @@ export interface SyncPayload {
   active_energy_kcal?: number;
 }
 
+export interface SamsungHealthSyncPayload {
+  device_label?: string;
+  bridge_source?: "samsung-health-sdk" | "manual-import";
+  recent_sessions: HealthConnectSession[];
+  sleep_hours?: number;
+  resting_hr?: number;
+  energy_score?: number;
+  stress_level?: string;
+}
+
 function normalizeBaseUrl(input: string): string {
   const trimmed = input.trim().replace(/\/+$/, "");
   return trimmed.startsWith("http://") || trimmed.startsWith("https://") ? trimmed : `http://${trimmed}`;
@@ -78,17 +88,19 @@ function delay(ms: number): Promise<void> {
  * necessarily "the desktop is gone", so retry network-level failures and 5xx responses with
  * backoff. 4xx responses (bad/expired token, validation errors) are NOT retried - retrying an
  * auth failure just wastes battery hammering a request that cannot succeed until the user
- * re-pairs.
+ * re-pairs. Shared by both device-sync endpoints (Health Connect, Samsung Health) since the
+ * retry/backoff policy is identical - only the path and payload shape differ.
  */
-export async function syncHealthConnectData(
+async function postDeviceSyncWithRetry(
   pairing: StoredPairing,
-  payload: SyncPayload
+  path: string,
+  payload: unknown
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   let lastMessage = "Could not reach the desktop.";
 
   for (let attempt = 0; attempt <= SYNC_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
-      const response = await fetch(`${pairing.desktopBaseUrl}/api/v1/integrations/health_connect/device-sync`, {
+      const response = await fetch(`${pairing.desktopBaseUrl}${path}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -119,4 +131,18 @@ export async function syncHealthConnectData(
   }
 
   return { ok: false, message: lastMessage };
+}
+
+export function syncHealthConnectData(
+  pairing: StoredPairing,
+  payload: SyncPayload
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  return postDeviceSyncWithRetry(pairing, "/api/v1/integrations/health_connect/device-sync", payload);
+}
+
+export function syncSamsungHealthData(
+  pairing: StoredPairing,
+  payload: SamsungHealthSyncPayload
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  return postDeviceSyncWithRetry(pairing, "/api/v1/integrations/samsung_health/device-sync", payload);
 }

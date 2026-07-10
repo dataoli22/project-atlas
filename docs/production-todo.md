@@ -143,7 +143,16 @@ desktop, and the hard iOS blocker.)
 - [ ] **APK not yet installed/run on a device or emulator** — permission grant/deny/partial-grant
       flows and a real end-to-end sync against a paired desktop still need real hardware. See
       `mobile-architecture.md` section 3.
-- [ ] Samsung Health SDK bridge for mobile (not started).
+- [~] Samsung Health SDK bridge for mobile: documented interface (`mobile/src/samsung-health-plugin.ts`)
+      and `syncSamsungHealthData()` (`desktop-api.ts`) wired into the sync screen alongside
+      Health Connect, mirroring the same pattern. **Native implementation is blocked differently
+      than Health Connect/HealthKit were** — Health Connect and HealthKit only needed device/SDK
+      access (now unblocked for Health Connect); the Samsung Health SDK additionally requires
+      enrolling in and being approved for the Samsung Health Partner Program before it will even
+      authenticate, which is a business/legal step, not engineering. On modern Samsung devices
+      much of this data (steps, sleep, heart rate, workouts) already flows into Health Connect,
+      which the Health Connect plugin already covers — the fields unique to Samsung Health
+      (`stressLevel`/`energyScore`) are the main reason to still pursue partner approval later.
 - [x] iOS: Capacitor scaffold committed (`mobile/ios/`, via `npx cap add ios`); ships as a
       self-compiled build (free Apple ID / Personal Team, 7-day resign) rather than through the
       App Store — see `mobile-architecture.md` section 4 for the full build/sideload flow.
