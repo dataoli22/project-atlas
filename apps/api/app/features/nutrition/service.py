@@ -430,6 +430,7 @@ def _parse_iso(value: str) -> datetime:
 
 def get_nutrition_shopping_list() -> NutritionShoppingListResponse:
     blueprint, currency_code = _resolve_blueprint()
+    pantry_items = shared_state.get_pantry_items()
     items = [
         NutritionShoppingItem(
             name=str(item["name"]),
@@ -438,22 +439,49 @@ def get_nutrition_shopping_list() -> NutritionShoppingListResponse:
             category=str(item["category"]),
             priority=str(item["priority"]),
             used_in_days=list(item["used_in_days"]),
+            already_in_pantry=_matches_pantry(str(item["name"]), pantry_items),
         )
         for item in blueprint.shopping_items
     ]
     categories = sorted({item.category for item in items})
     batch_cook_count = sum(1 for item in items if item.priority == "high")
     pantry_staple_count = sum(1 for item in items if item.category in {"Breakfast staples", "Grains", "Protein"})
-    total_amount = sum(float(item["estimated_cost_amount"]) for item in blueprint.shopping_items)
+
+    # "Still need to buy" totals - matched items stay visible in the list (flagged, not hidden)
+    # so the user can see what was skipped and why, but the totals that matter for an actual
+    # shopping trip only count what they don't already have.
+    still_needed = [item for item in blueprint.shopping_items if not _matches_pantry(str(item["name"]), pantry_items)]
+    matched = [item for item in blueprint.shopping_items if _matches_pantry(str(item["name"]), pantry_items)]
+    total_amount = sum(float(item["estimated_cost_amount"]) for item in still_needed)
+    pantry_savings_amount = sum(float(item["estimated_cost_amount"]) for item in matched)
+
     return NutritionShoppingListResponse(
         generated_at="2026-07-09T10:30:00Z",
-        total_items=len(items),
+        total_items=len(still_needed),
         estimated_total=_format_money(total_amount, currency_code),
         categories=categories,
         batch_cook_item_count=batch_cook_count,
         pantry_staple_count=pantry_staple_count,
+        pantry_matched_count=len(matched),
+        pantry_savings=_format_money(pantry_savings_amount, currency_code),
         items=items,
     )
+
+
+def _matches_pantry(item_name: str, pantry_items: list[str]) -> bool:
+    """A shopping item is considered already-owned if its name and a pantry entry share a
+    case-insensitive substring match in either direction - "onion" in the pantry should match a
+    shopping item named "Yellow onions", not just an exact "onion" == "onion" comparison, since
+    real pantry entries and blueprint ingredient names are rarely worded identically.
+    """
+    normalized_item = item_name.strip().lower()
+    for pantry_entry in pantry_items:
+        normalized_pantry = pantry_entry.strip().lower()
+        if not normalized_pantry:
+            continue
+        if normalized_pantry in normalized_item or normalized_item in normalized_pantry:
+            return True
+    return False
 
 
 def get_nutrition_substitutions() -> NutritionSubstitutionsResponse:

@@ -32,6 +32,7 @@ def restore_shared_state():
                 "last_refreshed_at": shared_state._nutrition_runtime["last_refreshed_at"],
                 "refresh_due_at": shared_state._nutrition_runtime["refresh_due_at"],
                 "refresh_reason": shared_state._nutrition_runtime["refresh_reason"],
+                "pantry_items": list(shared_state._nutrition_runtime["pantry_items"]),
             },
             "app_lock": dict(shared_state._app_lock),
             "pairing": {

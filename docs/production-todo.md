@@ -117,10 +117,21 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       OpenFoodFacts alone still works exactly as before. New `SearchSettings`/`SearchSettingsUpdate`
       schemas, state persistence (same protect/unprotect pattern as the other provider keys),
       `GET/PUT /api/v1/settings/search`. 11 new backend tests + a live build/render check.
+- [x] **6b — pantry inventory / "already have this" landed**: `SharedStateStore.get/add/remove_pantry_item`
+      (persisted alongside the existing nutrition runtime), `GET/POST /api/v1/nutrition/pantry` +
+      `DELETE /api/v1/nutrition/pantry/{name}`. Shopping list generation
+      (`get_nutrition_shopping_list`) now flags matching items `already_in_pantry` (substring
+      match in either direction — a pantry entry of "onion" matches a shopping item named
+      "Yellow onions", since real pantry entries and blueprint ingredient names are rarely worded
+      identically) and computes a real "still need to buy" total that excludes matched items,
+      alongside `pantry_matched_count`/`pantry_savings`. Matched items stay visible in the list
+      (flagged, not hidden) so the user can see what was skipped and why. `PantryManagerForm` on
+      the shopping page (add/remove items, live). 9 new backend tests; verified live end-to-end
+      (added a real item via curl, confirmed the shopping list correctly flagged and excluded it,
+      cleaned up after).
 - [ ] **6b remaining**: replace deterministic blueprints with a real optimizer (grounded in the
       already-integrated OpenFoodFacts data, not fabricated recipe content — explicit product
-      decision); pantry inventory / "already have this" logic; recipe source system with a real
-      "why did the plan change" explanation.
+      decision); recipe source system with a real "why did the plan change" explanation.
 
 ## 7. Endurance — P1
 

@@ -109,6 +109,7 @@ class NutritionShoppingItem(BaseModel):
     category: str
     priority: str
     used_in_days: list[str]
+    already_in_pantry: bool = False
 
 
 class NutritionShoppingListResponse(BaseModel):
@@ -119,7 +120,17 @@ class NutritionShoppingListResponse(BaseModel):
     categories: list[str]
     batch_cook_item_count: int
     pantry_staple_count: int
+    pantry_matched_count: int = 0
+    pantry_savings: str = ""
     items: list[NutritionShoppingItem]
+
+
+class NutritionPantryResponse(BaseModel):
+    items: list[str]
+
+
+class NutritionPantryAddRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
 
 
 class NutritionSubstitutionItem(BaseModel):

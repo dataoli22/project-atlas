@@ -311,15 +311,17 @@ const stubShoppingList: NutritionShoppingListData = {
   categories: ["Breakfast staples", "Grains", "Produce", "Protein"],
   batchCookItemCount: 5,
   pantryStapleCount: 6,
+  pantryMatchedCount: 0,
+  pantrySavings: "INR 0",
   items: [
-    { name: "Rolled oats", quantity: "1 kg", estimatedCost: "INR 180", category: "Breakfast staples", priority: "high", usedInDays: ["Mon", "Thu", "Sun"] },
-    { name: "Eggs", quantity: "18", estimatedCost: "INR 144", category: "Protein", priority: "high", usedInDays: ["Tue", "Thu", "Sat"] },
-    { name: "Rice", quantity: "2.5 kg", estimatedCost: "INR 180", category: "Grains", priority: "high", usedInDays: ["Mon", "Tue", "Fri", "Sat", "Sun"] },
-    { name: "Dal and chickpeas", quantity: "2 kg combined", estimatedCost: "INR 280", category: "Protein", priority: "high", usedInDays: ["Mon", "Wed", "Fri"] },
-    { name: "Chicken", quantity: "1.4 kg", estimatedCost: "INR 460", category: "Protein", priority: "medium", usedInDays: ["Mon", "Sat"] },
-    { name: "Paneer", quantity: "500 g", estimatedCost: "INR 220", category: "Protein", priority: "medium", usedInDays: ["Wed", "Fri", "Sun"] },
-    { name: "Mixed vegetables", quantity: "3 kg", estimatedCost: "INR 330", category: "Produce", priority: "high", usedInDays: ["Mon", "Tue", "Wed", "Fri", "Sun"] },
-    { name: "Curd, bananas, peanuts", quantity: "7 breakfast servings", estimatedCost: "INR 166", category: "Breakfast staples", priority: "medium", usedInDays: ["Mon", "Wed", "Fri", "Sun"] }
+    { name: "Rolled oats", quantity: "1 kg", estimatedCost: "INR 180", category: "Breakfast staples", priority: "high", usedInDays: ["Mon", "Thu", "Sun"], alreadyInPantry: false },
+    { name: "Eggs", quantity: "18", estimatedCost: "INR 144", category: "Protein", priority: "high", usedInDays: ["Tue", "Thu", "Sat"], alreadyInPantry: false },
+    { name: "Rice", quantity: "2.5 kg", estimatedCost: "INR 180", category: "Grains", priority: "high", usedInDays: ["Mon", "Tue", "Fri", "Sat", "Sun"], alreadyInPantry: false },
+    { name: "Dal and chickpeas", quantity: "2 kg combined", estimatedCost: "INR 280", category: "Protein", priority: "high", usedInDays: ["Mon", "Wed", "Fri"], alreadyInPantry: false },
+    { name: "Chicken", quantity: "1.4 kg", estimatedCost: "INR 460", category: "Protein", priority: "medium", usedInDays: ["Mon", "Sat"], alreadyInPantry: false },
+    { name: "Paneer", quantity: "500 g", estimatedCost: "INR 220", category: "Protein", priority: "medium", usedInDays: ["Wed", "Fri", "Sun"], alreadyInPantry: false },
+    { name: "Mixed vegetables", quantity: "3 kg", estimatedCost: "INR 330", category: "Produce", priority: "high", usedInDays: ["Mon", "Tue", "Wed", "Fri", "Sun"], alreadyInPantry: false },
+    { name: "Curd, bananas, peanuts", quantity: "7 breakfast servings", estimatedCost: "INR 166", category: "Breakfast staples", priority: "medium", usedInDays: ["Mon", "Wed", "Fri", "Sun"], alreadyInPantry: false }
   ]
 };
 
@@ -531,6 +533,8 @@ type NutritionShoppingListApiResponse = {
   categories: string[];
   batch_cook_item_count: number;
   pantry_staple_count: number;
+  pantry_matched_count: number;
+  pantry_savings: string;
   items: Array<{
     name: string;
     quantity: string;
@@ -538,6 +542,7 @@ type NutritionShoppingListApiResponse = {
     category: string;
     priority: "high" | "medium" | "low";
     used_in_days: string[];
+    already_in_pantry: boolean;
   }>;
 };
 
@@ -776,13 +781,16 @@ function mapShoppingListResponse(response: NutritionShoppingListApiResponse): Nu
     categories: response.categories,
     batchCookItemCount: response.batch_cook_item_count,
     pantryStapleCount: response.pantry_staple_count,
+    pantryMatchedCount: response.pantry_matched_count,
+    pantrySavings: response.pantry_savings,
     items: response.items.map((item) => ({
       name: item.name,
       quantity: item.quantity,
       estimatedCost: item.estimated_cost,
       category: item.category,
       priority: item.priority,
-      usedInDays: item.used_in_days
+      usedInDays: item.used_in_days,
+      alreadyInPantry: item.already_in_pantry
     }))
   };
 }
@@ -907,13 +915,16 @@ function shoppingListFallback(): NutritionShoppingListApiResponse {
     categories: stubShoppingList.categories,
     batch_cook_item_count: stubShoppingList.batchCookItemCount,
     pantry_staple_count: stubShoppingList.pantryStapleCount,
+    pantry_matched_count: stubShoppingList.pantryMatchedCount,
+    pantry_savings: stubShoppingList.pantrySavings,
     items: stubShoppingList.items.map((item) => ({
       name: item.name,
       quantity: item.quantity,
       estimated_cost: item.estimatedCost,
       category: item.category,
       priority: item.priority,
-      used_in_days: item.usedInDays
+      used_in_days: item.usedInDays,
+      already_in_pantry: item.alreadyInPantry
     }))
   };
 }
@@ -937,6 +948,37 @@ export async function getNutritionShoppingListDataWithSource(): Promise<{
   );
 
   return { data: mapShoppingListResponse(response), source };
+}
+
+type NutritionPantryApiResponse = {
+  items: string[];
+};
+
+export async function getPantryItems(): Promise<{ data: string[]; source: ApiDataSource }> {
+  const result = await requestJson<NutritionPantryApiResponse>("/api/v1/nutrition/pantry", {
+    fallback: { items: [] }
+  });
+
+  return { data: result.data.items, source: result.source };
+}
+
+export async function addPantryItem(name: string): Promise<{ data: string[]; source: ApiDataSource }> {
+  const result = await requestJson<NutritionPantryApiResponse>("/api/v1/nutrition/pantry", {
+    method: "POST",
+    body: { name },
+    fallback: { items: [name] }
+  });
+
+  return { data: result.data.items, source: result.source };
+}
+
+export async function removePantryItem(name: string): Promise<{ data: string[]; source: ApiDataSource }> {
+  const result = await requestJson<NutritionPantryApiResponse>(
+    `/api/v1/nutrition/pantry/${encodeURIComponent(name)}`,
+    { method: "DELETE", fallback: { items: [] } }
+  );
+
+  return { data: result.data.items, source: result.source };
 }
 
 function substitutionsFallback(): NutritionSubstitutionsApiResponse {

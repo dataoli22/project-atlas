@@ -8,7 +8,7 @@ export type ApiDataSource = "api" | "stub";
 
 type RequestJsonOptions<T> = {
   fallback: T;
-  method?: "GET" | "POST" | "PUT";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
 };
 

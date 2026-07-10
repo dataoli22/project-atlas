@@ -1,10 +1,12 @@
 import {
   getNutritionPlannerDataWithSource,
   getNutritionShoppingListDataWithSource,
-  getNutritionSubstitutionsDataWithSource
+  getNutritionSubstitutionsDataWithSource,
+  getPantryItems
 } from "@/lib/nutrition-data";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { PageScaffold } from "@/components/page-scaffold";
+import { PantryManagerForm } from "@/components/pantry-manager-form";
 import { combineDataSources } from "@/lib/data-source";
 import {
   formatCurrencyDisplay,
@@ -28,12 +30,14 @@ export default async function ShoppingPage() {
     { data: planner, source: plannerSource },
     { data: shoppingList, source: shoppingListSource },
     { data: substitutions, source: substitutionsSource },
-    localization
+    localization,
+    pantry
   ] = await Promise.all([
     getNutritionPlannerDataWithSource(),
     getNutritionShoppingListDataWithSource(),
     getNutritionSubstitutionsDataWithSource(),
-    getLocalizationSettingsData()
+    getLocalizationSettingsData(),
+    getPantryItems()
   ]);
   const source = combineDataSources(plannerSource, shoppingListSource, substitutionsSource);
 
@@ -124,20 +128,34 @@ export default async function ShoppingPage() {
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Store route</div>
           <div className="atlas-meta">
-            <span>{shoppingList.totalItems} line items</span>
+            <span>{shoppingList.totalItems} line items still needed</span>
             <span>{categorySummaries.length} categories</span>
+            {shoppingList.pantryMatchedCount > 0 ? (
+              <span>
+                {shoppingList.pantryMatchedCount} already in pantry (saved {shoppingList.pantrySavings})
+              </span>
+            ) : null}
           </div>
           <div className="atlas-stack">
             {categorySummaries.map((group) => (
               <div key={group.category} className="atlas-list-card">
                 <div className="atlas-list-card__title">{group.category}</div>
                 <div className="atlas-list-card__meta">
-                  {group.items.map((item) => `${item.name} (${item.quantity}, ${item.priority})`).join(" | ")}
+                  {group.items
+                    .map(
+                      (item) =>
+                        `${item.name} (${item.quantity}, ${item.priority})${
+                          item.alreadyInPantry ? " - already have this" : ""
+                        }`
+                    )
+                    .join(" | ")}
                 </div>
               </div>
             ))}
           </div>
         </section>
+
+        <PantryManagerForm initialItems={pantry.data} />
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Meal coverage</div>

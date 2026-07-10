@@ -9,6 +9,8 @@ from app.features.nutrition.data_sources import (
 from app.features.nutrition.schemas import (
     NutritionCookingPlanResponse,
     NutritionNutrientFactsResponse,
+    NutritionPantryAddRequest,
+    NutritionPantryResponse,
     NutritionPlannerResponse,
     NutritionProductLookupResponse,
     NutritionProductSearchResponse,
@@ -65,6 +67,25 @@ def refresh_nutrition_plan(
 @router.get("/shopping-list", response_model=NutritionShoppingListResponse)
 def read_nutrition_shopping_list() -> NutritionShoppingListResponse:
     return get_nutrition_shopping_list()
+
+
+@router.get("/pantry", response_model=NutritionPantryResponse)
+def read_pantry_items() -> NutritionPantryResponse:
+    return NutritionPantryResponse(items=shared_state.get_pantry_items())
+
+
+@router.post("/pantry", response_model=NutritionPantryResponse)
+def add_pantry_item(payload: NutritionPantryAddRequest) -> NutritionPantryResponse:
+    try:
+        items = shared_state.add_pantry_item(payload.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return NutritionPantryResponse(items=items)
+
+
+@router.delete("/pantry/{name}", response_model=NutritionPantryResponse)
+def remove_pantry_item(name: str) -> NutritionPantryResponse:
+    return NutritionPantryResponse(items=shared_state.remove_pantry_item(name))
 
 
 @router.get("/substitutions", response_model=NutritionSubstitutionsResponse)

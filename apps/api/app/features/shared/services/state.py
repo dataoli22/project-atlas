@@ -543,6 +543,31 @@ class SharedStateStore:
                 "refresh_reason": self._nutrition_runtime["refresh_reason"],
             }
 
+    def get_pantry_items(self) -> list[str]:
+        with self._lock:
+            return list(self._nutrition_runtime["pantry_items"])
+
+    def add_pantry_item(self, name: str) -> list[str]:
+        with self._lock:
+            normalized = name.strip()
+            if not normalized:
+                raise ValueError("Pantry item name cannot be empty.")
+            existing = self._nutrition_runtime["pantry_items"]
+            if not any(item.lower() == normalized.lower() for item in existing):
+                existing.append(normalized)
+            self._persist_state_unlocked()
+            return list(existing)
+
+    def remove_pantry_item(self, name: str) -> list[str]:
+        with self._lock:
+            normalized = name.strip().lower()
+            existing = self._nutrition_runtime["pantry_items"]
+            self._nutrition_runtime["pantry_items"] = [
+                item for item in existing if item.lower() != normalized
+            ]
+            self._persist_state_unlocked()
+            return list(self._nutrition_runtime["pantry_items"])
+
     def record_nutrition_refresh(
         self,
         *,
@@ -856,6 +881,11 @@ class SharedStateStore:
             for key in ("last_refreshed_at", "refresh_due_at", "refresh_reason"):
                 if key in nutrition_payload:
                     self._nutrition_runtime[key] = nutrition_payload[key]
+            pantry_items = nutrition_payload.get("pantry_items")
+            if isinstance(pantry_items, list):
+                self._nutrition_runtime["pantry_items"] = [
+                    str(item) for item in pantry_items if isinstance(item, str)
+                ]
 
         app_lock_payload = payload.get("app_lock", {})
         if isinstance(app_lock_payload, dict):
@@ -915,6 +945,7 @@ class SharedStateStore:
                 "last_refreshed_at": self._nutrition_runtime["last_refreshed_at"],
                 "refresh_due_at": self._nutrition_runtime["refresh_due_at"],
                 "refresh_reason": self._nutrition_runtime["refresh_reason"],
+                "pantry_items": list(self._nutrition_runtime["pantry_items"]),
             },
             "app_lock": dict(self._app_lock),
             "pairing": {
@@ -1122,6 +1153,7 @@ def _build_default_nutrition_runtime() -> dict[str, object]:
         "last_refreshed_at": None,
         "refresh_due_at": None,
         "refresh_reason": None,
+        "pantry_items": [],
     }
 
 

@@ -243,6 +243,7 @@ export interface NutritionShoppingItem {
   category: string;
   priority: "high" | "medium" | "low";
   usedInDays: string[];
+  alreadyInPantry: boolean;
 }
 
 export interface NutritionShoppingListData {
@@ -253,6 +254,8 @@ export interface NutritionShoppingListData {
   categories: string[];
   batchCookItemCount: number;
   pantryStapleCount: number;
+  pantryMatchedCount: number;
+  pantrySavings: string;
   items: NutritionShoppingItem[];
 }
 
