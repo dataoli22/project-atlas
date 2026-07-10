@@ -1,3 +1,15 @@
+"""Aggregates every feature router under the versioned API prefix (see config.api_v1_prefix).
+
+Compatibility policy: while a client (desktop Electron shell, mobile companion app) is pinned to
+`/api/v1`, changes under this prefix must stay additive and backward-compatible - new optional
+fields, new endpoints, new enum values a client can safely ignore. A breaking change (removing or
+renaming a field, changing a field's meaning, tightening validation) requires either a new
+`/api/v2` prefix or a version bump the client explicitly opts into; it must never silently change
+behavior for `/api/v1` callers already deployed. This mirrors the same additive-only rule already
+enforced between backend and frontend for `packages/shared/src/index.ts` (see
+`docs/production-todo.md`'s "Coordination rule").
+"""
+
 from fastapi import APIRouter
 
 from app.features.endurance.router import router as endurance_router

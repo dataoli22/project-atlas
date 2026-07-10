@@ -206,7 +206,14 @@ desktop, and the hard iOS blocker.)
       to 3 attempts with backoff, never retrying 4xx. On-device Ollama deliberately excluded — a
       slow local model isn't a transient failure, and doubling an already-long wait would make a
       slow device feel broken rather than resilient (see the comment in `provider_clients.py`).
-- [ ] Versioned API compatibility policy; OpenAPI review.
+- [x] Versioned API compatibility policy: documented in `api/router.py`'s module docstring —
+      `/api/v1` stays additive/backward-compatible while clients are pinned to it; breaking
+      changes get `/api/v2`, mirroring the existing `packages/shared` additive-only rule.
+- [x] OpenAPI review: audited all ~40 endpoints for tags/response models (already consistent —
+      no gaps found), then added a custom `openapi()` override (`main.py`) that documents a
+      shared `ErrorDetail` (`{"detail": "<message>"}`) as the default error response on every
+      operation — previously the schema only ever documented the 200 case, even though every
+      route consistently raises `HTTPException(status_code=..., detail=...)`.
 
 ## 12. Quality, testing, CI/CD — P0/P1 — PARTIAL
 
