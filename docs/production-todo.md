@@ -193,7 +193,13 @@ desktop, and the hard iOS blocker.)
 
 ## 11. Backend hardening — P1 — PARTIAL
 
-- [ ] Structured logging + request IDs + tracing + metrics.
+- [x] Structured logging + request IDs (`core/logging.py`, `core/middleware.py`): one JSON log
+      line per request (method, path, status, duration), a request ID generated or reused from
+      an `X-Request-Id` header, echoed back in the response, and attached to every log line
+      emitted while handling that request via a contextvar. Verified live against a running
+      uvicorn instance, not just unit tests. Tracing/metrics (OpenTelemetry or similar) still
+      not started — logging alone gets most of the day-to-day debugging value for a local-first
+      single-user app; revisit tracing if/when multi-service correlation is actually needed.
 - [ ] Dependency health endpoints; startup config validation.
 - [x] Timeout + retry policies for external providers: Groq and Strava's cloud HTTP calls
       (`provider_clients.py`) now retry transient failures (connection errors, timeouts, 5xx) up
