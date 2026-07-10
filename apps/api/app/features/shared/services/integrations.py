@@ -220,6 +220,43 @@ class StravaIntegrationAdapter(IntegrationAdapter):
         )
         return refreshed.access_token
 
+    def refresh_token_if_expiring_soon(self, *, buffer_seconds: int = 900) -> bool:
+        """Proactively refreshes the stored Strava token if it's expiring soon.
+
+        Called by the periodic maintenance scheduler (core/scheduler.py), not from a user
+        request - the point is to refresh *before* the token actually expires, rather than only
+        reacting the next time the user happens to trigger a sync. A larger buffer than
+        `_refresh_if_needed`'s reactive 60s (15 minutes by default) gives real headroom.
+        Returns True if a refresh happened, False if nothing needed doing (not connected, no
+        token, or not expiring soon).
+        """
+        runtime = shared_state.get_integration_runtime_snapshot()["strava"]
+        access_token = runtime.get("access_token")
+        refresh_token = runtime.get("refresh_token")
+        expires_at = runtime.get("expires_at")
+
+        if not access_token or not refresh_token:
+            return False
+        if not _token_is_expired(expires_at, buffer_seconds=buffer_seconds):
+            return False
+
+        settings = get_settings()
+        if not settings.strava_client_id or not settings.strava_client_secret:
+            return False
+
+        client = StravaOAuthClient(
+            client_id=settings.strava_client_id,
+            client_secret=settings.strava_client_secret,
+        )
+        refreshed = client.refresh_access_token(refresh_token=str(refresh_token))
+        shared_state.refresh_strava_token(
+            access_token=refreshed.access_token,
+            refresh_token=refreshed.refresh_token,
+            expires_at=refreshed.expires_at,
+            athlete_id=refreshed.athlete_id,
+        )
+        return True
+
 
 class HealthConnectIntegrationAdapter(IntegrationAdapter):
     source: IntegrationSourceKey = "health_connect"
@@ -355,6 +392,12 @@ def get_integration_adapter(source: IntegrationSourceKey) -> IntegrationAdapter:
     return SamsungHealthIntegrationAdapter()
 
 
+def refresh_strava_token_if_expiring_soon(*, buffer_seconds: int = 900) -> bool:
+    """Entry point for core/scheduler.py - avoids the scheduler depending on the concrete
+    StravaIntegrationAdapter type just to reach a Strava-specific method."""
+    return StravaIntegrationAdapter().refresh_token_if_expiring_soon(buffer_seconds=buffer_seconds)
+
+
 def _build_strava_launch_url(*, settings) -> str:
     if not settings.strava_client_id or not settings.strava_redirect_uri:
         return "https://developers.strava.com/docs/authentication/"
@@ -373,7 +416,7 @@ def _build_strava_launch_url(*, settings) -> str:
     return f"https://www.strava.com/oauth/authorize?{query}"
 
 
-def _token_is_expired(expires_at: object | None) -> bool:
+def _token_is_expired(expires_at: object | None, *, buffer_seconds: int = 60) -> bool:
     if not isinstance(expires_at, int):
         return False
-    return expires_at <= int(datetime.now(timezone.utc).timestamp()) + 60
+    return expires_at <= int(datetime.now(timezone.utc).timestamp()) + buffer_seconds

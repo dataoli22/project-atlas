@@ -1,3 +1,7 @@
+import asyncio
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
@@ -5,6 +9,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.core.middleware import RequestIdLoggingMiddleware
+from app.core.scheduler import run_periodic_maintenance
 
 # Every HTTPException raised across the API uses FastAPI's default {"detail": "<message>"} body
 # (see api/deps.py and the feature routers) - this schema documents that shape once instead of
@@ -51,6 +56,27 @@ def _build_custom_openapi(application: FastAPI):
     return custom_openapi
 
 
+def _background_maintenance_disabled() -> bool:
+    # The periodic maintenance loop has no place to run inside pytest's request/response cycle
+    # (TestClient's startup/shutdown fire per-fixture, so a real background task would leak
+    # across tests) - same PYTEST_CURRENT_TEST gate the persistence layer already uses.
+    return "PYTEST_CURRENT_TEST" in os.environ
+
+
+@asynccontextmanager
+async def _lifespan(application: FastAPI):
+    stop_event = asyncio.Event()
+    task: asyncio.Task | None = None
+    if not _background_maintenance_disabled():
+        task = asyncio.create_task(run_periodic_maintenance(stop_event=stop_event))
+
+    yield
+
+    if task is not None:
+        stop_event.set()
+        await task
+
+
 def create_app() -> FastAPI:
     configure_logging()
     settings = get_settings()
@@ -58,6 +84,7 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         openapi_url=f"{settings.api_v1_prefix}/openapi.json",
+        lifespan=_lifespan,
     )
     application.add_middleware(RequestIdLoggingMiddleware)
     application.include_router(api_router, prefix=settings.api_v1_prefix)

@@ -160,7 +160,15 @@ desktop, and the hard iOS blocker.)
       those permissions are OS-level and can only be revoked from the device's own settings;
       Atlas already clears its local `permission_granted`/`sdk_consent_granted` flags on
       disconnect, which is the most it can do from the backend.
-- [ ] Backend-side sync retry queue/backoff, token refresh scheduler.
+- [x] Token refresh scheduler: `core/scheduler.py` runs a periodic background maintenance loop
+      (started in `main.py`'s FastAPI lifespan, 15-minute interval) that proactively refreshes
+      the Strava token when it's within 15 minutes of expiry, instead of only refreshing
+      reactively the next time a user happens to trigger a sync. A failed tick is logged and
+      retried on the next interval — no separate durable retry queue needed for a single-user
+      local app; "try again next tick" is the retry policy. Disabled under pytest (same
+      `PYTEST_CURRENT_TEST` gate the persistence layer uses) so it never leaks a background task
+      across test runs. Verified against a live uvicorn instance (clean startup/shutdown), not
+      just unit tests.
 - [ ] Richer sync payload mapping for all three connectors.
 - [ ] App icon/branding; Play Store listing and release process (Android only — iOS is
       self-compiled, no App Store distribution planned).

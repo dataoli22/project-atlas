@@ -734,3 +734,105 @@ def test_disconnect_requires_explicit_confirmation(client):
         item for item in still_connected.json() if item["key"] == "samsung_health"
     )
     assert samsung_health["connected"] is True
+
+
+def _connect_and_exchange_with_expiry(client, monkeypatch, *, expires_at):
+    monkeypatch.setenv("ATLAS_STRAVA_CLIENT_ID", "12345")
+    monkeypatch.setenv("ATLAS_STRAVA_CLIENT_SECRET", "secret-xyz")
+    monkeypatch.setenv(
+        "ATLAS_STRAVA_REDIRECT_URI",
+        "http://localhost:8000/api/v1/integrations/strava/callback",
+    )
+    from app.core.config import get_settings
+    from app.features.shared.services import integrations as integrations_service
+    from app.features.shared.services.provider_clients import StravaTokenExchangeResult
+
+    class ExchangeOnlyStravaOAuthClient:
+        def __init__(self, *, client_id: str, client_secret: str) -> None:
+            pass
+
+        def exchange_code_for_tokens(self, *, code: str) -> StravaTokenExchangeResult:
+            return StravaTokenExchangeResult(
+                access_token="access-123",
+                refresh_token="refresh-456",
+                expires_at=expires_at,
+                athlete_id="789",
+            )
+
+    monkeypatch.setattr(integrations_service, "StravaOAuthClient", ExchangeOnlyStravaOAuthClient)
+    get_settings.cache_clear()
+
+    connect_response = client.post("/api/v1/integrations/strava/connect", json={})
+    launch_url = connect_response.json()["launch_url"]
+    state_value = launch_url.split("state=")[1].split("&")[0]
+    client.post(
+        "/api/v1/integrations/strava/callback",
+        json={"code": "temporary-auth-code", "state": state_value},
+    )
+    client.post("/api/v1/integrations/strava/token-exchange")
+
+
+def test_refresh_token_if_expiring_soon_refreshes_a_token_within_the_buffer(client, monkeypatch):
+    import time
+
+    from app.core.config import get_settings
+    from app.features.shared.services import integrations as integrations_service
+    from app.features.shared.services.integrations import refresh_strava_token_if_expiring_soon
+
+    try:
+        _connect_and_exchange_with_expiry(
+            client, monkeypatch, expires_at=int(time.time()) + 300
+        )
+
+        class RefreshTrackingStravaOAuthClient:
+            def __init__(self, *, client_id: str, client_secret: str) -> None:
+                pass
+
+            def refresh_access_token(self, *, refresh_token: str):
+                from app.features.shared.services.provider_clients import (
+                    StravaTokenExchangeResult,
+                )
+
+                assert refresh_token == "refresh-456"
+                return StravaTokenExchangeResult(
+                    access_token="fresh-access",
+                    refresh_token="fresh-refresh",
+                    expires_at=int(time.time()) + 6 * 3600,
+                    athlete_id="789",
+                )
+
+        monkeypatch.setattr(integrations_service, "StravaOAuthClient", RefreshTrackingStravaOAuthClient)
+
+        refreshed = refresh_strava_token_if_expiring_soon(buffer_seconds=900)
+    finally:
+        get_settings.cache_clear()
+
+    assert refreshed is True
+
+    devices = client.get("/api/v1/integrations").json()
+    strava = next(item for item in devices if item["key"] == "strava")
+    assert strava["runtime_summary"]["token_ready"] is True
+
+
+def test_refresh_token_if_expiring_soon_does_nothing_when_token_is_fresh(client, monkeypatch):
+    import time
+
+    from app.core.config import get_settings
+    from app.features.shared.services.integrations import refresh_strava_token_if_expiring_soon
+
+    try:
+        _connect_and_exchange_with_expiry(
+            client, monkeypatch, expires_at=int(time.time()) + 6 * 3600
+        )
+
+        refreshed = refresh_strava_token_if_expiring_soon(buffer_seconds=900)
+    finally:
+        get_settings.cache_clear()
+
+    assert refreshed is False
+
+
+def test_refresh_token_if_expiring_soon_does_nothing_without_a_connected_strava():
+    from app.features.shared.services.integrations import refresh_strava_token_if_expiring_soon
+
+    assert refresh_strava_token_if_expiring_soon(buffer_seconds=900) is False
