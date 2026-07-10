@@ -234,8 +234,16 @@ desktop, and the hard iOS blocker.)
       as-is rather than converted to a second competing pattern. `log`/`ask` have no backend
       fetch to be stale. Verified live for all six pages: banner renders with the backend
       stopped, disappears once it's reachable, for each route individually (not just dashboard).
-- [ ] Empty states per route (distinct from stale/error - "you have no data yet" vs "couldn't
-      reach the backend").
+- [x] Empty states (distinct from stale/error — "you genuinely have no data yet" vs "couldn't
+      reach the backend"): new `<EmptyState>` component (`components/empty-state.tsx`), wired
+      into the three spots that are actually reachable as empty today — dashboard's and
+      timeline's "no synced sessions" case (`timeline.entries.length === 0`, not currently
+      reachable against the stub backend's non-empty defaults, but real once a user has zero
+      connected sources) and planner's swap history (`swapHistory.length === 0`, **genuinely
+      reachable and verified live** — a fresh install always starts with empty swap history
+      until the first refresh; previously this section silently vanished with no explanation).
+      Other lists (shopping items, substitutions, insights) aren't empty-reachable against
+      current stub/live defaults, so left alone rather than adding untestable speculative UI.
 - [ ] Accessibility audit; responsive QA (desktop + phone).
 - [ ] Production-safe cache strategy; version/build metadata display.
 - [ ] Upgrade Next.js past the `postcss` XSS advisory (GHSA-qx2v-qp2m-jg93) — `npm audit fix

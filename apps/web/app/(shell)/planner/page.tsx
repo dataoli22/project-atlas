@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 
 import { DataSourceBanner } from "@/components/data-source-banner";
+import { EmptyState } from "@/components/empty-state";
 import { PageScaffold } from "@/components/page-scaffold";
 import { combineDataSources } from "@/lib/data-source";
 import {
@@ -183,21 +184,24 @@ export default async function PlannerPage() {
           <div className="atlas-placeholder">
             {planner.scheduleLabel} | {planner.cookingCadence} | Batch day: {planner.batchDay}
           </div>
+          <div className="atlas-panel__eyebrow">Swap history</div>
           {planner.swapHistory.length > 0 ? (
-            <>
-              <div className="atlas-panel__eyebrow">Swap history</div>
-              <div className="atlas-stack">
-                {planner.swapHistory.map((entry, index) => (
-                  <div key={`${entry.refreshedAt}-${index}`} className="atlas-list-card">
-                    <div className="atlas-list-card__title">{entry.reason}</div>
-                    <div className="atlas-list-card__meta">
-                      {formatDate(entry.refreshedAt)} | {entry.summary}
-                    </div>
+            <div className="atlas-stack">
+              {planner.swapHistory.map((entry, index) => (
+                <div key={`${entry.refreshedAt}-${index}`} className="atlas-list-card">
+                  <div className="atlas-list-card__title">{entry.reason}</div>
+                  <div className="atlas-list-card__meta">
+                    {formatDate(entry.refreshedAt)} | {entry.summary}
                   </div>
-                ))}
-              </div>
-            </>
-          ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No refreshes yet"
+              note="Once you refresh this plan, the previous week is preserved here instead of being discarded."
+            />
+          )}
         </section>
       </div>
 

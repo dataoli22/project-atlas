@@ -1,6 +1,7 @@
 import type { EnduranceSupportLink, EnduranceSupportResourceType } from "@atlas/shared";
 
 import { DataSourceBanner } from "@/components/data-source-banner";
+import { EmptyState } from "@/components/empty-state";
 import { PageScaffold } from "@/components/page-scaffold";
 import {
   getEnduranceDashboardDataWithSource,
@@ -62,18 +63,25 @@ export default async function DashboardPage() {
         </section>
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Training timeline</div>
-          <div className="atlas-stack">
-            {timeline.entries.map((entry) => (
-              <div key={`${entry.dayLabel}-${entry.sessionLabel}`} className="atlas-list-card">
-                <div className="atlas-list-card__title">
-                  {entry.dayLabel} | {entry.sessionLabel}
+          {timeline.entries.length === 0 ? (
+            <EmptyState
+              title="No sessions yet"
+              note="Connect Strava, Health Connect, or Samsung Health in Settings to start seeing training sessions here."
+            />
+          ) : (
+            <div className="atlas-stack">
+              {timeline.entries.map((entry) => (
+                <div key={`${entry.dayLabel}-${entry.sessionLabel}`} className="atlas-list-card">
+                  <div className="atlas-list-card__title">
+                    {entry.dayLabel} | {entry.sessionLabel}
+                  </div>
+                  <div className="atlas-list-card__meta">
+                    {entry.duration} | {entry.load} | {entry.source}
+                  </div>
                 </div>
-                <div className="atlas-list-card__meta">
-                  {entry.duration} | {entry.load} | {entry.source}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Capability snapshot</div>

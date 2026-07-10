@@ -1,4 +1,5 @@
 import { DataSourceBanner } from "@/components/data-source-banner";
+import { EmptyState } from "@/components/empty-state";
 import { PageScaffold } from "@/components/page-scaffold";
 import { combineDataSources } from "@/lib/data-source";
 import {
@@ -54,48 +55,55 @@ export default async function TimelinePage() {
           <p className="atlas-note">
             Recent work is shown in sequence with the load language and capture source already provided by the endurance data layer.
           </p>
-          <div className="atlas-stack">
-            {timeline.entries.map((entry, index) => (
-              <article
-                key={`${entry.dayLabel}-${entry.sessionLabel}`}
-                className="atlas-list-card"
-                style={{
-                  gridTemplateColumns: "minmax(0, 88px) minmax(0, 1fr)",
-                  alignItems: "start",
-                  gap: "14px"
-                }}
-              >
-                <div
+          {timeline.entries.length === 0 ? (
+            <EmptyState
+              title="No sessions yet"
+              note="Connect Strava, Health Connect, or Samsung Health in Settings to start building this timeline."
+            />
+          ) : (
+            <div className="atlas-stack">
+              {timeline.entries.map((entry, index) => (
+                <article
+                  key={`${entry.dayLabel}-${entry.sessionLabel}`}
+                  className="atlas-list-card"
                   style={{
-                    display: "grid",
-                    gap: "6px",
-                    alignContent: "start"
+                    gridTemplateColumns: "minmax(0, 88px) minmax(0, 1fr)",
+                    alignItems: "start",
+                    gap: "14px"
                   }}
                 >
-                  <div className="atlas-source-badge">{entry.dayLabel}</div>
-                  <div className="atlas-note">#{String(index + 1).padStart(2, "0")}</div>
-                </div>
-                <div className="atlas-stack" style={{ gap: "10px" }}>
-                  <div>
-                    <div className="atlas-list-card__title">{entry.sessionLabel}</div>
-                    <div className="atlas-list-card__meta">
-                      {entry.duration} of work with a {entry.load.toLowerCase()} emphasis.
-                    </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: "6px",
+                      alignContent: "start"
+                    }}
+                  >
+                    <div className="atlas-source-badge">{entry.dayLabel}</div>
+                    <div className="atlas-note">#{String(index + 1).padStart(2, "0")}</div>
                   </div>
-                  <dl className="atlas-detail-list">
-                    <div className="atlas-detail-list__row">
-                      <dt>Load</dt>
-                      <dd>{entry.load}</dd>
+                  <div className="atlas-stack" style={{ gap: "10px" }}>
+                    <div>
+                      <div className="atlas-list-card__title">{entry.sessionLabel}</div>
+                      <div className="atlas-list-card__meta">
+                        {entry.duration} of work with a {entry.load.toLowerCase()} emphasis.
+                      </div>
                     </div>
-                    <div className="atlas-detail-list__row">
-                      <dt>Captured via</dt>
-                      <dd>{getSourceLabel(entry.source)}</dd>
-                    </div>
-                  </dl>
-                </div>
-              </article>
-            ))}
-          </div>
+                    <dl className="atlas-detail-list">
+                      <div className="atlas-detail-list__row">
+                        <dt>Load</dt>
+                        <dd>{entry.load}</dd>
+                      </div>
+                      <div className="atlas-detail-list__row">
+                        <dt>Captured via</dt>
+                        <dd>{getSourceLabel(entry.source)}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="atlas-panel atlas-stack">
