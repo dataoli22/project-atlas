@@ -58,8 +58,16 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       `planner_generation_history` (capped at 20 rows), added via SQLite migration 002 in `db.py`,
       wired into `sync_integration()` and `record_nutrition_refresh()`. Exposed via
       `GET /api/v1/history/sync` and `GET /api/v1/history/planner`.
-- [ ] Alembic migrations — still deferred; the KV-table + versioned-migration approach in `db.py`
-      comfortably absorbed the two new tables above without needing it yet.
+- [~] Alembic: scaffolded (`apps/api/alembic/`, `alembic.ini`), deliberately **not wired into app
+      startup or replacing `db.py`'s existing migrations** — see `alembic/README.atlas.md` for
+      the full reasoning. `db.py`'s `PRAGMA user_version` system stays authoritative for
+      `app_state`/`connector_sync_history`/`planner_generation_history`; this scaffold is revision
+      zero (a verified-working no-op — ran `alembic upgrade head` against a real SQLite file,
+      confirmed only `alembic_version` was created and stamped, confirmed idempotent on re-run)
+      for whichever future migration first needs a real relational table with foreign keys
+      (nutrition recipe library, endurance biometric normalization) that the KV-table approach
+      can't express. `env.py` resolves the DB path from the same `ATLAS_LOCAL_DB_PATH` setting
+      `db.py` already uses, so there's one source of truth, not two configs that could drift.
 - [ ] Separate secret storage from general app state (secrets currently live in the same
       `app_state` table, just protected).
 

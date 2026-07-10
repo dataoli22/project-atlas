@@ -4,3 +4,8 @@ pydantic>=2.10,<3.0
 pydantic-settings>=2.6,<3.0
 httpx>=0.28,<1.0
 pytest>=9,<10
+
+# Scaffolded, not currently wired into app startup - see alembic/README.atlas.md for why and
+# when to actually use this. db.py's own PRAGMA-user_version migrations remain authoritative.
+alembic>=1.13,<2.0
+sqlalchemy>=2.0,<3.0
