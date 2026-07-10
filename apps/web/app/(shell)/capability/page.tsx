@@ -1,7 +1,9 @@
 import type { EnduranceSupportLink, EnduranceSupportResourceType } from "@atlas/shared";
 
 import { DataSourceBanner } from "@/components/data-source-banner";
+import { MedicalFlagBanner } from "@/components/medical-flag-banner";
 import { PageScaffold } from "@/components/page-scaffold";
+import { RefreshButton } from "@/components/refresh-button";
 import { combineDataSources } from "@/lib/data-source";
 import {
   getEnduranceDashboardDataWithSource,
@@ -70,6 +72,10 @@ export default async function CapabilityPage() {
       ]}
     >
       <DataSourceBanner source={source} />
+      <MedicalFlagBanner flags={insights.medicalFlags} />
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <RefreshButton />
+      </div>
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Capability headline</div>

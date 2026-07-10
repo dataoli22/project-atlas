@@ -1,12 +1,10 @@
 """Medical red-flag detection for the endurance module.
 
-DELIBERATELY NOT WIRED INTO ANY API RESPONSE, ROUTER, OR FRONTEND YET. Per explicit product
-decision this session: the detection logic (thresholds, what counts as a flag) is engineering
-work and is implemented + tested here, but the actual user-facing copy is a draft for human
-review, not something to ship without sign-off - wording in this space can cause real harm if
-it's alarmist, or real harm if it's too soft and someone ignores something that mattered. Do not
-import this module from a router or a frontend data loader until a human has reviewed
-_DRAFT_ESCALATION_COPY and the thresholds below and explicitly approved wiring it in.
+The copy in ESCALATION_COPY was reviewed and approved by the product owner and is now
+wired into EnduranceInsightsResponse.medical_flags (see endurance/service.py's
+_build_medical_flags) and rendered on the capability page. If this copy or the thresholds below
+ever change, treat that as a new copy decision needing the same kind of review, not a routine
+code edit - wording in this space can cause real harm whether it's alarmist or too soft.
 
 Scope, and why it's this narrow: Atlas doesn't collect symptoms or medical history, only workout/
 biometric data from connected trackers. That rules out anything resembling diagnosis. What's left
@@ -68,12 +66,11 @@ def detect_medical_red_flags(
     return flags
 
 
-# DRAFT - not shipped, not surfaced anywhere yet. For human review before this module is wired
-# into any router/response. Deliberately: (1) never says "you have" or names a condition,
+# Reviewed and approved. Deliberately: (1) never says "you have" or names a condition,
 # (2) always names the specific number that triggered it so it's checkable, not mysterious,
 # (3) always frames the action as "mention to a doctor," never "do X home remedy,"
 # (4) never blocks or gates any other app functionality - this is informational only.
-_DRAFT_ESCALATION_COPY: dict[str, str] = {
+ESCALATION_COPY: dict[str, str] = {
     "elevated_resting_heart_rate": (
         "Your synced resting heart rate is higher than usual for a resting reading. This can "
         "have many ordinary causes (recent training load, caffeine, stress, being unwell), but "

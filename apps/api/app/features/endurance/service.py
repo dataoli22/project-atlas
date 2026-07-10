@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from app.features.endurance.medical_escalation import (
+    ESCALATION_COPY,
+    detect_medical_red_flags,
+)
 from app.features.endurance.schemas import (
     EnduranceCapabilityArea,
     EnduranceCapabilitySnapshot,
@@ -9,6 +13,7 @@ from app.features.endurance.schemas import (
     EnduranceDashboardResponse,
     EnduranceInsightItem,
     EnduranceInsightsResponse,
+    EnduranceMedicalFlag,
     EnduranceSupportLink,
     EnduranceTimelineEntry,
     EnduranceTimelineResponse,
@@ -218,9 +223,11 @@ def get_endurance_insights(*, now: datetime | None = None) -> EnduranceInsightsR
     samsung_runtime = runtime["samsung_health"]
     hydration_ml = health_connect_runtime.get("hydration_ml")
     sleep_hours = samsung_runtime.get("sleep_hours")
+    resting_hr = samsung_runtime.get("resting_hr")
     generated_at = latest.get("start_date") or "2026-07-08T09:00:00Z"
 
     confidence, confidence_note = _capability_confidence(coverage, now=now)
+    medical_flags = _build_medical_flags(resting_hr=resting_hr, sleep_hours=sleep_hours)
 
     return EnduranceInsightsResponse(
         generated_at=generated_at,
@@ -274,7 +281,28 @@ def get_endurance_insights(*, now: datetime | None = None) -> EnduranceInsightsR
             ),
         ],
         support_links=_support_links(generated_at),
+        medical_flags=medical_flags,
     )
+
+
+def _build_medical_flags(
+    *, resting_hr: object | None, sleep_hours: object | None
+) -> list[EnduranceMedicalFlag]:
+    """Maps the pure detection result onto the approved draft copy. See
+    endurance/medical_escalation.py - the copy has been reviewed and approved for use."""
+    parsed_hr = int(resting_hr) if isinstance(resting_hr, (int, float)) else None
+    parsed_sleep = float(sleep_hours) if isinstance(sleep_hours, (int, float)) else None
+
+    detected = detect_medical_red_flags(resting_hr=parsed_hr, sleep_hours=parsed_sleep)
+    return [
+        EnduranceMedicalFlag(
+            flag_type=flag.flag_type,
+            severity=flag.severity,
+            message=ESCALATION_COPY[flag.flag_type],
+            detail=flag.detail,
+        )
+        for flag in detected
+    ]
 
 
 def _recent_strava_activities(runtime: dict[str, object | None]) -> list[dict[str, object | None]]:

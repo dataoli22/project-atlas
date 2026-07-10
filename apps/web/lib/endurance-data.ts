@@ -124,7 +124,8 @@ const stubInsights: EnduranceInsightsData = {
       priority: "low"
     }
   ],
-  supportLinks: stubDashboard.supportLinks
+  supportLinks: stubDashboard.supportLinks,
+  medicalFlags: []
 };
 
 type EnduranceSupportLinkApiResponse = {
@@ -185,6 +186,12 @@ type EnduranceInsightsApiResponse = {
     priority: "high" | "medium" | "low";
   }>;
   support_links: EnduranceSupportLinkApiResponse[];
+  medical_flags: Array<{
+    flag_type: string;
+    severity: "high" | "medium";
+    message: string;
+    detail: string;
+  }>;
 };
 
 function mapSupportLinks(links: EnduranceSupportLinkApiResponse[]): EnduranceSupportLink[] {
@@ -251,7 +258,13 @@ function mapInsightsResponse(response: EnduranceInsightsApiResponse): EnduranceI
       detail: insight.detail,
       priority: insight.priority
     })),
-    supportLinks: mapSupportLinks(response.support_links)
+    supportLinks: mapSupportLinks(response.support_links),
+    medicalFlags: response.medical_flags.map((flag) => ({
+      flagType: flag.flag_type,
+      severity: flag.severity,
+      message: flag.message,
+      detail: flag.detail
+    }))
   };
 }
 
@@ -351,6 +364,12 @@ const INSIGHTS_FALLBACK: EnduranceInsightsApiResponse = {
     why_recommended: link.whyRecommended,
     resource_type: link.resourceType,
     freshness_at: link.freshnessAt ?? null
+  })),
+  medical_flags: stubInsights.medicalFlags.map((flag) => ({
+    flag_type: flag.flagType,
+    severity: flag.severity,
+    message: flag.message,
+    detail: flag.detail
   }))
 };
 

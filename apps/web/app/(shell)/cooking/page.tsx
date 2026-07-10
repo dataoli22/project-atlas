@@ -6,6 +6,7 @@ import {
 } from "@/lib/nutrition-data";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { PageScaffold } from "@/components/page-scaffold";
+import { RefreshButton } from "@/components/refresh-button";
 import { combineDataSources } from "@/lib/data-source";
 
 function getCarryoverNote(lunch: string, dinner: string) {
@@ -62,6 +63,9 @@ export default async function CookingPage() {
       ]}
     >
       <DataSourceBanner source={source} />
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <RefreshButton />
+      </div>
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Prep sequence</div>

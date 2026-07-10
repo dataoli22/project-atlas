@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { EmptyState } from "@/components/empty-state";
 import { PageScaffold } from "@/components/page-scaffold";
+import { RefreshButton } from "@/components/refresh-button";
 import { combineDataSources } from "@/lib/data-source";
 import {
   getNutritionPlannerDataWithSource,
@@ -102,6 +103,9 @@ export default async function PlannerPage() {
       ]}
     >
       <DataSourceBanner source={source} />
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <RefreshButton />
+      </div>
       <div className="atlas-grid">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Plan status</div>

@@ -195,11 +195,14 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       is pure/stateless (no side effects), flags two conservative conditions from data Atlas
       already syncs: resting HR ≥100bpm, sleep ≤3h — deliberately *not* a low-resting-HR flag,
       since well-trained endurance athletes (this app's actual audience) routinely run well below
-      general-population "normal" and that would constantly false-positive. Draft copy lives in
-      `_DRAFT_ESCALATION_COPY` in the same file, written to never name a condition or suggest a
+      general-population "normal" and that would constantly false-positive. Copy lives in
+      `ESCALATION_COPY` in the same file, written to never name a condition or suggest a
       diagnosis, always cite the specific triggering number, always frame the action as "mention
-      to a doctor." 9 new unit tests for the detection thresholds. **Needs your review of the
-      draft copy before it's wired into a real response** — see the module docstring.
+      to a doctor." **Reviewed and approved, now wired in**: `EnduranceInsightsResponse.medical_flags`
+      (`_build_medical_flags` in `endurance/service.py`), rendered as a banner on the dashboard
+      and capability pages. 9 detection unit tests + 2 end-to-end wiring tests (verified live via
+      curl: pushed a real 115bpm/2h-sleep sync, confirmed both flags appeared with the approved
+      copy in the API response and rendered on the live capability page).
       Calendarized training plan: explicitly deferred to its own session (not started) — it's a
       genuine new subsystem (multi-week periodization logic), not a quick add, and rushing a
       shallow version into an already-large session wasn't the right call.
@@ -335,6 +338,10 @@ desktop, and the hard iOS blocker.)
       until the first refresh; previously this section silently vanished with no explanation).
       Other lists (shopping items, substitutions, insights) aren't empty-reachable against
       current stub/live defaults, so left alone rather than adding untestable speculative UI.
+- [x] Refresh button: new `<RefreshButton>` (`components/refresh-button.tsx`, `router.refresh()`)
+      on every endurance and nutrition page (dashboard, capability, timeline, nutrition, cooking,
+      shopping, planner — the last alongside its existing regenerate-with-reason form, as a
+      quicker "just re-check" action). Verified live that clicking it re-fetches.
 - [ ] Accessibility audit; responsive QA (desktop + phone).
 - [ ] Production-safe cache strategy; version/build metadata display.
 - [ ] Upgrade Next.js past the `postcss` XSS advisory (GHSA-qx2v-qp2m-jg93) — `npm audit fix

@@ -65,9 +65,17 @@ class EnduranceInsightItem(BaseModel):
     priority: str
 
 
+class EnduranceMedicalFlag(BaseModel):
+    flag_type: str
+    severity: str
+    message: str
+    detail: str
+
+
 class EnduranceInsightsResponse(BaseModel):
     generated_at: str
     active_feature: str = "endurance"
     capability: EnduranceCapabilitySnapshot
     insights: list[EnduranceInsightItem]
     support_links: list[EnduranceSupportLink]
+    medical_flags: list[EnduranceMedicalFlag] = []

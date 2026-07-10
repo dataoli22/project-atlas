@@ -100,6 +100,19 @@ export interface EnduranceTimelineData {
   entries: EnduranceTimelineEntry[];
 }
 
+/**
+ * A conservative red-flag notice derived only from synced numbers (never symptoms or history),
+ * always non-diagnostic and framed as "worth mentioning to a doctor." See
+ * apps/api/app/features/endurance/medical_escalation.py for the detection thresholds and the
+ * approved copy this is sourced from.
+ */
+export interface EnduranceMedicalFlag {
+  flagType: string;
+  severity: "high" | "medium";
+  message: string;
+  detail: string;
+}
+
 export interface EnduranceInsightsData {
   generatedAt: string;
   activeFeature: "endurance";
@@ -107,6 +120,7 @@ export interface EnduranceInsightsData {
   insights: EnduranceInsightItem[];
   /** Support resources are non-medical and always tagged with why they are relevant. */
   supportLinks: EnduranceSupportLink[];
+  medicalFlags: EnduranceMedicalFlag[];
 }
 
 export interface NutritionMealSummary {

@@ -7,6 +7,7 @@ import {
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { PageScaffold } from "@/components/page-scaffold";
 import { PantryManagerForm } from "@/components/pantry-manager-form";
+import { RefreshButton } from "@/components/refresh-button";
 import { combineDataSources } from "@/lib/data-source";
 import {
   formatCurrencyDisplay,
@@ -99,6 +100,9 @@ export default async function ShoppingPage() {
       ]}
     >
       <DataSourceBanner source={source} />
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <RefreshButton />
+      </div>
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Budget snapshot</div>
