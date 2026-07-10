@@ -191,6 +191,102 @@ def test_strava_token_exchange_updates_local_runtime_state(client, monkeypatch):
     assert payload["integration"]["status"] == "token-ready"
 
 
+def _connect_and_exchange_strava_tokens(client, monkeypatch, *, deauthorize_client):
+    monkeypatch.setenv("ATLAS_STRAVA_CLIENT_ID", "12345")
+    monkeypatch.setenv("ATLAS_STRAVA_CLIENT_SECRET", "secret-xyz")
+    monkeypatch.setenv(
+        "ATLAS_STRAVA_REDIRECT_URI",
+        "http://localhost:8000/api/v1/integrations/strava/callback",
+    )
+    from app.core.config import get_settings
+    from app.features.shared.services import integrations as integrations_service
+    from app.features.shared.services.provider_clients import StravaTokenExchangeResult
+
+    class ExchangeOnlyStravaOAuthClient:
+        def __init__(self, *, client_id: str, client_secret: str) -> None:
+            pass
+
+        def exchange_code_for_tokens(self, *, code: str) -> StravaTokenExchangeResult:
+            return StravaTokenExchangeResult(
+                access_token="access-123",
+                refresh_token="refresh-456",
+                expires_at=1893456000,
+                athlete_id="789",
+            )
+
+    monkeypatch.setattr(integrations_service, "StravaOAuthClient", ExchangeOnlyStravaOAuthClient)
+    get_settings.cache_clear()
+
+    connect_response = client.post("/api/v1/integrations/strava/connect", json={})
+    launch_url = connect_response.json()["launch_url"]
+    state_value = launch_url.split("state=")[1].split("&")[0]
+    client.post(
+        "/api/v1/integrations/strava/callback",
+        json={"code": "temporary-auth-code", "state": state_value},
+    )
+    client.post("/api/v1/integrations/strava/token-exchange")
+
+    # Swap in the deauthorize-tracking client only after token exchange, so disconnect() uses it.
+    monkeypatch.setattr(integrations_service, "StravaOAuthClient", deauthorize_client)
+
+
+def test_disconnecting_strava_revokes_access_server_side(client, monkeypatch):
+    from app.core.config import get_settings
+
+    calls = []
+
+    class RevokingStravaOAuthClient:
+        def __init__(self, *, client_id: str, client_secret: str) -> None:
+            pass
+
+        def deauthorize(self, *, access_token: str) -> None:
+            calls.append(access_token)
+
+    try:
+        _connect_and_exchange_strava_tokens(client, monkeypatch, deauthorize_client=RevokingStravaOAuthClient)
+        response = client.post("/api/v1/integrations/strava/disconnect", json={"confirm": True})
+    finally:
+        get_settings.cache_clear()
+
+    assert response.status_code == 200
+    assert calls == ["access-123"]
+    assert "revoked server-side" in response.json()["local_only_notice"]
+    assert response.json()["integration"]["connected"] is False
+
+
+def test_disconnecting_strava_still_succeeds_locally_when_revocation_fails(client, monkeypatch):
+    from urllib.error import URLError
+
+    from app.core.config import get_settings
+
+    class FailingDeauthorizeStravaOAuthClient:
+        def __init__(self, *, client_id: str, client_secret: str) -> None:
+            pass
+
+        def deauthorize(self, *, access_token: str) -> None:
+            raise URLError("network down")
+
+    try:
+        _connect_and_exchange_strava_tokens(
+            client, monkeypatch, deauthorize_client=FailingDeauthorizeStravaOAuthClient
+        )
+        response = client.post("/api/v1/integrations/strava/disconnect", json={"confirm": True})
+    finally:
+        get_settings.cache_clear()
+
+    assert response.status_code == 200
+    assert response.json()["integration"]["connected"] is False
+    assert "failed" in response.json()["local_only_notice"]
+
+
+def test_disconnecting_strava_without_stored_tokens_skips_revocation_call(client):
+    response = client.post("/api/v1/integrations/strava/disconnect", json={"confirm": True})
+
+    assert response.status_code == 200
+    assert "revoked server-side" not in response.json()["local_only_notice"]
+    assert response.json()["integration"]["connected"] is False
+
+
 def test_strava_live_sync_fetches_recent_activities(client, monkeypatch):
     monkeypatch.setenv("ATLAS_STRAVA_CLIENT_ID", "12345")
     monkeypatch.setenv("ATLAS_STRAVA_CLIENT_SECRET", "secret-xyz")

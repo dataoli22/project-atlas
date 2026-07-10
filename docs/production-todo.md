@@ -150,7 +150,17 @@ desktop, and the hard iOS blocker.)
 - [ ] iOS: `HealthKitPlugin.swift` implementation (`mobile/src/healthkit-plugin.ts` documents the
       interface; needs a Mac + Xcode + physical iPhone to write and test — HealthKit mostly
       doesn't work in the Simulator).
-- [ ] Backend-side sync retry queue/backoff, token refresh scheduler, permission revocation.
+- [x] Permission revocation: disconnecting Strava now calls Strava's real
+      `/oauth/deauthorize` endpoint (`StravaOAuthClient.deauthorize`) with the stored access
+      token before clearing local state — previously "disconnect" only cleared Atlas's local
+      runtime, leaving the token valid on Strava's servers until it naturally expired. If the
+      revocation call fails (network, Strava outage), local disconnect still succeeds and the
+      response notice says so explicitly, rather than blocking the user from disconnecting
+      locally. Health Connect/Samsung Health have no equivalent server-side revocation to call —
+      those permissions are OS-level and can only be revoked from the device's own settings;
+      Atlas already clears its local `permission_granted`/`sdk_consent_granted` flags on
+      disconnect, which is the most it can do from the backend.
+- [ ] Backend-side sync retry queue/backoff, token refresh scheduler.
 - [ ] Richer sync payload mapping for all three connectors.
 - [ ] App icon/branding; Play Store listing and release process (Android only — iOS is
       self-compiled, no App Store distribution planned).

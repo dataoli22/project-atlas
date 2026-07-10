@@ -117,6 +117,32 @@ class StravaIntegrationAdapter(IntegrationAdapter):
             ),
         )
 
+    def disconnect(self) -> IntegrationOperationResult:
+        runtime = shared_state.get_integration_runtime_snapshot()["strava"]
+        access_token = runtime.get("access_token")
+        revoke_notice = ""
+        if access_token:
+            client = StravaOAuthClient(client_id="", client_secret="")
+            try:
+                client.deauthorize(access_token=str(access_token))
+                revoke_notice = " Strava access was also revoked server-side."
+            except (URLError, TimeoutError, OSError) as exc:
+                revoke_notice = (
+                    f" Local disconnect succeeded, but revoking Strava access server-side "
+                    f"failed ({exc}); it will remain valid on Strava's side until you revoke it "
+                    "manually (strava.com/settings/apps) or the token expires."
+                )
+
+        integration = shared_state.disconnect_integration(self.source)
+        return IntegrationOperationResult(
+            integration=integration,
+            launch_url=None,
+            local_only_notice=(
+                "The integration has been disconnected from the local Atlas runtime state."
+                + revoke_notice
+            ),
+        )
+
     def sync(self) -> IntegrationOperationResult:
         settings = get_settings()
         runtime = shared_state.get_integration_runtime_snapshot()["strava"]

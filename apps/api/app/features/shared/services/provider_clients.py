@@ -249,3 +249,22 @@ class StravaOAuthClient:
                 ]
 
         return _call_with_retry(_call)
+
+    def deauthorize(self, *, access_token: str) -> None:
+        """Revokes Atlas's access on Strava's side, not just locally.
+
+        Without this, disconnecting an integration in Atlas only cleared local state - the
+        access token stayed valid on Strava's servers until it naturally expired, so "disconnect"
+        didn't actually revoke anything Strava-side. See
+        https://developers.strava.com/docs/authentication/#deauthorization.
+        """
+        req = request.Request(
+            f"https://www.strava.com/oauth/deauthorize?access_token={access_token}",
+            method="POST",
+        )
+
+        def _call() -> None:
+            with request.urlopen(req, timeout=20):
+                return None
+
+        _call_with_retry(_call)
