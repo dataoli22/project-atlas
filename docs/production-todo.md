@@ -437,12 +437,54 @@ desktop, and the hard iOS blocker.)
 - [ ] Full release gates: clean-checkout install, packaged desktop smoke in CI, connector
       fallback modes, Ollama health + model check.
 
-## 13. Documentation still needed — P1
+## 13. Documentation still needed — P1 — DONE
 
-- [ ] End-user desktop install guide; Android install guide.
-- [ ] First-run Ollama setup guide (user-facing).
-- [ ] Integration troubleshooting guide; data retention & privacy guide.
-- [ ] Recovery/restore guide; backup/export guide; agent prompt/version maintenance guide.
+- [x] **End-user desktop install guide** (`docs/user-guide-desktop-install.md`): Windows-only
+      (macOS/Linux are zip-only, config-only per product decision), download location, NSIS
+      install flow, the SmartScreen warning explained honestly (no code-signing cert yet - a
+      deferred business decision, not a bug), per-user AppData data location, and `electron-updater`
+      flagged as wired but not yet exercised against a real published release.
+- [x] **Android install guide** (`docs/user-guide-android-install.md`): states upfront this is a
+      dev build with no Play Store listing; documents the real Capacitor build commands, the
+      actual 5-step LAN-pairing flow (code, expiry, attempt lockout, device token) sourced from
+      `pairing.py`, and exactly which fields sync from Health Connect/Samsung Health.
+- [x] **First-run Ollama setup guide** (`docs/user-guide-ollama-first-run.md`): short, UI-driven
+      (Settings → On-device AI runtime → health check → pull models → save), distinct from the
+      existing architectural `docs/ollama-on-device-and-agents.md`.
+- [x] **Integration troubleshooting guide** (`docs/user-guide-integration-troubleshooting.md`):
+      symptom → cause → fix for Strava OAuth (all three real stages and their exact state fields),
+      Health Connect/Samsung Health bridge sync, and the Brave Search fallback's no-key/bad-key
+      behavior - all using real field/error-string names from the code.
+- [x] **Data retention & privacy guide** (`docs/user-guide-data-retention-and-privacy.md`): exact
+      storage paths, OS-native secret store details (DPAPI/Keychain/libsecret + the honest
+      base64-fallback caveat), exactly which external hosts are ever contacted and why (no
+      Atlas-hosted relay), full-deletion steps, and the app-lock PIN's real "deterrent, not
+      authentication" security model.
+- [x] **Recovery/restore guide** (`docs/user-guide-recovery-and-restore.md`): app-won't-start
+      (quotes the real `validate_startup_config()` error messages), corrupted/locked database via
+      the extended `/health` endpoint, and moving to a new machine. Documents two real, honest
+      gaps rather than inventing nicer flows: **there is no PIN-reset feature** (verified directly
+      against `update_app_lock()` - changing/disabling an enabled lock always requires the current
+      PIN, no bypass) - the only recovery is a manual edit of the `app_lock` field inside the
+      `shared_state` JSON blob; and **there is currently no backup/export UI** in Settings (API-only
+      today, `GET/POST /api/v1/backup/export|import`).
+- [x] **Backup/export guide** (`docs/user-guide-backup-and-export.md`): exact export contents
+      (verified against `export_backup()` - the full `shared_state` blob: profile, integrations, AI
+      settings, pantry, app lock, pairing, etc.), what's excluded (sync history and planner
+      generation history live in separate tables, untouched by export/import), that provider
+      secrets ARE included but only in their OS-protected form (verified against
+      `export_backup()`'s docstring - safe to move between your own devices, not a
+      share-with-anyone artifact), and that import is a full overwrite gated only by
+      `backup_format_version == 1`.
+- [x] **Agent prompt/version maintenance guide** (`docs/agent-prompt-maintenance-guide.md`):
+      maintainer-facing - where prompts live, the split between prompt-level guardrail rules and
+      the deterministic `guardrails.py` enforcement backstop, and the exact steps to bump
+      `PROMPT_VERSION` and record a `docs/prompt-changelog.md` entry.
+
+Two real product gaps surfaced while writing these guides (documented honestly above, not
+silently fixed - out of scope for a docs pass): no backup/export UI in Settings, and no app-lock
+PIN reset flow beyond a manual database edit. Worth their own follow-up if this becomes a genuine
+pain point in practice.
 
 ---
 
