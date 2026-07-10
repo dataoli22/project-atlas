@@ -191,11 +191,15 @@ desktop, and the hard iOS blocker.)
 - [ ] Upgrade Next.js past the `postcss` XSS advisory (GHSA-qx2v-qp2m-jg93) — `npm audit fix
       --force` proposes a breaking major bump; needs its own scoped upgrade + full regression pass.
 
-## 11. Backend hardening — P1 — NOT STARTED
+## 11. Backend hardening — P1 — PARTIAL
 
 - [ ] Structured logging + request IDs + tracing + metrics.
 - [ ] Dependency health endpoints; startup config validation.
-- [ ] Timeout + retry policies for external providers.
+- [x] Timeout + retry policies for external providers: Groq and Strava's cloud HTTP calls
+      (`provider_clients.py`) now retry transient failures (connection errors, timeouts, 5xx) up
+      to 3 attempts with backoff, never retrying 4xx. On-device Ollama deliberately excluded — a
+      slow local model isn't a transient failure, and doubling an already-long wait would make a
+      slow device feel broken rather than resilient (see the comment in `provider_clients.py`).
 - [ ] Versioned API compatibility policy; OpenAPI review.
 
 ## 12. Quality, testing, CI/CD — P0/P1 — PARTIAL

@@ -1,8 +1,40 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
-from urllib import request
+from typing import Callable, TypeVar
+from urllib import error, request
+
+
+T = TypeVar("T")
+
+# Retries only cover transient failures on *cloud* HTTP calls (Groq, Strava) - connection resets,
+# timeouts, and 5xx responses a moment later often succeed. 4xx responses are never retried since
+# a retry can't fix a bad request/auth rejection. On-device Ollama calls deliberately don't use
+# this - a slow local model is not a "transient" failure, and doubling an already-long wait would
+# make a slow device feel broken rather than resilient.
+_RETRYABLE_HTTP_MAX_ATTEMPTS = 3
+_RETRYABLE_HTTP_BACKOFF_SECONDS = (0.5, 1.5)
+
+
+def _call_with_retry(fn: Callable[[], T], *, sleep: Callable[[float], None] = time.sleep) -> T:
+    last_exc: Exception | None = None
+    for attempt in range(_RETRYABLE_HTTP_MAX_ATTEMPTS):
+        try:
+            return fn()
+        except error.HTTPError as exc:
+            if exc.code < 500:
+                raise
+            last_exc = exc
+        except (error.URLError, TimeoutError, OSError) as exc:
+            last_exc = exc
+
+        if attempt < _RETRYABLE_HTTP_MAX_ATTEMPTS - 1:
+            sleep(_RETRYABLE_HTTP_BACKOFF_SECONDS[min(attempt, len(_RETRYABLE_HTTP_BACKOFF_SECONDS) - 1)])
+
+    assert last_exc is not None
+    raise last_exc
 
 
 @dataclass
@@ -103,15 +135,19 @@ class GroqProviderClient(ProviderClient):
             headers=headers,
             method="POST",
         )
-        with request.urlopen(req, timeout=20) as response:
-            body = json.loads(response.read().decode("utf-8"))
-            answer = (
-                body.get("choices", [{}])[0]
-                .get("message", {})
-                .get("content", "")
-                .strip()
-            )
-            return ProviderResult(provider="groq", model=model, answer=answer)
+
+        def _call() -> ProviderResult:
+            with request.urlopen(req, timeout=20) as response:
+                body = json.loads(response.read().decode("utf-8"))
+                answer = (
+                    body.get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content", "")
+                    .strip()
+                )
+                return ProviderResult(provider="groq", model=model, answer=answer)
+
+        return _call_with_retry(_call)
 
 
 class StravaOAuthClient:
@@ -150,16 +186,20 @@ class StravaOAuthClient:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with request.urlopen(req, timeout=20) as response:
-            body = json.loads(response.read().decode("utf-8"))
-            athlete = body.get("athlete", {})
-            athlete_id = athlete.get("id")
-            return StravaTokenExchangeResult(
-                access_token=body.get("access_token", ""),
-                refresh_token=body.get("refresh_token", ""),
-                expires_at=body.get("expires_at"),
-                athlete_id=str(athlete_id) if athlete_id is not None else None,
-            )
+
+        def _call() -> StravaTokenExchangeResult:
+            with request.urlopen(req, timeout=20) as response:
+                body = json.loads(response.read().decode("utf-8"))
+                athlete = body.get("athlete", {})
+                athlete_id = athlete.get("id")
+                return StravaTokenExchangeResult(
+                    access_token=body.get("access_token", ""),
+                    refresh_token=body.get("refresh_token", ""),
+                    expires_at=body.get("expires_at"),
+                    athlete_id=str(athlete_id) if athlete_id is not None else None,
+                )
+
+        return _call_with_retry(_call)
 
     def get_athlete_profile(self, *, access_token: str) -> StravaAthleteProfile:
         req = request.Request(
@@ -167,15 +207,19 @@ class StravaOAuthClient:
             headers={"Authorization": f"Bearer {access_token}"},
             method="GET",
         )
-        with request.urlopen(req, timeout=20) as response:
-            body = json.loads(response.read().decode("utf-8"))
-            athlete_id = body.get("id")
-            return StravaAthleteProfile(
-                athlete_id=str(athlete_id) if athlete_id is not None else "",
-                username=body.get("username"),
-                firstname=body.get("firstname"),
-                lastname=body.get("lastname"),
-            )
+
+        def _call() -> StravaAthleteProfile:
+            with request.urlopen(req, timeout=20) as response:
+                body = json.loads(response.read().decode("utf-8"))
+                athlete_id = body.get("id")
+                return StravaAthleteProfile(
+                    athlete_id=str(athlete_id) if athlete_id is not None else "",
+                    username=body.get("username"),
+                    firstname=body.get("firstname"),
+                    lastname=body.get("lastname"),
+                )
+
+        return _call_with_retry(_call)
 
     def list_recent_activities(
         self,
@@ -188,16 +232,20 @@ class StravaOAuthClient:
             headers={"Authorization": f"Bearer {access_token}"},
             method="GET",
         )
-        with request.urlopen(req, timeout=20) as response:
-            body = json.loads(response.read().decode("utf-8"))
-            return [
-                StravaActivity(
-                    activity_id=str(item.get("id", "")),
-                    name=item.get("name", "Untitled activity"),
-                    sport_type=item.get("sport_type", item.get("type", "Workout")),
-                    moving_time_seconds=int(item.get("moving_time", 0)),
-                    distance_meters=float(item.get("distance", 0.0)),
-                    start_date=item.get("start_date", ""),
-                )
-                for item in body
-            ]
+
+        def _call() -> list[StravaActivity]:
+            with request.urlopen(req, timeout=20) as response:
+                body = json.loads(response.read().decode("utf-8"))
+                return [
+                    StravaActivity(
+                        activity_id=str(item.get("id", "")),
+                        name=item.get("name", "Untitled activity"),
+                        sport_type=item.get("sport_type", item.get("type", "Workout")),
+                        moving_time_seconds=int(item.get("moving_time", 0)),
+                        distance_meters=float(item.get("distance", 0.0)),
+                        start_date=item.get("start_date", ""),
+                    )
+                    for item in body
+                ]
+
+        return _call_with_retry(_call)
