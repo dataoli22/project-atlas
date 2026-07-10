@@ -151,10 +151,15 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       injectable `now` pattern as confidence. Raw displayed duration/distance stay unweighted
       (still literal totals); only the derived score itself is windowed. 6 new unit tests,
       including one proving equal-volume recent vs. old sessions produce different scores.
-      **Still open**: biometric normalization rules (hydration/sleep are currently combined with
-      ad hoc linear arithmetic, not real normalization), calendarized training plan (not started),
-      escalation flow for medical red flags (not started — this one especially needs product/legal
-      input on wording before writing code, not just engineering).
+      Biometric normalization now landed too: `_normalized_recovery_score()` replaces the ad hoc
+      `45 + hydration/200 + sleep*2` arithmetic with real normalization against general wellness
+      targets (~35ml/kg/day hydration, personalized to the user's own recorded body weight when
+      available via `_hydration_target_ml()`, else a 2500ml adult default; 7-9h sleep as a
+      full-credit band, degrading outside it) — explicitly general wellness heuristics, not
+      medical guidance, same non-medical framing as the rest of the endurance coach. 13 new unit
+      tests. **Still open**: calendarized training plan (not started), escalation flow for
+      medical red flags (not started — this one especially needs product/legal input on wording
+      before writing code, not just engineering).
 
 ## 8. Connectors & mobile — P1 — SCAFFOLDED + HARDENED
 

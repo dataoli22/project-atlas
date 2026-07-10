@@ -247,7 +247,7 @@ def get_endurance_insights(*, now: datetime | None = None) -> EnduranceInsightsR
                 ),
                 EnduranceCapabilityArea(
                     label="Recovery support",
-                    score=min(90, 45 + int((float(hydration_ml or 0) / 200)) + int((float(sleep_hours or 0) * 2))),
+                    score=_normalized_recovery_score(hydration_ml, sleep_hours),
                     direction=_recovery_direction(hydration_ml=hydration_ml, sleep_hours=sleep_hours),
                 ),
             ],
@@ -440,6 +440,69 @@ def _recovery_direction(*, hydration_ml: object | None, sleep_hours: object | No
     hydration_part = f"{int(float(hydration_ml or 0))} ml hydration" if hydration_ml is not None else "hydration unavailable"
     sleep_part = f"{float(sleep_hours):.1f} h sleep" if sleep_hours is not None else "sleep unavailable"
     return f"{hydration_part} | {sleep_part}"
+
+
+# General wellness heuristics, not medical guidance - same non-medical framing as the rest of the
+# endurance coach (see _support_links). ~35ml/kg/day hydration and 7-9h sleep are commonly cited
+# general targets for a lightly active adult, not personalized clinical thresholds; a real
+# implementation would let a clinician or the user override these, not hardcode them.
+_DEFAULT_HYDRATION_TARGET_ML = 2500.0
+_HYDRATION_ML_PER_KG = 35.0
+_SLEEP_TARGET_LOW_HOURS = 7.0
+_SLEEP_TARGET_HIGH_HOURS = 9.0
+_LB_TO_KG = 0.45359237
+
+
+def _hydration_target_ml() -> float:
+    """Personalizes the hydration target to the user's own recorded body weight when available,
+    falling back to a general adult default otherwise - normalizing against a fixed number
+    regardless of body size would under- or over-credit hydration for anyone far from an assumed
+    average.
+    """
+    profile = shared_state.get_profile()
+    if profile.body_weight is not None and profile.body_weight.value > 0:
+        weight_kg = (
+            profile.body_weight.value
+            if profile.body_weight.unit == "kg"
+            else profile.body_weight.value * _LB_TO_KG
+        )
+        return weight_kg * _HYDRATION_ML_PER_KG
+    return _DEFAULT_HYDRATION_TARGET_ML
+
+
+def _normalize_hydration_score(hydration_ml: object | None, *, target_ml: float) -> int:
+    if not hydration_ml or target_ml <= 0:
+        return 0
+    ratio = min(1.3, float(hydration_ml) / target_ml)  # cap credit at 130% of target
+    return int(min(100, ratio * 100))
+
+
+def _normalize_sleep_score(sleep_hours: object | None) -> int:
+    if not sleep_hours:
+        return 0
+    hours = float(sleep_hours)
+    if _SLEEP_TARGET_LOW_HOURS <= hours <= _SLEEP_TARGET_HIGH_HOURS:
+        return 100
+    if hours < _SLEEP_TARGET_LOW_HOURS:
+        deficit = _SLEEP_TARGET_LOW_HOURS - hours
+        return max(0, int(100 - deficit * 20))
+    excess = hours - _SLEEP_TARGET_HIGH_HOURS
+    return max(0, int(100 - excess * 10))
+
+
+def _normalized_recovery_score(hydration_ml: object | None, sleep_hours: object | None) -> int:
+    if hydration_ml is None and sleep_hours is None:
+        return 45  # matches the stub/no-data baseline used elsewhere in this module
+
+    target_ml = _hydration_target_ml()
+    hydration_score = _normalize_hydration_score(hydration_ml, target_ml=target_ml)
+    sleep_score = _normalize_sleep_score(sleep_hours)
+
+    if hydration_ml is None:
+        return sleep_score
+    if sleep_hours is None:
+        return hydration_score
+    return int((hydration_score + sleep_score) / 2)
 
 
 def _coverage_trend_label(coverage: list[str]) -> str:
