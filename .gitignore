@@ -13,6 +13,9 @@ __pycache__
 coverage
 tmp
 apps/api/.local
+# Stray double-nested state dir from running uvicorn/pytest with cwd=apps/api instead of the
+# repo root (config.py's paths assume repo-root cwd) - see packaging-and-installation.md.
+apps/api/apps
 .pytest_cache
 e2e/test-results
 e2e/playwright-report
