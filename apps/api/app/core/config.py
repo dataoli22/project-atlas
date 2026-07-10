@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     # process can report its own port back in pairing.info responses (see
     # app/features/shared/services/pairing.py) without main.js having to inject it separately.
     # api_host defaults to loopback-only; LAN pairing requires launching with
-    # ATLAS_API_HOST=0.0.0.0 explicitly - see docs/packaging-and-installation.md.
+    # ATLAS_API_HOST=0.0.0.0 explicitly - see docs/build-and-run/packaging-and-installation.md.
     api_host: str = "127.0.0.1"
     api_port: int = 8000
 

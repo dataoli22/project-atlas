@@ -22,7 +22,7 @@ OLLAMA_LIBRARY_URL = "https://ollama.com/library"
 OLLAMA_API_DOCS_URL = "https://github.com/ollama/ollama/blob/main/docs/api.md"
 
 # Bumped whenever a prompt's wording, guardrail rules, or role instructions change materially.
-# Every bump must be accompanied by an entry in docs/prompt-changelog.md. Prompts are authored
+# Every bump must be accompanied by an entry in docs/build-and-run/prompt-changelog.md. Prompts are authored
 # in this file and shipped inside the packaged sidecar exe - there is no runtime prompt fetch, so
 # this version stamp is the only audit trail for "what prompt actually produced this answer,"
 # both for the offline packaged app and for local dev.

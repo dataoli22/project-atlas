@@ -1,6 +1,6 @@
 # Setting up Ollama for the first time
 
-This is a short, practical walkthrough for getting on-device AI working in Atlas via Ollama. For the deeper architecture (how requests are routed, provider fallback internals, agent design), see `docs/ollama-on-device-and-agents.md` - this doc is just "what do I click."
+This is a short, practical walkthrough for getting on-device AI working in Atlas via Ollama. For the deeper architecture (how requests are routed, provider fallback internals, agent design), see `docs/build-and-run/ollama-on-device-and-agents.md` - this doc is just "what do I click."
 
 ## The default behavior, before you do anything
 

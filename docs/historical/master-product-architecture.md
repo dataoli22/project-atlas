@@ -442,7 +442,7 @@ This document defines shared product architecture.
 
 Feature-specific scope remains in:
 
-- [prd-feature-1-endurance-capability.md](C:\Users\olich\OneDrive\Desktop\health-agent\docs\prd-feature-1-endurance-capability.md)
-- [prd-feature-2-nutrition-cooking-cost.md](C:\Users\olich\OneDrive\Desktop\health-agent\docs\prd-feature-2-nutrition-cooking-cost.md)
+- [prd-feature-1-endurance-capability.md](./prd-feature-1-endurance-capability.md)
+- [prd-feature-2-nutrition-cooking-cost.md](./prd-feature-2-nutrition-cooking-cost.md)
 
 If a feature PRD conflicts with this document on shared shell, shared settings, shared auth, feature switching, or shared contracts, this master architecture document should win for those shared concerns.

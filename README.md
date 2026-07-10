@@ -30,23 +30,23 @@ guide below.
 
 New to Atlas? Read these in order:
 
-1. **[Installing on Windows](docs/user-guide-desktop-install.md)** — where to download it,
+1. **[Installing on Windows](docs/user-guides/desktop-install.md)** — where to download it,
    what to expect from the installer, and where your data ends up.
-2. **[First-run Ollama setup](docs/user-guide-ollama-first-run.md)** — Atlas can use a free local
+2. **[First-run Ollama setup](docs/user-guides/ollama-first-run.md)** — Atlas can use a free local
    AI model (Ollama) or a cloud provider (Groq); this walks through getting either one working.
-3. **[Android companion app install](docs/user-guide-android-install.md)** — optional, for
+3. **[Android companion app install](docs/user-guides/android-install.md)** — optional, for
    syncing workout/recovery data from your phone over your local network.
 
 ## Using Atlas day to day
 
-- **[Integration troubleshooting](docs/user-guide-integration-troubleshooting.md)** — fixing
+- **[Integration troubleshooting](docs/user-guides/integration-troubleshooting.md)** — fixing
   Strava, Health Connect, Samsung Health, or the nutrition search fallback when something isn't
   syncing right.
-- **[Data retention & privacy](docs/user-guide-data-retention-and-privacy.md)** — exactly what's
+- **[Data retention & privacy](docs/user-guides/data-retention-and-privacy.md)** — exactly what's
   stored, where, what (if anything) ever leaves your device, and how to delete everything.
-- **[Backup & export](docs/user-guide-backup-and-export.md)** — how to export your data and
+- **[Backup & export](docs/user-guides/backup-and-export.md)** — how to export your data and
   restore it.
-- **[Recovery & restore](docs/user-guide-recovery-and-restore.md)** — what to do if Atlas won't
+- **[Recovery & restore](docs/user-guides/recovery-and-restore.md)** — what to do if Atlas won't
   start, the database looks broken, or you're moving to a new machine.
 
 ## Project status
@@ -58,17 +58,17 @@ is tracked in [`docs/production-todo.md`](docs/production-todo.md).
 
 All technical documentation lives under [`docs/`](docs), grouped by purpose:
 
-- **Build & run**: [`packaging-and-installation.md`](docs/packaging-and-installation.md) (local
+- **Build & run**: [`packaging-and-installation.md`](docs/build-and-run/packaging-and-installation.md) (local
   dev setup, desktop/Android packaging, release gates) ·
-  [`ollama-on-device-and-agents.md`](docs/ollama-on-device-and-agents.md) (AI runtime wiring,
-  provider fallback chain) · [`agent-prompt-maintenance-guide.md`](docs/agent-prompt-maintenance-guide.md)
-  + [`prompt-changelog.md`](docs/prompt-changelog.md) (changing agent prompts/guardrails)
-- **Feature specs (current)**: [`nutrition-endurance-feature-spec.md`](docs/nutrition-endurance-feature-spec.md)
+  [`ollama-on-device-and-agents.md`](docs/build-and-run/ollama-on-device-and-agents.md) (AI runtime wiring,
+  provider fallback chain) · [`agent-prompt-maintenance-guide.md`](docs/build-and-run/agent-prompt-maintenance-guide.md)
+  + [`prompt-changelog.md`](docs/build-and-run/prompt-changelog.md) (changing agent prompts/guardrails)
+- **Feature specs (current)**: [`nutrition-endurance-feature-spec.md`](docs/feature-specs/nutrition-endurance-feature-spec.md)
   (refresh/calendar/prep-hacks, endurance support links) ·
-  [`mobile-architecture.md`](docs/mobile-architecture.md) (companion mobile app, pairing,
+  [`mobile-architecture.md`](docs/feature-specs/mobile-architecture.md) (companion mobile app, pairing,
   Android/iOS status)
 - **Original design docs (historical — superseded by the feature specs above and the backlog
   below, kept for design-stage context)**:
-  [`master-product-architecture.md`](docs/master-product-architecture.md) ·
-  [`prd-feature-1-endurance-capability.md`](docs/prd-feature-1-endurance-capability.md) ·
-  [`prd-feature-2-nutrition-cooking-cost.md`](docs/prd-feature-2-nutrition-cooking-cost.md)
+  [`master-product-architecture.md`](docs/historical/master-product-architecture.md) ·
+  [`prd-feature-1-endurance-capability.md`](docs/historical/prd-feature-1-endurance-capability.md) ·
+  [`prd-feature-2-nutrition-cooking-cost.md`](docs/historical/prd-feature-2-nutrition-cooking-cost.md)

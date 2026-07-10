@@ -1,6 +1,6 @@
 # Recovery and Restore
 
-This guide is for "something is wrong, how do I get back to a working state" situations. For the mechanics of taking and restoring a backup, see [docs/user-guide-backup-and-export.md](./user-guide-backup-and-export.md) — this doc links to that one instead of repeating it.
+This guide is for "something is wrong, how do I get back to a working state" situations. For the mechanics of taking and restoring a backup, see [docs/user-guides/backup-and-export.md](./backup-and-export.md) — this doc links to that one instead of repeating it.
 
 ## Atlas won't start
 
@@ -78,4 +78,4 @@ This isn't a separate feature — it's just backup and restore applied across tw
 2. Install and start Atlas fresh on the new machine.
 3. Import the backup (`POST /api/v1/backup/import`) on the new machine.
 
-See the [backup/export guide](./user-guide-backup-and-export.md) for the exact request shapes and, importantly, what does and doesn't survive the move. In particular: your AI provider API keys and Strava OAuth tokens are exported in OS-protected form and generally will **not** unprotect on the new machine (different OS keychain / different Windows account), so plan to re-enter your Ollama/Groq/Brave keys and reconnect Strava after importing. Sync history and planner generation history also don't carry over — only current state does.
+See the [backup/export guide](./backup-and-export.md) for the exact request shapes and, importantly, what does and doesn't survive the move. In particular: your AI provider API keys and Strava OAuth tokens are exported in OS-protected form and generally will **not** unprotect on the new machine (different OS keychain / different Windows account), so plan to re-enter your Ollama/Groq/Brave keys and reconnect Strava after importing. Sync history and planner generation history also don't carry over — only current state does.

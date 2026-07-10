@@ -3,7 +3,7 @@
 Atlas is a local-first, single-user app. This page states, as precisely as the code
 allows, what data exists, where it lives, what leaves your device, and how to delete all
 of it. For how to export/import a backup, see
-[`docs/user-guide-backup-and-export.md`](./user-guide-backup-and-export.md) — this page
+[`docs/user-guides/backup-and-export.md`](./backup-and-export.md) — this page
 covers storage and privacy, not the export format.
 
 ## Where your data lives
@@ -88,7 +88,7 @@ the SQLite database or the JSON state file in plaintext.
   hard guarantee nothing ever leaves the device, enable local-only mode in Settings.
 - **Mobile pairing**: the Android companion app talks to the desktop only over your
   local network — there is no cloud relay or push mechanism for pairing or sync (see
-  `docs/mobile-architecture.md`).
+  `docs/feature-specs/mobile-architecture.md`).
 
 ## What does leave your device, and to where
 

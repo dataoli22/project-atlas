@@ -52,7 +52,7 @@ def detect_lan_addresses() -> list[str]:
     """Best-effort local network IPv4 addresses this machine can be reached at.
 
     This does not guarantee the API is actually listening on these interfaces - that depends on
-    the bind host the sidecar was launched with (see docs/packaging-and-installation.md's LAN
+    the bind host the sidecar was launched with (see docs/build-and-run/packaging-and-installation.md's LAN
     pairing section). It only reports what a phone on the same network could try.
     """
     addresses: set[str] = set()

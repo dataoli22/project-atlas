@@ -28,7 +28,7 @@ def require_paired_device_if_present(
     unconditionally would break every existing caller. Instead: a companion phone app identifies
     itself with `X-Atlas-Device-Id` + `Authorization: Bearer <token>`; when those headers are
     absent, the request is treated the same as any other local caller. This is intentionally
-    permissive - see the LAN pairing section of docs/packaging-and-installation.md for the
+    permissive - see the LAN pairing section of docs/build-and-run/packaging-and-installation.md for the
     threat-model caveat that anyone able to reach a LAN-bound Atlas at all can still call
     unauthenticated endpoints.
     """

@@ -17,7 +17,7 @@ def start_pairing() -> PairingStartResponse:
 
     Generates a short-lived code shown on the desktop and typed into the companion mobile app.
     Requires the desktop to actually be reachable on the reported LAN addresses - see
-    docs/packaging-and-installation.md's LAN pairing section for the ATLAS_API_HOST=0.0.0.0
+    docs/build-and-run/packaging-and-installation.md's LAN pairing section for the ATLAS_API_HOST=0.0.0.0
     requirement.
     """
     try:

@@ -71,4 +71,4 @@ There is no partial/selective import — it's all or nothing for whatever `app_s
 
 ## Related
 
-For "something's actually broken and I need to recover" scenarios (corrupted database, forgotten PIN, moving to a new machine), see [docs/user-guide-recovery-and-restore.md](./user-guide-recovery-and-restore.md).
+For "something's actually broken and I need to recover" scenarios (corrupted database, forgotten PIN, moving to a new machine), see [docs/user-guides/recovery-and-restore.md](./recovery-and-restore.md).

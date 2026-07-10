@@ -10,7 +10,7 @@ import type { HealthConnectSession } from "./desktop-api";
  * screen work unmodified regardless of platform.
  *
  * Real implementation work still needed, in order (requires a Mac + Xcode + a physical iPhone -
- * see docs/mobile-architecture.md section 4 for the self-compile build flow):
+ * see docs/feature-specs/mobile-architecture.md section 4 for the self-compile build flow):
  * 1. Add HealthKit capability + `NSHealthShareUsageDescription` to `mobile/ios/App/App/Info.plist`.
  * 2. Implement `HealthKitPlugin.swift`: request read authorization via
  *    `HKHealthStore.requestAuthorization`, then query `HKSampleQuery`/`HKStatisticsQuery` for

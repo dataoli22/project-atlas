@@ -10,7 +10,7 @@ touching `mobile/` or the backend pairing endpoints.
 
 ## 1. Why mobile can't just reuse the desktop sidecar model
 
-Desktop packaging (`docs/packaging-and-installation.md`) works by having Electron spawn the
+Desktop packaging (`docs/build-and-run/packaging-and-installation.md`) works by having Electron spawn the
 FastAPI backend and a Next.js server as local child processes. That model **does not transfer to
 mobile**:
 

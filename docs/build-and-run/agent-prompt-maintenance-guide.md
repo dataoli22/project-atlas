@@ -42,7 +42,7 @@ avoid it, the regex catches it if the model doesn't listen.
 1. Edit the prompt text, guardrail rules, or role instructions in `ai.py`.
 2. Bump `PROMPT_VERSION` (format: `YYYY.MM-n`, e.g. `2026.07-1` → `2026.07-2` for a same-month
    follow-up, or `2026.08-1` for the next month's first change).
-3. Add an entry to `docs/prompt-changelog.md` under the new version, describing what changed and
+3. Add an entry to `docs/build-and-run/prompt-changelog.md` under the new version, describing what changed and
    why. This is the only audit trail for "what prompt produced this answer" - every `ChatResponse`
    returns the `prompt_version` it was generated under, and the web chat UI
    (`apps/web/components/ask-atlas-form.tsx`) displays it next to the answer.

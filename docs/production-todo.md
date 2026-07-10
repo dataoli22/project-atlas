@@ -61,7 +61,7 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
       script exists yet).
 
 > Note: a checkout under OneDrive can transiently `EPERM`-lock `.next` files during sync; retrying
-> the build succeeds. See `packaging-and-installation.md` section 3. CI runners are unaffected.
+> the build succeeds. See `docs/build-and-run/packaging-and-installation.md` section 3. CI runners are unaffected.
 
 ## 2. Data, persistence, secrets — P0 — MOSTLY DONE
 
@@ -104,7 +104,7 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
 
 ## 4. AI runtime (Ollama + cloud-first) — P0/P1 — MOSTLY DONE
 
-(Details: `docs/ollama-on-device-and-agents.md`.)
+(Details: `docs/build-and-run/ollama-on-device-and-agents.md`.)
 
 - [x] Cloud-first with automatic on-device Ollama fallback (`local_only_mode` default now
       `false`, still available as an opt-in hard on-device guarantee).
@@ -139,7 +139,7 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
       confirming an unsafe answer is flagged but still returned.
 - [x] **Prompt versioning + changelog; local prompt packs for offline packaged builds**:
       `PROMPT_VERSION` constant in `ai.py`, stamped on every `AgentPromptProfile` and returned on
-      `ChatResponse` as `prompt_version`; `docs/prompt-changelog.md` records what changed at each
+      `ChatResponse` as `prompt_version`; `docs/build-and-run/prompt-changelog.md` records what changed at each
       version. Prompts are authored directly in `ai.py` and shipped inside the packaged sidecar
       exe (no runtime prompt fetch exists), so packaged builds were already fully offline - this
       just makes that fact explicit and auditable. 7 new tests
@@ -149,7 +149,7 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
 
 ## 6. Nutrition — P1
 
-(Details: `docs/nutrition-endurance-feature-spec.md` Part A.)
+(Details: `docs/feature-specs/nutrition-endurance-feature-spec.md` Part A.)
 
 - [x] **6a done**: seven-day calendar, meal prep hacks, curated video links, refresh/provenance
       metadata, `POST /nutrition/planner/refresh` with persisted swap history.
@@ -202,7 +202,7 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
 
 ## 7. Endurance — P1
 
-(Details: `docs/nutrition-endurance-feature-spec.md` Part B.)
+(Details: `docs/feature-specs/nutrition-endurance-feature-spec.md` Part B.)
 
 - [x] **7a done**: non-medical coach support links (recovery, strength, base training,
       contextual connector setup) on dashboard + capability pages.
@@ -255,7 +255,7 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
 
 ## 8. Connectors & mobile — P1 — SCAFFOLDED + HARDENED
 
-(Details: `docs/mobile-architecture.md` — covers why mobile is architecturally different from
+(Details: `docs/feature-specs/mobile-architecture.md` — covers why mobile is architecturally different from
 desktop, and the hard iOS blocker.)
 
 > Companion mode: the phone has no backend of its own (FastAPI can't run on iOS; an Android-only
@@ -282,7 +282,7 @@ desktop, and the hard iOS blocker.)
       `Plugin` method of the same name). `minSdkVersion` bumped to 26 (required by the SDK).
 - [ ] **APK not yet installed/run on a device or emulator** — permission grant/deny/partial-grant
       flows and a real end-to-end sync against a paired desktop still need real hardware. See
-      `mobile-architecture.md` section 3.
+      `docs/feature-specs/mobile-architecture.md` section 3.
 - [~] Samsung Health SDK bridge for mobile: documented interface (`mobile/src/samsung-health-plugin.ts`)
       and `syncSamsungHealthData()` (`desktop-api.ts`) wired into the sync screen alongside
       Health Connect, mirroring the same pattern. **Native implementation is blocked differently
@@ -295,7 +295,7 @@ desktop, and the hard iOS blocker.)
       (`stressLevel`/`energyScore`) are the main reason to still pursue partner approval later.
 - [x] iOS: Capacitor scaffold committed (`mobile/ios/`, via `npx cap add ios`); ships as a
       self-compiled build (free Apple ID / Personal Team, 7-day resign) rather than through the
-      App Store — see `mobile-architecture.md` section 4 for the full build/sideload flow.
+      App Store — see `docs/feature-specs/mobile-architecture.md` section 4 for the full build/sideload flow.
 - [ ] iOS: `HealthKitPlugin.swift` implementation (`mobile/src/healthkit-plugin.ts` documents the
       interface; needs a Mac + Xcode + physical iPhone to write and test — HealthKit mostly
       doesn't work in the Simulator).
@@ -327,7 +327,7 @@ desktop, and the hard iOS blocker.)
 
 ## 9. Packaging & installers — P0/P1 — WINDOWS INSTALLER WORKING
 
-(Details: `docs/packaging-and-installation.md`.)
+(Details: `docs/build-and-run/packaging-and-installation.md`.)
 
 > Shell: Electron (not the originally-recommended Tauri v2 — `electron-updater` + GitHub Releases
 > chosen for auto-update maturity).
@@ -461,28 +461,28 @@ desktop, and the hard iOS blocker.)
 
 ## 13. Documentation still needed — P1 — DONE
 
-- [x] **End-user desktop install guide** (`docs/user-guide-desktop-install.md`): Windows-only
+- [x] **End-user desktop install guide** (`docs/user-guides/desktop-install.md`): Windows-only
       (macOS/Linux are zip-only, config-only per product decision), download location, NSIS
       install flow, the SmartScreen warning explained honestly (no code-signing cert yet - a
       deferred business decision, not a bug), per-user AppData data location, and `electron-updater`
       flagged as wired but not yet exercised against a real published release.
-- [x] **Android install guide** (`docs/user-guide-android-install.md`): states upfront this is a
+- [x] **Android install guide** (`docs/user-guides/android-install.md`): states upfront this is a
       dev build with no Play Store listing; documents the real Capacitor build commands, the
       actual 5-step LAN-pairing flow (code, expiry, attempt lockout, device token) sourced from
       `pairing.py`, and exactly which fields sync from Health Connect/Samsung Health.
-- [x] **First-run Ollama setup guide** (`docs/user-guide-ollama-first-run.md`): short, UI-driven
+- [x] **First-run Ollama setup guide** (`docs/user-guides/ollama-first-run.md`): short, UI-driven
       (Settings → On-device AI runtime → health check → pull models → save), distinct from the
-      existing architectural `docs/ollama-on-device-and-agents.md`.
-- [x] **Integration troubleshooting guide** (`docs/user-guide-integration-troubleshooting.md`):
+      existing architectural `docs/build-and-run/ollama-on-device-and-agents.md`.
+- [x] **Integration troubleshooting guide** (`docs/user-guides/integration-troubleshooting.md`):
       symptom → cause → fix for Strava OAuth (all three real stages and their exact state fields),
       Health Connect/Samsung Health bridge sync, and the Brave Search fallback's no-key/bad-key
       behavior - all using real field/error-string names from the code.
-- [x] **Data retention & privacy guide** (`docs/user-guide-data-retention-and-privacy.md`): exact
+- [x] **Data retention & privacy guide** (`docs/user-guides/data-retention-and-privacy.md`): exact
       storage paths, OS-native secret store details (DPAPI/Keychain/libsecret + the honest
       base64-fallback caveat), exactly which external hosts are ever contacted and why (no
       Atlas-hosted relay), full-deletion steps, and the app-lock PIN's real "deterrent, not
       authentication" security model.
-- [x] **Recovery/restore guide** (`docs/user-guide-recovery-and-restore.md`): app-won't-start
+- [x] **Recovery/restore guide** (`docs/user-guides/recovery-and-restore.md`): app-won't-start
       (quotes the real `validate_startup_config()` error messages), corrupted/locked database via
       the extended `/health` endpoint, and moving to a new machine. Documents two real, honest
       gaps rather than inventing nicer flows: **there is no PIN-reset feature** (verified directly
@@ -490,7 +490,7 @@ desktop, and the hard iOS blocker.)
       PIN, no bypass) - the only recovery is a manual edit of the `app_lock` field inside the
       `shared_state` JSON blob; and **there is currently no backup/export UI** in Settings (API-only
       today, `GET/POST /api/v1/backup/export|import`).
-- [x] **Backup/export guide** (`docs/user-guide-backup-and-export.md`): exact export contents
+- [x] **Backup/export guide** (`docs/user-guides/backup-and-export.md`): exact export contents
       (verified against `export_backup()` - the full `shared_state` blob: profile, integrations, AI
       settings, pantry, app lock, pairing, etc.), what's excluded (sync history and planner
       generation history live in separate tables, untouched by export/import), that provider
@@ -498,10 +498,10 @@ desktop, and the hard iOS blocker.)
       `export_backup()`'s docstring - safe to move between your own devices, not a
       share-with-anyone artifact), and that import is a full overwrite gated only by
       `backup_format_version == 1`.
-- [x] **Agent prompt/version maintenance guide** (`docs/agent-prompt-maintenance-guide.md`):
+- [x] **Agent prompt/version maintenance guide** (`docs/build-and-run/agent-prompt-maintenance-guide.md`):
       maintainer-facing - where prompts live, the split between prompt-level guardrail rules and
       the deterministic `guardrails.py` enforcement backstop, and the exact steps to bump
-      `PROMPT_VERSION` and record a `docs/prompt-changelog.md` entry.
+      `PROMPT_VERSION` and record a `docs/build-and-run/prompt-changelog.md` entry.
 
 Two real product gaps surfaced while writing these guides (documented honestly above, not
 silently fixed - out of scope for a docs pass): no backup/export UI in Settings, and no app-lock

@@ -111,7 +111,7 @@ undo — after disconnecting you'll need to run the full OAuth flow again to rec
 ## Health Connect and Samsung Health (Android bridge integrations)
 
 Both of these sync through the mobile companion app over your local network, not
-through this desktop app directly (see `docs/mobile-architecture.md` for the pairing
+through this desktop app directly (see `docs/feature-specs/mobile-architecture.md` for the pairing
 protocol). Data lands via `POST /integrations/health_connect/device-sync` or
 `POST /integrations/samsung_health/device-sync`, and — if you've paired a phone — those
 endpoints require a valid pairing token from the paired-device check.
@@ -145,7 +145,7 @@ up on your phone — if your phone's companion app hasn't sent a device-sync req
 desktop has nothing new to show, and you may still be looking at whatever was last
 recorded (real or stub).
 What to check: confirm your phone and desktop are on the same LAN and paired (see
-`docs/mobile-architecture.md` for the pairing flow), then trigger a manual sync from the
+`docs/feature-specs/mobile-architecture.md` for the pairing flow), then trigger a manual sync from the
 companion app and watch `last_sync_at` on the integration for a fresh timestamp.
 
 ### Symptom: device-sync request is rejected
