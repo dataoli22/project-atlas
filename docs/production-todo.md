@@ -189,9 +189,20 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       available via `_hydration_target_ml()`, else a 2500ml adult default; 7-9h sleep as a
       full-credit band, degrading outside it) — explicitly general wellness heuristics, not
       medical guidance, same non-medical framing as the rest of the endurance coach. 13 new unit
-      tests. **Still open**: calendarized training plan (not started), escalation flow for
-      medical red flags (not started — this one especially needs product/legal input on wording
-      before writing code, not just engineering).
+      tests. Medical red-flag detection: plumbing built, **deliberately not wired into any
+      endpoint or UI yet** — `endurance/medical_escalation.py`'s module docstring is explicit
+      that this needs human sign-off on the actual copy before it ships. `detect_medical_red_flags()`
+      is pure/stateless (no side effects), flags two conservative conditions from data Atlas
+      already syncs: resting HR ≥100bpm, sleep ≤3h — deliberately *not* a low-resting-HR flag,
+      since well-trained endurance athletes (this app's actual audience) routinely run well below
+      general-population "normal" and that would constantly false-positive. Draft copy lives in
+      `_DRAFT_ESCALATION_COPY` in the same file, written to never name a condition or suggest a
+      diagnosis, always cite the specific triggering number, always frame the action as "mention
+      to a doctor." 9 new unit tests for the detection thresholds. **Needs your review of the
+      draft copy before it's wired into a real response** — see the module docstring.
+      Calendarized training plan: explicitly deferred to its own session (not started) — it's a
+      genuine new subsystem (multi-week periodization logic), not a quick add, and rushing a
+      shallow version into an already-large session wasn't the right call.
 
 ## 8. Connectors & mobile — P1 — SCAFFOLDED + HARDENED
 
