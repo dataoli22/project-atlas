@@ -81,7 +81,10 @@ try {
 
   // apps/web builds with output: "standalone" (see next.config.ts - needed for lean Electron
   // packaging), which next start warns is unsupported. Run the standalone server.js directly
-  // instead, matching how desktop/electron/main.js spawns it.
+  // instead, matching how desktop/electron/main.js spawns it. See copy-standalone-static.mjs for
+  // why the static asset copy below is required first.
+  await run("node", ["e2e/copy-standalone-static.mjs"]);
+
   server = spawn("node", [".next/standalone/apps/web/server.js"], {
     cwd: "apps/web",
     stdio: "inherit",

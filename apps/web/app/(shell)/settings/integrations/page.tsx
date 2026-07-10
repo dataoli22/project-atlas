@@ -33,7 +33,7 @@ export default async function IntegrationsSettingsPage() {
           <div className="atlas-meta">
             <DataSourceBadge label="AI settings" source={ai.source} />
           </div>
-          <div className="atlas-detail-list">
+          <dl className="atlas-detail-list">
             <div className="atlas-detail-list__row">
               <dt>Distribution model</dt>
               <dd>{ai.data.selfHostedDistribution ? "Self-contained app package" : "Browser-first dev mode"}</dd>
@@ -50,7 +50,7 @@ export default async function IntegrationsSettingsPage() {
               <dt>Groq allowed</dt>
               <dd>{ai.data.allowGroq ? "Yes" : "No"}</dd>
             </div>
-          </div>
+          </dl>
           <p className="atlas-note">
             Keys are intended to stay on the local device runtime only. In the packaged desktop or phone build, the UI
             talks to a user-owned local process rather than a centralized Atlas cloud. Use the runtime check below to confirm that Atlas can reach Ollama on this device without exposing stored secrets.

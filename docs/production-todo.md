@@ -14,7 +14,8 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ## 0. Current status snapshot
 
-- Backend tests: **226 passing** (`npm run test:api`). CI green
+- Backend tests: **231 passing** (`npm run test:api`). E2E: **21 passing**
+  (`npm run test:e2e`, including a new axe-core accessibility + responsive smoke suite). CI green
   (`.github/workflows/ci.yml`: api / web / security / e2e).
 - Repo: `https://github.com/dataoli22/project-atlas` (private, `main`).
 - Done and verified live this cycle (not just written — see dedicated docs for how each was
@@ -365,10 +366,32 @@ desktop, and the hard iOS blocker.)
       on every endurance and nutrition page (dashboard, capability, timeline, nutrition, cooking,
       shopping, planner — the last alongside its existing regenerate-with-reason form, as a
       quicker "just re-check" action). Verified live that clicking it re-fetches.
-- [ ] Accessibility audit; responsive QA (desktop + phone).
-- [ ] Production-safe cache strategy; version/build metadata display.
+- [x] **Accessibility audit + responsive QA** (automated, not manual — see the note below on
+      scope): new `e2e/web/accessibility.spec.ts` runs `@axe-core/playwright` (WCAG2A/2AA rules)
+      across all 9 primary routes, plus a horizontal-overflow check at a 375px mobile viewport
+      for the same routes. This surfaced and led to fixing a real, widespread bug: many
+      `<dt>`/`<dd>` pairs across 12 files (dashboard, capability, cooking, nutrition, planner,
+      shopping, timeline, settings/integrations, and several form components) weren't wrapped in
+      a `<dl>` ancestor, which axe correctly flags as a serious violation. Also surfaced and fixed
+      a real e2e-harness gap (see `e2e/copy-standalone-static.mjs`): the standalone Next.js server
+      was started directly without copying `.next/static` next to it, so every e2e-tested page was
+      silently rendering with **zero CSS applied** the whole time - only caught now because
+      earlier specs only asserted visible text, never layout. Confirmed this never affected the
+      real packaged app (electron-builder's `extraResources` already copies static assets
+      correctly at package time, see section 9). 16 new e2e checks, all passing. This is automated
+      smoke coverage, not a substitute for a full manual audit with real assistive tech and real
+      devices - noted honestly, not claimed as complete.
+- [x] **Production-safe cache strategy**: audited - every fetch in the frontend already goes
+      through `requestJson`/raw `fetch` calls with `cache: "no-store"` (`lib/api.ts` and the two
+      other direct-fetch call sites in `app-lock-data.ts`/`pairing-data.ts`), so there was no
+      stale-cache risk to begin with; this just makes that fact verified and explicit rather than
+      assumed.
+- [x] **Version/build metadata display**: new `<AppVersionFooter>` (`components/app-version-footer.tsx`)
+      in the shell layout footer, showing the web package version plus the live backend version
+      and health status (fetched from the extended `/health` endpoint - see section 11).
 - [ ] Upgrade Next.js past the `postcss` XSS advisory (GHSA-qx2v-qp2m-jg93) — `npm audit fix
       --force` proposes a breaking major bump; needs its own scoped upgrade + full regression pass.
+      Deliberately still deferred - out of scope for this pass, tracked here not dropped.
 
 ## 11. Backend hardening — P1 — PARTIAL
 
@@ -379,7 +402,18 @@ desktop, and the hard iOS blocker.)
       uvicorn instance, not just unit tests. Tracing/metrics (OpenTelemetry or similar) still
       not started — logging alone gets most of the day-to-day debugging value for a local-first
       single-user app; revisit tracing if/when multi-service correlation is actually needed.
-- [ ] Dependency health endpoints; startup config validation.
+- [x] **Dependency health endpoints + startup config validation**: `GET /api/v1/health` now runs
+      real dependency checks (`DependencyCheck[]`) instead of always reporting `"ok"` - a live
+      `SELECT 1` against the SQLite connection (`LocalStateDatabase.health_check()`, catches a
+      locked/corrupted db file, not just "is the connection object non-null") and a writability
+      check on the local state directory; overall `status` becomes `"degraded"` if either fails.
+      New `validate_startup_config()` (`core/config.py`) runs in `main.py`'s lifespan before the
+      app accepts traffic - probes that `local_db_path`/`local_state_path`'s parent directories
+      are actually writable (a real temp-file write+delete, not just `mkdir`) and that
+      `api_port` is a valid TCP port, raising a `RuntimeError` naming the exact setting and env
+      var to fix instead of letting a bad OneDrive-synced path or permission change surface as an
+      opaque `sqlite3.OperationalError` deep inside the state singleton's constructor. 5 new
+      tests (`test_system_health.py`, `test_startup_config_validation.py`).
 - [x] Timeout + retry policies for external providers: Groq and Strava's cloud HTTP calls
       (`provider_clients.py`) now retry transient failures (connection errors, timeouts, 5xx) up
       to 3 attempts with backoff, never retrying 4xx. On-device Ollama deliberately excluded — a

@@ -131,15 +131,17 @@ export function FeaturePreferencesForm({
         })}
       </div>
 
-      <div className="atlas-detail-list__row">
-        <dt>Shell density</dt>
-        <dd>{preferences.preferredPlatformDensity}</dd>
-      </div>
+      <dl className="atlas-detail-list">
+        <div className="atlas-detail-list__row">
+          <dt>Shell density</dt>
+          <dd>{preferences.preferredPlatformDensity}</dd>
+        </div>
 
-      <div className="atlas-detail-list__row">
-        <dt>Last save source</dt>
-        <dd>{lastSource === "api" ? "API" : "Stub fallback"}</dd>
-      </div>
+        <div className="atlas-detail-list__row">
+          <dt>Last save source</dt>
+          <dd>{lastSource === "api" ? "API" : "Stub fallback"}</dd>
+        </div>
+      </dl>
 
       <p className="atlas-note">{status}</p>
 

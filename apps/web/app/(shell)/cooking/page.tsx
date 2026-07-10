@@ -129,14 +129,14 @@ export default async function CookingPage() {
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Ingredient reuse</div>
-          <div className="atlas-detail-list">
+          <dl className="atlas-detail-list">
             {repeatedCategories.map((entry) => (
               <div key={entry.category} className="atlas-detail-list__row">
                 <dt>{entry.category}</dt>
                 <dd>{entry.count} items supporting the week</dd>
               </div>
             ))}
-          </div>
+          </dl>
           <p className="atlas-note">
             The cooking plan stays efficient by reusing the same category groups across breakfast, lunch, and dinner instead of introducing one-off ingredients.
           </p>
@@ -144,7 +144,7 @@ export default async function CookingPage() {
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Leftover handoff</div>
-          <div className="atlas-detail-list">
+          <dl className="atlas-detail-list">
             <div className="atlas-detail-list__row">
               <dt>Planned leftover lunches</dt>
               <dd>{leftoverMeals}</dd>
@@ -157,7 +157,7 @@ export default async function CookingPage() {
               <dt>Week in scope</dt>
               <dd>{planner.weekLabel}</dd>
             </div>
-          </div>
+          </dl>
           <p className="atlas-note">{cookingPlan.leftoverStrategy}</p>
         </section>
 

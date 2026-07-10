@@ -123,7 +123,7 @@ export function AskAtlasForm({ initialFeature }: AskAtlasFormProps) {
         <div className="atlas-panel__eyebrow">Grounding panel</div>
         {result ? (
           <>
-            <div className="atlas-detail-list">
+            <dl className="atlas-detail-list">
               <div className="atlas-detail-list__row">
                 <dt>Provider</dt>
                 <dd>{result.provider}</dd>
@@ -154,7 +154,7 @@ export function AskAtlasForm({ initialFeature }: AskAtlasFormProps) {
                 <dt>Connector freshness</dt>
                 <dd>{result.connectorFreshness}</dd>
               </div>
-            </div>
+            </dl>
 
             <div className="atlas-list-card">
               <div className="atlas-list-card__title">Answer</div>
@@ -166,14 +166,14 @@ export function AskAtlasForm({ initialFeature }: AskAtlasFormProps) {
               <div className="atlas-list-card__meta">{result.tokenStrategyNote}</div>
             </div>
 
-            <div className="atlas-stack">
+            <dl className="atlas-detail-list">
               {result.grounding.map((item) => (
                 <div key={item.label} className="atlas-detail-list__row">
                   <dt>{item.label}</dt>
                   <dd>{item.value}</dd>
                 </div>
               ))}
-            </div>
+            </dl>
 
             {!result.guardrailPassed ? (
               <div className="atlas-list-card" style={{ borderColor: "var(--atlas-warm)" }}>

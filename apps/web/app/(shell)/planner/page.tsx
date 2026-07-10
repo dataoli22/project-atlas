@@ -113,7 +113,7 @@ export default async function PlannerPage() {
             <span>Status: {STATUS_LABEL[refresh.status]}</span>
             <span>Version {refresh.plannerVersion}</span>
           </div>
-          <div className="atlas-detail-list">
+          <dl className="atlas-detail-list">
             <div className="atlas-detail-list__row">
               <dt>Plan window</dt>
               <dd>
@@ -143,7 +143,7 @@ export default async function PlannerPage() {
               <dt>Reason</dt>
               <dd>{refresh.refreshReason}</dd>
             </div>
-          </div>
+          </dl>
           <p className="atlas-note">{refresh.dataFreshness}</p>
           <form action={refreshPlanAction} className="atlas-stack" style={{ gap: "8px" }}>
             <label className="atlas-panel__eyebrow" htmlFor="refresh-reason">

@@ -92,7 +92,7 @@ export default async function DashboardPage() {
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Capability snapshot</div>
           <p className="atlas-note">{insights.capability.headline}</p>
-          <div className="atlas-stack">
+          <dl className="atlas-detail-list">
             {insights.capability.areas.map((area) => (
               <div key={area.label} className="atlas-detail-list__row">
                 <dt>{area.label}</dt>
@@ -101,7 +101,7 @@ export default async function DashboardPage() {
                 </dd>
               </div>
             ))}
-          </div>
+          </dl>
           <div className="atlas-panel__eyebrow">Insights</div>
           <div className="atlas-stack">
             {insights.insights.map((insight) => (

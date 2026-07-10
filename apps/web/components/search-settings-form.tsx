@@ -57,7 +57,7 @@ export function SearchSettingsForm({ initialSettings, initialSource }: SearchSet
         </label>
       </div>
 
-      <div className="atlas-detail-list">
+      <dl className="atlas-detail-list">
         <div className="atlas-detail-list__row">
           <dt>Brave key stored</dt>
           <dd>{settings.braveApiKeySet ? "Yes" : "No"}</dd>
@@ -66,7 +66,7 @@ export function SearchSettingsForm({ initialSettings, initialSource }: SearchSet
           <dt>Last save source</dt>
           <dd>{lastSource === "api" ? "Local API" : "Stub fallback"}</dd>
         </div>
-      </div>
+      </dl>
 
       <label className="atlas-control-card">
         <div className="atlas-control-card__content">

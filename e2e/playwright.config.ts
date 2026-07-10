@@ -23,8 +23,13 @@ export default defineConfig({
     ? undefined
     : {
         // apps/web builds with output: "standalone" (see next.config.ts), which next start warns
-        // is unsupported - run the standalone server.js directly instead.
-        command: `node .next/standalone/apps/web/server.js`,
+        // is unsupported - run the standalone server.js directly instead. Standalone output does
+        // NOT include .next/static next to server.js (the real packaged app gets that from
+        // electron-builder's extraResources copy at package time, see desktop/package.json) -
+        // copy it first or every page serves with zero CSS applied. Matches the same copy
+        // run-e2e.mjs does for the `npm run test:e2e` path; this covers direct
+        // `npx playwright test -c e2e/playwright.config.ts` invocations too.
+        command: `node ../e2e/copy-standalone-static.mjs && node .next/standalone/apps/web/server.js`,
         cwd: webAppRoot,
         url: baseURL,
         env: { PORT: String(port), HOSTNAME: "127.0.0.1" },

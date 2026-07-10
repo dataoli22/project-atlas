@@ -20,12 +20,19 @@ class UserSummary(BaseModel):
     display_name: str
 
 
+class DependencyCheck(BaseModel):
+    name: str
+    ok: bool
+    detail: str
+
+
 class HealthCheckResponse(BaseModel):
     status: str
     app_name: str
     version: str
     active_feature: FeatureKey
     enabled_features: list[FeatureKey]
+    checks: list[DependencyCheck] = Field(default_factory=list)
 
 
 class AppLockSettings(BaseModel):

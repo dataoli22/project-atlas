@@ -149,6 +149,15 @@ class LocalStateDatabase:
         row = self._connection.execute("SELECT COUNT(*) FROM app_state").fetchone()
         return row is None or row[0] == 0
 
+    def health_check(self) -> tuple[bool, str]:
+        """Cheap liveness probe for the /health endpoint - a real query, not just "is the
+        connection object non-null", so a corrupted or locked file is actually caught."""
+        try:
+            self._connection.execute("SELECT 1").fetchone()
+            return True, f"SQLite reachable at {self._db_path}."
+        except sqlite3.Error as exc:
+            return False, f"SQLite at {self._db_path} did not respond: {exc}"
+
     @contextmanager
     def _transaction(self) -> Iterator[sqlite3.Connection]:
         try:

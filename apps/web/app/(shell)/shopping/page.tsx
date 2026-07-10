@@ -106,7 +106,7 @@ export default async function ShoppingPage() {
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Budget snapshot</div>
-          <div className="atlas-detail-list">
+          <dl className="atlas-detail-list">
             <div className="atlas-detail-list__row">
               <dt>Planner budget</dt>
               <dd>{plannerBudget}</dd>
@@ -123,7 +123,7 @@ export default async function ShoppingPage() {
               <dt>Budget remaining</dt>
               <dd>{remainingBudget}</dd>
             </div>
-          </div>
+          </dl>
           <p className="atlas-note">
             The current list sits {budgetVarianceSummary} the planner projection and keeps the plan centered on repeat-use staples.
           </p>
@@ -183,7 +183,7 @@ export default async function ShoppingPage() {
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Buy once, use often</div>
-          <div className="atlas-detail-list">
+          <dl className="atlas-detail-list">
             <div className="atlas-detail-list__row">
               <dt>Top categories</dt>
               <dd>{getItemFrequencyByCategory(categorySummaries)}</dd>
@@ -196,7 +196,7 @@ export default async function ShoppingPage() {
               <dt>Cooking handoff</dt>
               <dd>{coveredDays} days staged</dd>
             </div>
-          </div>
+          </dl>
           <p className="atlas-note">
             Grouping by category keeps the mobile checklist quick to scan while the repeated staples help the week stay low-friction after the store run.
           </p>

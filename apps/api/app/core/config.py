@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -85,6 +86,40 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def validate_startup_config(settings: Settings) -> None:
+    """Fail fast with a clear message instead of a confusing downstream stack trace.
+
+    Runs once at process startup (see `main.py`'s lifespan). The two local-first storage paths
+    are the most likely thing to be wrong on a real machine - an OS permission change, a synced
+    folder (OneDrive/Dropbox) locking a file, a path pointing at a removable drive that isn't
+    mounted - and today those surface as an opaque `sqlite3.OperationalError` or `PermissionError`
+    buried inside `SharedStateStore.__init__`, which already runs at import time before this
+    function's caller even gets a chance to run. This performs the same directory-creation check
+    explicitly, with an error message that names the actual setting to fix.
+    """
+
+    for label, raw_path, env_var in (
+        ("local_db_path", settings.local_db_path, "ATLAS_LOCAL_DB_PATH"),
+        ("local_state_path", settings.local_state_path, "ATLAS_LOCAL_STATE_PATH"),
+    ):
+        directory = Path(raw_path).parent
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            probe = directory / ".atlas_startup_write_check"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink()
+        except OSError as exc:
+            raise RuntimeError(
+                f"Atlas cannot write to the directory for {label} ('{directory}'). "
+                f"Set {env_var} to a writable location and restart Atlas. Original error: {exc}"
+            ) from exc
+
+    if not (1 <= settings.api_port <= 65535):
+        raise RuntimeError(
+            f"ATLAS_API_PORT is set to {settings.api_port}, which is not a valid TCP port (1-65535)."
+        )
 
 
 def build_feature_registry(settings: Settings) -> list[FeatureDefinition]:

@@ -336,7 +336,7 @@ export function AIRuntimeSettingsForm({
         </label>
       </div>
 
-      <div className="atlas-detail-list">
+      <dl className="atlas-detail-list">
         <div className="atlas-detail-list__row">
           <dt>Ollama key stored</dt>
           <dd>{settings.ollamaApiKeySet ? "Yes" : "No"}</dd>
@@ -357,7 +357,7 @@ export function AIRuntimeSettingsForm({
               : "Not run yet"}
           </dd>
         </div>
-      </div>
+      </dl>
 
       <div className="atlas-stack">
         <label className="atlas-control-card">
@@ -406,7 +406,7 @@ export function AIRuntimeSettingsForm({
             {healthStatus ? (
               <div className="atlas-stack">
                 <div className="atlas-note">{healthStatus.message}</div>
-                <div className="atlas-detail-list">
+                <dl className="atlas-detail-list">
                   <div className="atlas-detail-list__row">
                     <dt>1. Installed</dt>
                     <dd>
@@ -445,7 +445,7 @@ export function AIRuntimeSettingsForm({
                     <dt>Runtime location</dt>
                     <dd>{healthStatus.localTarget ? "Local device" : "Non-local target"}</dd>
                   </div>
-                </div>
+                </dl>
                 {healthStatus.modelAvailable === false ? (
                   <button
                     type="button"

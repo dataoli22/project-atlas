@@ -276,7 +276,7 @@ export function IntegrationConnectForm({
             </label>
           </div>
 
-          <div className="atlas-detail-list">
+          <dl className="atlas-detail-list">
             <div className="atlas-detail-list__row">
               <dt>Connected</dt>
               <dd>{selected.connected ? "Yes" : "No"}</dd>
@@ -411,7 +411,7 @@ export function IntegrationConnectForm({
                 </a>
               </dd>
             </div>
-          </div>
+          </dl>
 
           <div className="atlas-stack">
             {selected.notes.map((note) => (

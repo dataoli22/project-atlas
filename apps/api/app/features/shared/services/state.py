@@ -550,6 +550,12 @@ class SharedStateStore:
                 "refresh_reason": self._nutrition_runtime["refresh_reason"],
             }
 
+    def check_database_health(self) -> tuple[bool, str]:
+        with self._lock:
+            if self._db is None:
+                return True, "Persistence disabled for this run (test/in-memory mode)."
+            return self._db.health_check()
+
     def get_pantry_items(self) -> list[str]:
         with self._lock:
             return list(self._nutrition_runtime["pantry_items"])

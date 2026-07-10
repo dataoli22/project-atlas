@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
 from app.api.router import api_router
-from app.core.config import get_settings
+from app.core.config import get_settings, validate_startup_config
 from app.core.logging import configure_logging
 from app.core.middleware import RequestIdLoggingMiddleware
 from app.core.scheduler import run_periodic_maintenance
@@ -65,6 +65,8 @@ def _background_maintenance_disabled() -> bool:
 
 @asynccontextmanager
 async def _lifespan(application: FastAPI):
+    validate_startup_config(get_settings())
+
     stop_event = asyncio.Event()
     task: asyncio.Task | None = None
     if not _background_maintenance_disabled():

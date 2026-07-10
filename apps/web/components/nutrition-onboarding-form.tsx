@@ -468,19 +468,19 @@ export function NutritionOnboardingForm({
         </div>
       </div>
 
-      <div className="atlas-stack">
+      <dl className="atlas-detail-list">
         {getStepRequirements(activeStep, profile, localization).map((requirement) => (
           <div key={`${activeStep}-${requirement.label}`} className="atlas-detail-list__row">
             <dt>{requirement.label}</dt>
             <dd>{requirement.valid ? "Ready" : "Required"}</dd>
           </div>
         ))}
-      </div>
 
-      <div className="atlas-detail-list__row">
-        <dt>Resolved locale</dt>
-        <dd>{localization.locale}</dd>
-      </div>
+        <div className="atlas-detail-list__row">
+          <dt>Resolved locale</dt>
+          <dd>{localization.locale}</dd>
+        </div>
+      </dl>
 
       <p className="atlas-note">{status}</p>
 

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { AppLockGate } from "@/components/app-lock-gate";
+import { AppVersionFooter } from "@/components/app-version-footer";
 import { FeatureSwitcher } from "@/components/feature-switcher";
 import { ShellMobileNav, ShellSidebar } from "@/components/shell-nav";
 import { getAppLockSettingsData } from "@/lib/app-lock-data";
@@ -39,6 +40,7 @@ export default async function ShellLayout({ children }: { children: ReactNode })
           </div>
 
           <ShellMobileNav />
+          <AppVersionFooter />
         </div>
       </div>
     </AppLockGate>

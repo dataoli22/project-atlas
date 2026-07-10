@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 
 from app.features.shared.schemas.app import (
@@ -7,6 +10,7 @@ from app.features.shared.schemas.app import (
     AppLockVerifyResponse,
     AppPreferences,
     AppPreferencesUpdate,
+    DependencyCheck,
     FeatureRegistryResponse,
     HealthCheckResponse,
     UserSummary,
@@ -68,12 +72,38 @@ def verify_app_lock(payload: AppLockVerifyRequest) -> AppLockVerifyResponse:
 
 @router.get("/health", response_model=HealthCheckResponse)
 def read_healthcheck() -> HealthCheckResponse:
+    """Real dependency health, not just "the process is up".
+
+    Checks the actual SQLite connection (a live query, not just a non-null object) and that the
+    configured local state directory is writable - the two things that can silently break a
+    local-first single-user install (a locked/corrupted db file, a read-only data directory after
+    an OS permission change) while the process itself keeps running and looking healthy.
+    """
     settings = get_settings()
     preferences = shared_state.get_preferences()
+
+    db_ok, db_detail = shared_state.check_database_health()
+    checks = [DependencyCheck(name="database", ok=db_ok, detail=db_detail)]
+
+    state_dir = Path(settings.local_state_path).parent
+    state_dir_ok = os.access(state_dir, os.W_OK) if state_dir.exists() else False
+    checks.append(
+        DependencyCheck(
+            name="local_state_directory",
+            ok=state_dir_ok,
+            detail=(
+                f"{state_dir} is writable."
+                if state_dir_ok
+                else f"{state_dir} does not exist or is not writable."
+            ),
+        )
+    )
+
     return HealthCheckResponse(
-        status="ok",
+        status="ok" if all(check.ok for check in checks) else "degraded",
         app_name=settings.app_name,
         version=settings.app_version,
         active_feature=preferences.active_feature,
         enabled_features=get_enabled_feature_keys(),
+        checks=checks,
     )

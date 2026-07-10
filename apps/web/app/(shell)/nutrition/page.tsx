@@ -54,7 +54,7 @@ export default async function NutritionPage() {
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Weekly frame</div>
-          <div className="atlas-detail-list">
+          <dl className="atlas-detail-list">
             <div className="atlas-detail-list__row">
               <dt>Market</dt>
               <dd>{planner.marketLabel}</dd>
@@ -75,13 +75,13 @@ export default async function NutritionPage() {
               <dt>Batch day</dt>
               <dd>{planner.batchDay}</dd>
             </div>
-          </div>
+          </dl>
           <p className="atlas-note">{planner.plannerSummary}</p>
         </section>
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Budget and shopping</div>
-          <div className="atlas-detail-list">
+          <dl className="atlas-detail-list">
             <div className="atlas-detail-list__row">
               <dt>Weekly budget</dt>
               <dd>{budget}</dd>
@@ -98,7 +98,7 @@ export default async function NutritionPage() {
               <dt>Categories</dt>
               <dd>{shoppingList.categories.join(" | ")}</dd>
             </div>
-          </div>
+          </dl>
           <p className="atlas-note">
             {shoppingList.batchCookItemCount} high-priority items drive the batch-cook lane, while {shoppingList.pantryStapleCount} staples do most of the workload.
           </p>
@@ -106,7 +106,7 @@ export default async function NutritionPage() {
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Nutrition targets</div>
-          <div className="atlas-detail-list">
+          <dl className="atlas-detail-list">
             <div className="atlas-detail-list__row">
               <dt>Calories</dt>
               <dd>{planner.nutritionTargets.calories}</dd>
@@ -123,7 +123,7 @@ export default async function NutritionPage() {
               <dt>Hydration</dt>
               <dd>{planner.nutritionTargets.hydrationMl} ml</dd>
             </div>
-          </div>
+          </dl>
           <div className="atlas-stack">
             {planner.costFocus.map((item) => (
               <div key={item.label} className="atlas-list-card">

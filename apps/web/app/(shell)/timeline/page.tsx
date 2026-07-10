@@ -145,7 +145,7 @@ export default async function TimelinePage() {
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Capability context</div>
           <p className="atlas-note">{insights.capability.headline}</p>
-          <div className="atlas-stack">
+          <dl className="atlas-detail-list">
             {insights.capability.areas.map((area) => (
               <div key={area.label} className="atlas-detail-list__row">
                 <dt>{area.label}</dt>
@@ -154,7 +154,7 @@ export default async function TimelinePage() {
                 </dd>
               </div>
             ))}
-          </div>
+          </dl>
         </section>
       </div>
     </PageScaffold>
