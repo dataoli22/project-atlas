@@ -129,9 +129,30 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       the shopping page (add/remove items, live). 9 new backend tests; verified live end-to-end
       (added a real item via curl, confirmed the shopping list correctly flagged and excluded it,
       cleaned up after).
-- [ ] **6b remaining**: replace deterministic blueprints with a real optimizer (grounded in the
-      already-integrated OpenFoodFacts data, not fabricated recipe content — explicit product
-      decision); recipe source system with a real "why did the plan change" explanation.
+- [x] **6b — bounded real-data substitution grounding landed** (explicit product decision: a
+      bounded version now, not a full meal-planning solver — that's multi-session scope).
+      `_real_nutrient_comparison()` (nutrition/service.py) looks up both sides of each blueprint
+      substitution via the already-integrated `OpenFoodFactsDataSource` and reports real
+      calories/protein per 100g, e.g. "Chicken breast: 165kcal / 31g protein per 100g -> Dal:
+      116kcal / 9g protein per 100g" — grounding the "why" in real data instead of only static
+      blueprint prose. Falls back to the text before "or"/"/"/"," when the substitute field is a
+      human-written compound phrase like "Eggs or dal" (not a real product name, so it
+      structurally matches nothing verbatim) - verified directly that this fallback works
+      ("Eggs or dal" -> resolves via "Eggs"). Returns `None` (not a fabricated placeholder) when
+      either side can't be found. Process-lifetime cache that deliberately only caches
+      successes, not `None` - a naive `@lru_cache` would permanently hide a comparison behind a
+      transient network blip for the rest of the process's life; found and fixed this while
+      testing live against the real (occasionally 503-flaky) OpenFoodFacts API. Also fixed two
+      pre-existing bugs surfaced along the way: `update_profile()` and the AI-settings restore
+      path used `model_copy(update=payload.model_dump())`, which does not re-validate nested
+      models - `body_weight`/`hydration`/`prompt_profiles` were silently stored as raw dicts
+      instead of typed models, latent until this session's endurance normalization code became
+      the first caller to access `.body_weight.value` as an attribute. Both now use
+      `model_validate()`. 15 new tests (8 for the comparison/cache logic including the
+      transient-failure-is-not-cached case, 2 regression tests for the model-validation bugs).
+      Recipe source system with a real "why did the plan change" explanation, and the full
+      optimizer/recipe-library replacement, remain open — explicitly deferred, not silently
+      dropped.
 
 ## 7. Endurance — P1
 

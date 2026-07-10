@@ -178,6 +178,9 @@ export default async function NutritionPage() {
                 <div className="atlas-list-card__meta">
                   {item.reason} | {item.budgetImpact}
                 </div>
+                {item.nutrientComparison ? (
+                  <div className="atlas-list-card__meta">{item.nutrientComparison}</div>
+                ) : null}
               </div>
             ))}
           </div>

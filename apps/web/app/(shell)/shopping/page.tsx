@@ -210,6 +210,9 @@ export default async function ShoppingPage() {
                 <div className="atlas-list-card__meta">
                   {item.reason} | {item.budgetImpact} | {item.swapCategory}
                 </div>
+                {item.nutrientComparison ? (
+                  <div className="atlas-list-card__meta">{item.nutrientComparison}</div>
+                ) : null}
               </div>
             ))}
           </div>

@@ -336,21 +336,24 @@ const stubSubstitutions: NutritionSubstitutionsData = {
       substitute: "Eggs or dal",
       reason: "Keeps weekday protein flexible at a lower total cost.",
       budgetImpact: "Save INR 167-INR 333",
-      swapCategory: "protein"
+      swapCategory: "protein",
+      nutrientComparison: null
     },
     {
       ingredient: "Greek yogurt",
       substitute: "Curd",
       reason: "More available locally and easier to reuse across breakfasts.",
       budgetImpact: "Save INR 83-INR 167",
-      swapCategory: "breakfast"
+      swapCategory: "breakfast",
+      nutrientComparison: null
     },
     {
       ingredient: "Quinoa",
       substitute: "Rice or millets",
       reason: "Lowers spend without changing the overall planner rhythm.",
       budgetImpact: "Save INR 167-INR 250",
-      swapCategory: "grains"
+      swapCategory: "grains",
+      nutrientComparison: null
     }
   ]
 };
@@ -557,6 +560,7 @@ type NutritionSubstitutionsApiResponse = {
     reason: string;
     budget_impact: string;
     swap_category: string;
+    nutrient_comparison: string | null;
   }>;
 };
 
@@ -806,7 +810,8 @@ function mapSubstitutionsResponse(response: NutritionSubstitutionsApiResponse): 
       substitute: item.substitute,
       reason: item.reason,
       budgetImpact: item.budget_impact,
-      swapCategory: item.swap_category
+      swapCategory: item.swap_category,
+      nutrientComparison: item.nutrient_comparison
     }))
   };
 }
@@ -992,7 +997,8 @@ function substitutionsFallback(): NutritionSubstitutionsApiResponse {
       substitute: item.substitute,
       reason: item.reason,
       budget_impact: item.budgetImpact,
-      swap_category: item.swapCategory
+      swap_category: item.swapCategory,
+      nutrient_comparison: item.nutrientComparison
     }))
   };
 }

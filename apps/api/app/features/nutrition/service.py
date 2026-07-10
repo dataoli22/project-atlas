@@ -4,6 +4,11 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
 from app.core.config import build_market_registry
+from app.features.nutrition.data_sources import (
+    NutritionDataSourceError,
+    NutritionProduct,
+    OpenFoodFactsDataSource,
+)
 from app.features.nutrition.schemas import (
     NutritionCalendarDay,
     NutritionCalendarMeal,
@@ -497,10 +502,89 @@ def get_nutrition_substitutions() -> NutritionSubstitutionsResponse:
                 reason=item["reason"],
                 budget_impact=_budget_impact_in_currency(item["budget_impact_usd"], currency_code),
                 swap_category=item["swap_category"],
+                nutrient_comparison=_real_nutrient_comparison(
+                    ingredient=item["ingredient"], substitute=item["substitute"]
+                ),
             )
             for item in blueprint.substitutions
         ],
     )
+
+
+_food_product_cache: dict[str, NutritionProduct] = {}
+_FOOD_PRODUCT_CACHE_MAX_SIZE = 64
+
+
+def _lookup_food_product(name: str) -> NutritionProduct | None:
+    """Process-lifetime cache of a single food item's real nutrition facts, backing
+    _real_nutrient_comparison. Cached because the substitution list is looked up on every
+    /substitutions request, and OpenFoodFacts data for "chicken breast" doesn't change between
+    requests - re-hitting the network every time would only add latency for no benefit.
+
+    Deliberately only caches successes, not None - a plain @lru_cache would also cache a
+    transient failure (a 503, a momentary network blip) forever for the life of the process,
+    permanently hiding a comparison that would have worked on retry a minute later. Misses are
+    cheap to retry; a wrongly-cached "unavailable" is not self-healing.
+    """
+    if name in _food_product_cache:
+        return _food_product_cache[name]
+
+    # Blueprint substitute text is written for humans, not a product search box - "Eggs or dal"
+    # is a real, useful substitution note but not a real product name, so it structurally
+    # matches nothing. Fall back to the first alternative ("Eggs") rather than giving up,
+    # without ever inventing a name that wasn't actually in the original text.
+    candidates = [name]
+    for separator in (" or ", "/", ","):
+        if separator in name:
+            candidates.append(name.split(separator, 1)[0].strip())
+            break
+
+    for candidate in candidates:
+        try:
+            results = OpenFoodFactsDataSource().search_products(candidate, market_code="", limit=1)
+        except NutritionDataSourceError:
+            continue
+        if results:
+            if len(_food_product_cache) >= _FOOD_PRODUCT_CACHE_MAX_SIZE:
+                _food_product_cache.pop(next(iter(_food_product_cache)))
+            _food_product_cache[name] = results[0]
+            return results[0]
+
+    return None
+
+
+def _real_nutrient_comparison(*, ingredient: str, substitute: str) -> str | None:
+    """Grounds the substitution's "why" in real nutrition data instead of only the blueprint's
+    static prose reason - looks up both sides via OpenFoodFacts (already the app's primary
+    nutrition data source, see data_sources.py) and reports actual calories/protein per 100g.
+    Returns None (not a fabricated placeholder) if either side can't be found or the lookup
+    fails - OpenFoodFacts doesn't have every ingredient, and a missing comparison should read as
+    "unavailable," not as invented numbers.
+    """
+    ingredient_product = _lookup_food_product(ingredient)
+    substitute_product = _lookup_food_product(substitute)
+    if ingredient_product is None or substitute_product is None:
+        return None
+
+    ingredient_summary = _nutrient_summary(ingredient_product)
+    substitute_summary = _nutrient_summary(substitute_product)
+    if ingredient_summary is None or substitute_summary is None:
+        return None
+
+    return f"{ingredient}: {ingredient_summary} per 100g -> {substitute}: {substitute_summary} per 100g (OpenFoodFacts)"
+
+
+def _nutrient_summary(product: NutritionProduct) -> str | None:
+    calories = product.nutriments.calories_kcal_per_100g
+    protein = product.nutriments.protein_grams_per_100g
+    if calories is None and protein is None:
+        return None
+    parts = []
+    if calories is not None:
+        parts.append(f"{calories:.0f}kcal")
+    if protein is not None:
+        parts.append(f"{protein:.0f}g protein")
+    return " / ".join(parts)
 
 
 def get_nutrition_cooking_plan() -> NutritionCookingPlanResponse:

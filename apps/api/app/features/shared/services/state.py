@@ -113,7 +113,14 @@ class SharedStateStore:
     def update_profile(self, payload: ProfileSettingsUpdate) -> ProfileSettings:
         with self._lock:
             update_data = payload.model_dump(exclude_unset=True)
-            self._profile = self._profile.model_copy(update=update_data)
+            # model_copy(update=...) does NOT re-validate - it assigns dict values straight onto
+            # fields without coercing them back into nested models, so body_weight/hydration
+            # would end up stored as raw dicts instead of BodyWeightMetric/HydrationMetric
+            # instances (silently broke any code accessing .value/.unit on them as attributes,
+            # like the hydration-target normalization in endurance/service.py).
+            # model_validate() re-runs full validation, including nested submodels.
+            merged = {**self._profile.model_dump(), **update_data}
+            self._profile = ProfileSettings.model_validate(merged)
             self._persist_state_unlocked()
             return self._profile.model_copy(deep=True)
 
@@ -908,7 +915,13 @@ class SharedStateStore:
 
         profile_payload = payload.get("profile")
         if isinstance(profile_payload, dict):
-            self._profile = self._profile.model_copy(update=profile_payload)
+            # model_validate, not model_copy(update=...) - see update_profile's comment. The
+            # persisted payload's body_weight/hydration are plain JSON dicts; model_copy would
+            # assign them straight onto the fields without coercing them back into
+            # BodyWeightMetric/HydrationMetric instances.
+            self._profile = ProfileSettings.model_validate(
+                {**self._profile.model_dump(), **profile_payload}
+            )
 
         localization_payload = payload.get("localization")
         if isinstance(localization_payload, dict):
@@ -916,7 +929,12 @@ class SharedStateStore:
 
         ai_settings_payload = payload.get("ai_settings")
         if isinstance(ai_settings_payload, dict):
-            self._ai_settings = self._ai_settings.model_copy(update=ai_settings_payload)
+            # model_validate, not model_copy(update=...) - same reasoning as the profile restore
+            # above. prompt_profiles is a nested list[AgentPromptProfile]; model_copy would leave
+            # each entry as a raw dict instead of a validated model.
+            self._ai_settings = AISettings.model_validate(
+                {**self._ai_settings.model_dump(), **ai_settings_payload}
+            )
 
         self._ollama_api_key = self._secret_protector.unprotect(
             payload.get("ollama_api_key_protected"), key="ollama_api_key"

@@ -265,6 +265,7 @@ export interface NutritionSubstitutionItem {
   reason: string;
   budgetImpact: string;
   swapCategory: string;
+  nutrientComparison: string | null;
 }
 
 export interface NutritionSubstitutionsData {

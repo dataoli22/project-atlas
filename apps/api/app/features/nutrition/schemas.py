@@ -139,6 +139,7 @@ class NutritionSubstitutionItem(BaseModel):
     reason: str
     budget_impact: str
     swap_category: str
+    nutrient_comparison: str | None = None
 
 
 class NutritionSubstitutionsResponse(BaseModel):
