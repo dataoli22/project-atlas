@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -147,6 +148,60 @@ def test_is_empty_reflects_row_presence(tmp_path: Path):
     db.set_json("shared_state", {"anything": True})
     assert db.is_empty() is False
     db.close()
+
+
+def test_reopening_an_older_schema_version_applies_only_new_migrations_and_preserves_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    db_path = tmp_path / "atlas.db"
+
+    connection = sqlite3.connect(str(db_path))
+    connection.execute(
+        """
+        CREATE TABLE app_state (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, datetime('now'))",
+        ("shared_state", json.dumps({"from": "pre_upgrade_release"})),
+    )
+    connection.execute("PRAGMA user_version = 1")
+    connection.commit()
+    connection.close()
+
+    new_table_created = []
+
+    def _migration_future(conn: sqlite3.Connection) -> None:
+        conn.execute("CREATE TABLE new_feature_table (id INTEGER PRIMARY KEY)")
+        new_table_created.append(True)
+
+    monkeypatch.setattr(
+        "app.features.shared.services.db._MIGRATIONS",
+        [*_MIGRATIONS, _migration_future],
+    )
+
+    db = LocalStateDatabase(db_path)
+
+    assert db.get_json("shared_state") == {"from": "pre_upgrade_release"}
+    assert new_table_created == [True]
+
+    connection = sqlite3.connect(str(db_path))
+    version = connection.execute("PRAGMA user_version").fetchone()[0]
+    tables = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+    }
+    connection.close()
+    db.close()
+
+    assert version == len(_MIGRATIONS) + 1
+    assert "new_feature_table" in tables
 
 
 def test_corrupt_db_file_raises_rather_than_silently_losing_data(tmp_path: Path):
