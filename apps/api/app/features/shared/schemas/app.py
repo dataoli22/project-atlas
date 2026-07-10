@@ -128,6 +128,7 @@ class MarketOption(BaseModel):
 class AgentPromptProfile(BaseModel):
     module: Literal["shared", "endurance", "nutrition"]
     title: str
+    prompt_version: str
     system_prompt: str
     guardrail_rules: list[str]
     token_strategy_note: str
@@ -369,6 +370,10 @@ ProviderErrorKind = Literal[
     "service_down", "model_missing", "timeout", "connection_refused", "auth_rejected", "other"
 ]
 
+ResponseProvenance = Literal["deterministic-only", "model-with-grounding", "model-only"]
+
+ConfidenceLevel = Literal["high", "medium", "low"]
+
 
 class ChatResponse(BaseModel):
     feature: Literal["shared", "endurance", "nutrition"]
@@ -378,8 +383,15 @@ class ChatResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     token_strategy_note: str
     applied_prompt_title: str
+    prompt_version: str
     grounding: list[ChatGroundingItem] = Field(default_factory=list)
     provider_error_kind: ProviderErrorKind | None = None
+    response_provenance: ResponseProvenance
+    confidence: ConfidenceLevel
+    confidence_reason: str
+    connector_freshness: str
+    guardrail_passed: bool
+    guardrail_findings: list[str] = Field(default_factory=list)
 
 
 class BackupExportResponse(BaseModel):

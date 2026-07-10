@@ -14,7 +14,7 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ## 0. Current status snapshot
 
-- Backend tests: **105 passing** (`npm run test:api`). CI green
+- Backend tests: **226 passing** (`npm run test:api`). CI green
   (`.github/workflows/ci.yml`: api / web / security / e2e).
 - Repo: `https://github.com/dataoli22/project-atlas` (private, `main`).
 - Done and verified live this cycle (not just written — see dedicated docs for how each was
@@ -92,14 +92,37 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 - [ ] On-device token/latency telemetry and per-feature budgeting.
 - [ ] Embedding pipeline (P2 — only needed when retrieval/memory features arrive).
 
-## 5. Agent orchestration — P1 — NOT STARTED
+## 5. Agent orchestration — P1 — DONE
 
-- [ ] Explicit handoff contract (structured request envelope: goal, feature, approved
-      cross-feature context, connector freshness, confidence, response budget).
-- [ ] Structured, validated output schema per agent.
-- [ ] Response provenance (`deterministic-only` / `+model wording` / `model-only`).
-- [ ] Guardrail tests for unsafe medical/nutrition advice.
-- [ ] Prompt versioning + changelog; local prompt packs for offline packaged builds.
+- [x] **Explicit handoff contract**: `AgentExecutionPlan` (`agent_runtime.py`) now carries
+      `confidence`/`confidence_reason`/`connector_freshness` alongside the existing feature,
+      grounding, and token budget - computed from real connector sync state (Strava activity
+      count, pantry item count, Health Connect/Samsung Health session counts), not assumed. Both
+      are also injected into the system prompt sent to the model and returned on `ChatResponse`.
+- [x] **Structured, validated output schema per agent** (bounded to what's safe given local
+      models vary in JSON-mode support): rather than forcing brittle structured generation, added
+      a deterministic post-generation validator (`guardrails.py`) that runs on every answer -
+      model or stub - and reports pass/fail plus specific findings as real schema fields
+      (`guardrail_passed`, `guardrail_findings`) on `ChatResponse`.
+- [x] **Response provenance**: `response_provenance` on `ChatResponse` is
+      `deterministic-only` (stub path), `model-with-grounding`, or `model-only`, computed from
+      whether the plan had real grounding data.
+- [x] **Guardrail tests for unsafe medical/nutrition advice**: `guardrails.py` catches
+      diagnosis-like language, medication/dosing language, and "don't see a doctor" language via
+      deterministic regex checks (not model-dependent), covering every provider path including
+      the stub fallback. Findings are advisory only - never block a response, matching the
+      established medical-escalation product decision. 8 new tests
+      (`test_guardrail_checks.py`) plus wiring tests in `test_chat_response_metadata.py`
+      confirming an unsafe answer is flagged but still returned.
+- [x] **Prompt versioning + changelog; local prompt packs for offline packaged builds**:
+      `PROMPT_VERSION` constant in `ai.py`, stamped on every `AgentPromptProfile` and returned on
+      `ChatResponse` as `prompt_version`; `docs/prompt-changelog.md` records what changed at each
+      version. Prompts are authored directly in `ai.py` and shipped inside the packaged sidecar
+      exe (no runtime prompt fetch exists), so packaged builds were already fully offline - this
+      just makes that fact explicit and auditable. 7 new tests
+      (`test_agent_handoff_contract.py`) plus a prompt-version assertion added to
+      `test_ai_settings.py`. Web chat UI (`ask-atlas-form.tsx`) now surfaces provenance,
+      confidence, connector freshness, prompt version, and guardrail findings.
 
 ## 6. Nutrition — P1
 

@@ -21,6 +21,13 @@ OLLAMA_DOWNLOAD_URL = "https://ollama.com/download"
 OLLAMA_LIBRARY_URL = "https://ollama.com/library"
 OLLAMA_API_DOCS_URL = "https://github.com/ollama/ollama/blob/main/docs/api.md"
 
+# Bumped whenever a prompt's wording, guardrail rules, or role instructions change materially.
+# Every bump must be accompanied by an entry in docs/prompt-changelog.md. Prompts are authored
+# in this file and shipped inside the packaged sidecar exe - there is no runtime prompt fetch, so
+# this version stamp is the only audit trail for "what prompt actually produced this answer,"
+# both for the offline packaged app and for local dev.
+PROMPT_VERSION = "2026.07-1"
+
 
 DEVICE_NOTICE = (
     "Provider keys and prompts stay on this device and are sent directly to whichever provider you "
@@ -109,6 +116,7 @@ def build_prompt_profiles(
         AgentPromptProfile(
             module="shared",
             title="Shared shell agent",
+            prompt_version=PROMPT_VERSION,
             system_prompt=_shared_prompt(style),
             guardrail_rules=rules,
             token_strategy_note=(
@@ -120,6 +128,7 @@ def build_prompt_profiles(
         AgentPromptProfile(
             module="endurance",
             title="Endurance coach agent",
+            prompt_version=PROMPT_VERSION,
             system_prompt=_endurance_prompt(style),
             guardrail_rules=rules,
             token_strategy_note=(
@@ -131,6 +140,7 @@ def build_prompt_profiles(
         AgentPromptProfile(
             module="nutrition",
             title="Nutrition planner agent",
+            prompt_version=PROMPT_VERSION,
             system_prompt=_nutrition_prompt(style),
             guardrail_rules=rules,
             token_strategy_note=(

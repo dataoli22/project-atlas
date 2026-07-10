@@ -134,11 +134,25 @@ export function AskAtlasForm({ initialFeature }: AskAtlasFormProps) {
               </div>
               <div className="atlas-detail-list__row">
                 <dt>Prompt profile</dt>
-                <dd>{result.appliedPromptTitle}</dd>
+                <dd>{result.appliedPromptTitle} (v{result.promptVersion})</dd>
               </div>
               <div className="atlas-detail-list__row">
                 <dt>Save path</dt>
                 <dd>{source === "api" ? "Local API" : "Stub fallback"}</dd>
+              </div>
+              <div className="atlas-detail-list__row">
+                <dt>Response provenance</dt>
+                <dd>{result.responseProvenance.replace(/-/g, " ")}</dd>
+              </div>
+              <div className="atlas-detail-list__row">
+                <dt>Confidence</dt>
+                <dd>
+                  {result.confidence} - {result.confidenceReason}
+                </dd>
+              </div>
+              <div className="atlas-detail-list__row">
+                <dt>Connector freshness</dt>
+                <dd>{result.connectorFreshness}</dd>
               </div>
             </div>
 
@@ -160,6 +174,15 @@ export function AskAtlasForm({ initialFeature }: AskAtlasFormProps) {
                 </div>
               ))}
             </div>
+
+            {!result.guardrailPassed ? (
+              <div className="atlas-list-card" style={{ borderColor: "var(--atlas-warm)" }}>
+                <div className="atlas-list-card__title">Flagged for review</div>
+                <div className="atlas-list-card__meta">
+                  {result.guardrailFindings.join(" ")}
+                </div>
+              </div>
+            ) : null}
 
             {result.providerErrorKind ? (
               <div className="atlas-list-card" style={{ borderColor: "var(--atlas-warm)" }}>

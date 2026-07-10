@@ -15,6 +15,7 @@ from app.features.shared.services.state import shared_state
 
 
 FeatureScope = Literal["shared", "endurance", "nutrition"]
+ConfidenceLevel = Literal["high", "medium", "low"]
 
 
 @dataclass
@@ -23,11 +24,15 @@ class AgentExecutionPlan:
     provider: Literal["ollama", "groq"]
     model: str
     prompt_title: str
+    prompt_version: str
     system_prompt: str
     token_strategy_note: str
     grounding: list[ChatGroundingItem]
     messages: list[dict[str, str]]
     warnings: list[str]
+    confidence: ConfidenceLevel
+    confidence_reason: str
+    connector_freshness: str
 
 
 def find_prompt_profile(ai_settings: AISettings, feature: FeatureScope):
@@ -135,6 +140,68 @@ def grounding_for_feature(feature: FeatureScope) -> list[ChatGroundingItem]:
     ]
 
 
+def _connector_status(feature: FeatureScope) -> tuple[ConfidenceLevel, str, str]:
+    """Assess how much the plan's grounding rests on real synced data vs. stub/no data.
+
+    Returns (confidence, confidence_reason, connector_freshness) - the explicit signals a
+    handoff needs to judge whether an answer is safe to act on. `shared` always reports medium:
+    it aggregates both feature domains rather than owning one connector's freshness directly.
+    """
+
+    runtime = shared_state.get_integration_runtime_snapshot()
+    strava_runtime = runtime["strava"]
+    health_connect_runtime = runtime["health_connect"]
+    samsung_runtime = runtime["samsung_health"]
+
+    if feature == "endurance":
+        strava_count = len(strava_runtime.get("recent_activities") or [])
+        if strava_count > 0:
+            return (
+                "high",
+                f"Grounded in {strava_count} synced Strava activities.",
+                f"Strava: {strava_count} activities synced.",
+            )
+        return (
+            "low",
+            "No Strava activities synced yet; endurance grounding falls back to illustrative stub data.",
+            "Strava: not synced.",
+        )
+
+    if feature == "nutrition":
+        pantry_count = len(shared_state.get_pantry_items())
+        connect_sessions = len(health_connect_runtime.get("recent_sessions") or [])
+        samsung_sessions = len(samsung_runtime.get("recent_sessions") or [])
+        if pantry_count > 0 or connect_sessions > 0 or samsung_sessions > 0:
+            return (
+                "medium",
+                "Nutrition plan is deterministic; some grounding (pantry or connector data) is personalized.",
+                f"Pantry: {pantry_count} items. Health Connect: {connect_sessions} sessions. "
+                f"Samsung Health: {samsung_sessions} sessions.",
+            )
+        return (
+            "medium",
+            "Nutrition plan is deterministic and blueprint-based; no personalization data synced yet.",
+            "No nutrition connector data synced.",
+        )
+
+    connected_count = sum(
+        1
+        for runtime_snapshot in (strava_runtime, health_connect_runtime, samsung_runtime)
+        if runtime_snapshot.get("recent_activities") or runtime_snapshot.get("recent_sessions")
+    )
+    if connected_count > 0:
+        return (
+            "medium",
+            f"{connected_count} connector(s) have synced data available to either feature agent.",
+            f"{connected_count} connector(s) with synced data.",
+        )
+    return (
+        "low",
+        "No connectors have synced data yet; shared answers stay generic across both feature domains.",
+        "No connectors synced.",
+    )
+
+
 def build_execution_plan(
     *,
     feature: FeatureScope,
@@ -144,6 +211,7 @@ def build_execution_plan(
 ) -> AgentExecutionPlan:
     prompt_profile = find_prompt_profile(ai_settings, feature)
     grounding = grounding_for_feature(feature)
+    confidence, confidence_reason, connector_freshness = _connector_status(feature)
     provider: Literal["ollama", "groq"] = ai_settings.default_provider
     model = ai_settings.ollama_model if provider == "ollama" else ai_settings.groq_model
     warnings: list[str] = []
@@ -163,6 +231,8 @@ def build_execution_plan(
                 f"Feature scope: {feature}\n"
                 f"Max context tokens: {ai_settings.max_context_tokens}\n"
                 f"Response token budget: {ai_settings.response_token_budget}\n"
+                f"Data confidence: {confidence} ({confidence_reason})\n"
+                f"Connector freshness: {connector_freshness}\n"
                 f"Approved grounding:\n{grounding_lines}"
             ),
         },
@@ -175,11 +245,15 @@ def build_execution_plan(
         provider=provider,
         model=model,
         prompt_title=prompt_profile.title,
+        prompt_version=prompt_profile.prompt_version,
         system_prompt=prompt_profile.system_prompt,
         token_strategy_note=prompt_profile.token_strategy_note,
         grounding=grounding,
         messages=messages,
         warnings=warnings,
+        confidence=confidence,
+        confidence_reason=confidence_reason,
+        connector_freshness=connector_freshness,
     )
 
 

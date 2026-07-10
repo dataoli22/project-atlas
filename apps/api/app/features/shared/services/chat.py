@@ -12,6 +12,7 @@ from app.features.shared.schemas.app import (
     ProviderErrorKind,
 )
 from app.features.shared.services.agent_runtime import build_execution_plan, fallback_answer
+from app.features.shared.services.guardrails import check_guardrails
 from app.features.shared.services.provider_clients import (
     GroqProviderClient,
     OllamaProviderClient,
@@ -148,15 +149,29 @@ def build_chat_response(
             if not provider_result.answer:
                 raise ValueError(f"Empty response from {provider_result.provider}")
 
+            guardrail_findings = check_guardrails(provider_result.answer)
+            response_warnings = [*plan.warnings, *fallback_notes]
+            if guardrail_findings:
+                response_warnings.append(
+                    "Atlas flagged this answer for review: " + " ".join(guardrail_findings)
+                )
+
             return ChatResponse(
                 feature=chat.feature,
                 provider=provider_result.provider,
                 model=provider_result.model,
                 answer=provider_result.answer,
-                warnings=[*plan.warnings, *fallback_notes],
+                warnings=response_warnings,
                 token_strategy_note=plan.token_strategy_note,
                 applied_prompt_title=plan.prompt_title,
+                prompt_version=plan.prompt_version,
                 grounding=plan.grounding,
+                response_provenance="model-with-grounding" if plan.grounding else "model-only",
+                confidence=plan.confidence,
+                confidence_reason=plan.confidence_reason,
+                connector_freshness=plan.connector_freshness,
+                guardrail_passed=not guardrail_findings,
+                guardrail_findings=guardrail_findings,
             )
         except (error.URLError, TimeoutError, ValueError, OSError) as exc:
             last_error_kind = "other" if isinstance(exc, ValueError) else _classify_provider_error(exc)
@@ -167,14 +182,29 @@ def build_chat_response(
             "No provider is configured and reachable, so Atlas used a local deterministic fallback."
         )
 
+    stub_answer = fallback_answer(chat.feature, chat.question, plan.grounding)
+    guardrail_findings = check_guardrails(stub_answer)
+    response_warnings = [*plan.warnings, *fallback_notes]
+    if guardrail_findings:
+        response_warnings.append(
+            "Atlas flagged this answer for review: " + " ".join(guardrail_findings)
+        )
+
     return ChatResponse(
         feature=chat.feature,
         provider="stub",
         model=plan.model,
-        answer=fallback_answer(chat.feature, chat.question, plan.grounding),
-        warnings=[*plan.warnings, *fallback_notes],
+        answer=stub_answer,
+        warnings=response_warnings,
         token_strategy_note=plan.token_strategy_note,
         applied_prompt_title=plan.prompt_title,
+        prompt_version=plan.prompt_version,
         grounding=plan.grounding,
         provider_error_kind=last_error_kind,
+        response_provenance="deterministic-only",
+        confidence=plan.confidence,
+        confidence_reason=plan.confidence_reason,
+        connector_freshness=plan.connector_freshness,
+        guardrail_passed=not guardrail_findings,
+        guardrail_findings=guardrail_findings,
     )

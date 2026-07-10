@@ -19,6 +19,8 @@ def test_read_ai_settings_exposes_cloud_first_with_local_fallback_defaults(clien
         and profile["response_token_budget"] == payload["response_token_budget"]
         for profile in payload["prompt_profiles"]
     )
+    assert all(profile["prompt_version"] for profile in payload["prompt_profiles"])
+    assert len({profile["prompt_version"] for profile in payload["prompt_profiles"]}) == 1
 
 
 def test_update_ai_settings_rejects_non_ollama_provider_in_local_only_mode(client):
