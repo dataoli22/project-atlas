@@ -144,13 +144,17 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       wins) — a score built from a week-old sync now visibly says so instead of looking as
       current as one from an hour ago. Injectable `now` parameter, 5 new unit tests covering
       fresh/medium/stale/multi-source/no-data cases. Surfaced in the capability page as a badge.
-      **Still open**: windowing/decay (a session from a month ago currently counts identically to
-      one from today — deliberately not attempted this pass: doing it safely needs the same
-      injectable-clock treatment just used for confidence, extended to the scoring math itself,
-      which is more scope than a drive-by fix), biometric normalization rules (hydration/sleep
-      are currently combined with ad hoc linear arithmetic, not real normalization), calendarized
-      training plan (not started), escalation flow for medical red flags (not started — this one
-      especially needs product/legal input on wording before writing code, not just engineering).
+      Windowing/decay now landed too: `_recency_weight()` weights each session's contribution to
+      the capability score by age — full weight within a day, linear decay out to
+      `CAPABILITY_WINDOW_DAYS` (14), then a small floor weight (never zero) beyond that — so a
+      session from three weeks ago no longer counts identically to one from this morning. Same
+      injectable `now` pattern as confidence. Raw displayed duration/distance stay unweighted
+      (still literal totals); only the derived score itself is windowed. 6 new unit tests,
+      including one proving equal-volume recent vs. old sessions produce different scores.
+      **Still open**: biometric normalization rules (hydration/sleep are currently combined with
+      ad hoc linear arithmetic, not real normalization), calendarized training plan (not started),
+      escalation flow for medical red flags (not started — this one especially needs product/legal
+      input on wording before writing code, not just engineering).
 
 ## 8. Connectors & mobile — P1 — SCAFFOLDED + HARDENED
 

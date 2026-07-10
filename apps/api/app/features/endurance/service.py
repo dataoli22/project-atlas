@@ -131,7 +131,7 @@ def get_stub_insights() -> EnduranceInsightsResponse:
     )
 
 
-def get_endurance_dashboard() -> EnduranceDashboardResponse:
+def get_endurance_dashboard(*, now: datetime | None = None) -> EnduranceDashboardResponse:
     runtime = shared_state.get_integration_runtime_snapshot()
     activities = _combined_recent_sessions(runtime)
     strava_runtime = runtime["strava"]
@@ -151,7 +151,7 @@ def get_endurance_dashboard() -> EnduranceDashboardResponse:
         cards=[
             EnduranceDashboardCard(
                 label="Capability score",
-                value=str(_capability_score_from_activities(activities)),
+                value=str(_capability_score_from_activities(activities, now=now)),
                 trend=f"{len(activities)} recent sessions across {len(coverage)} sources",
             ),
             EnduranceDashboardCard(
@@ -203,7 +203,7 @@ def get_endurance_timeline() -> EnduranceTimelineResponse:
     )
 
 
-def get_endurance_insights() -> EnduranceInsightsResponse:
+def get_endurance_insights(*, now: datetime | None = None) -> EnduranceInsightsResponse:
     runtime = shared_state.get_integration_runtime_snapshot()
     activities = _combined_recent_sessions(runtime)
     if not activities:
@@ -211,7 +211,7 @@ def get_endurance_insights() -> EnduranceInsightsResponse:
 
     total_seconds = sum(_session_duration_seconds(item) for item in activities)
     total_distance = sum(_session_distance_meters(item) for item in activities)
-    capability_score = _capability_score_from_activities(activities)
+    capability_score = _capability_score_from_activities(activities, now=now)
     latest = activities[0]
     coverage = sorted({str(item.get("source") or "local-runtime") for item in activities})
     health_connect_runtime = runtime["health_connect"]
@@ -220,7 +220,7 @@ def get_endurance_insights() -> EnduranceInsightsResponse:
     sleep_hours = samsung_runtime.get("sleep_hours")
     generated_at = latest.get("start_date") or "2026-07-08T09:00:00Z"
 
-    confidence, confidence_note = _capability_confidence(coverage)
+    confidence, confidence_note = _capability_confidence(coverage, now=now)
 
     return EnduranceInsightsResponse(
         generated_at=generated_at,
@@ -311,10 +311,53 @@ def _athlete_name(athlete: object | None) -> str:
     return full_name or str(athlete.get("username") or "Synced athlete")
 
 
-def _capability_score_from_activities(activities: list[dict[str, object | None]]) -> int:
-    total_seconds = sum(_session_duration_seconds(item) for item in activities)
-    total_distance = sum(_session_distance_meters(item) for item in activities)
-    return min(95, 40 + int(total_seconds / 1200) + int(total_distance / 5000))
+CAPABILITY_WINDOW_DAYS = 14
+_WINDOW_FLOOR_WEIGHT = 0.15
+
+
+def _capability_score_from_activities(
+    activities: list[dict[str, object | None]], *, now: datetime | None = None
+) -> int:
+    """Weights each session's contribution to the score by how recent it is, instead of treating
+    a session from three weeks ago identically to one from this morning. A session from the last
+    day counts fully; weight decays linearly out to CAPABILITY_WINDOW_DAYS, then holds at a small
+    floor (never zero - a session just outside the window still says something about capability,
+    just less than a fresh one). Sessions with an unparseable date aren't penalized (weight 1.0)
+    rather than silently dropped, since a missing/malformed timestamp isn't evidence of staleness.
+    `now` is injectable so this stays testable without a fixed window silently drifting as real
+    dates age past it.
+    """
+    now = now or datetime.now(timezone.utc)
+    weighted_seconds = sum(
+        _session_duration_seconds(item) * _recency_weight(item, now=now) for item in activities
+    )
+    weighted_distance = sum(
+        _session_distance_meters(item) * _recency_weight(item, now=now) for item in activities
+    )
+    return min(95, 40 + int(weighted_seconds / 1200) + int(weighted_distance / 5000))
+
+
+def _recency_weight(item: dict[str, object | None], *, now: datetime) -> float:
+    start = _parse_start_date(item.get("start_date"))
+    if start is None:
+        return 1.0
+
+    age_days = max(0.0, (now - start).total_seconds() / 86400)
+    if age_days <= 1:
+        return 1.0
+    if age_days >= CAPABILITY_WINDOW_DAYS:
+        return _WINDOW_FLOOR_WEIGHT
+
+    decay_span = CAPABILITY_WINDOW_DAYS - 1
+    progress = (age_days - 1) / decay_span
+    return 1.0 - progress * (1.0 - _WINDOW_FLOOR_WEIGHT)
+
+
+def _parse_start_date(value: object | None) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
 
 
 def _combined_recent_sessions(runtime: dict[str, dict[str, object | None]]) -> list[dict[str, object | None]]:
