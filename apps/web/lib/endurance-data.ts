@@ -103,7 +103,9 @@ const stubInsights: EnduranceInsightsData = {
       { label: "Aerobic base", score: 78, direction: "+5 this week" },
       { label: "Recovery readiness", score: 64, direction: "Flat" },
       { label: "Heat and hydration resilience", score: 71, direction: "+2 this week" }
-    ]
+    ],
+    confidence: "low",
+    confidenceNote: "No connector data synced yet."
   },
   insights: [
     {
@@ -174,6 +176,8 @@ type EnduranceInsightsApiResponse = {
       score: number;
       direction: string;
     }>;
+    confidence: "high" | "medium" | "low";
+    confidence_note: string;
   };
   insights: Array<{
     title: string;
@@ -238,7 +242,9 @@ function mapInsightsResponse(response: EnduranceInsightsApiResponse): EnduranceI
         label: area.label,
         score: area.score,
         direction: area.direction
-      }))
+      })),
+      confidence: response.capability.confidence,
+      confidenceNote: response.capability.confidence_note
     },
     insights: response.insights.map((insight) => ({
       title: insight.title,
@@ -333,7 +339,9 @@ const INSIGHTS_FALLBACK: EnduranceInsightsApiResponse = {
   active_feature: stubInsights.activeFeature,
   capability: {
     headline: stubInsights.capability.headline,
-    areas: stubInsights.capability.areas
+    areas: stubInsights.capability.areas,
+    confidence: stubInsights.capability.confidence,
+    confidence_note: stubInsights.capability.confidenceNote
   },
   insights: stubInsights.insights,
   support_links: stubInsights.supportLinks.map((link) => ({

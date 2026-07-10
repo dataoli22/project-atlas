@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.features.endurance.schemas import (
     EnduranceCapabilityArea,
@@ -220,6 +220,8 @@ def get_endurance_insights() -> EnduranceInsightsResponse:
     sleep_hours = samsung_runtime.get("sleep_hours")
     generated_at = latest.get("start_date") or "2026-07-08T09:00:00Z"
 
+    confidence, confidence_note = _capability_confidence(coverage)
+
     return EnduranceInsightsResponse(
         generated_at=generated_at,
         capability=EnduranceCapabilitySnapshot(
@@ -230,6 +232,8 @@ def get_endurance_insights() -> EnduranceInsightsResponse:
                 else "Live connector data is now shaping this capability view, so the current score reflects combined "
                 "recent workload and recovery context instead of stub training history."
             ),
+            confidence=confidence,
+            confidence_note=confidence_note,
             areas=[
                 EnduranceCapabilityArea(
                     label="Aerobic base",
@@ -401,6 +405,69 @@ def _coverage_trend_label(coverage: list[str]) -> str:
     if not coverage:
         return "Local runtime"
     return ", ".join(coverage[:2])
+
+
+_COVERAGE_LABEL_TO_INTEGRATION_KEY = {
+    "strava-live": "strava",
+    "health-connect-live": "health_connect",
+    "samsung-health-live": "samsung_health",
+}
+
+_CONFIDENCE_HIGH_MAX_HOURS = 24
+_CONFIDENCE_MEDIUM_MAX_HOURS = 72
+
+
+def _capability_confidence(
+    coverage: list[str], *, now: datetime | None = None
+) -> tuple[str, str]:
+    """How much the current capability score should be trusted, based on how stale the synced
+    connector data behind it is - not the same thing as how much volume was synced. A score
+    built from a sync that happened a week ago describes last week, not now, no matter how much
+    data it contains. Injectable `now` so this stays testable without dates silently aging past
+    a threshold as real time passes.
+    """
+    now = now or datetime.now(timezone.utc)
+    integrations_by_key = {integration.key: integration for integration in shared_state.get_integrations()}
+
+    ages_hours: list[float] = []
+    for coverage_label in coverage:
+        integration_key = _COVERAGE_LABEL_TO_INTEGRATION_KEY.get(coverage_label)
+        if integration_key is None:
+            continue
+        integration = integrations_by_key.get(integration_key)
+        if integration is None or not integration.last_sync_at:
+            continue
+        try:
+            synced_at = datetime.fromisoformat(str(integration.last_sync_at).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        ages_hours.append(max(0.0, (now - synced_at).total_seconds() / 3600))
+
+    if not ages_hours:
+        return "low", "Sync freshness for the connected sources isn't available yet."
+
+    freshest_age = min(ages_hours)
+    age_label = _format_age_hours(freshest_age)
+
+    if freshest_age <= _CONFIDENCE_HIGH_MAX_HOURS:
+        return "high", f"Most recent sync was {age_label} ago."
+    if freshest_age <= _CONFIDENCE_MEDIUM_MAX_HOURS:
+        return (
+            "medium",
+            f"Most recent sync was {age_label} ago - sync again for the freshest picture.",
+        )
+    return (
+        "low",
+        f"Most recent sync was {age_label} ago - this view may not reflect recent training.",
+    )
+
+
+def _format_age_hours(age_hours: float) -> str:
+    if age_hours < 1:
+        return "less than an hour"
+    if age_hours < 48:
+        return f"{int(age_hours)}h"
+    return f"{int(age_hours / 24)}d"
 
 
 # Curated, non-medical training resources. These are static, deterministic links

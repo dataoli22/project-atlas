@@ -55,6 +55,8 @@ class EnduranceCapabilityArea(BaseModel):
 class EnduranceCapabilitySnapshot(BaseModel):
     headline: str
     areas: list[EnduranceCapabilityArea]
+    confidence: str = "low"
+    confidence_note: str = "No connector data synced yet."
 
 
 class EnduranceInsightItem(BaseModel):

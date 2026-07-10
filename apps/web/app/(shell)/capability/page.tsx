@@ -79,6 +79,15 @@ export default async function CapabilityPage() {
           <p className="atlas-note">
             The score is grounded in recent training load, support work consistency, and recovery behavior rather than a black-box summary.
           </p>
+          <span
+            className={
+              insights.capability.confidence === "high"
+                ? "atlas-source-badge"
+                : "atlas-source-badge atlas-source-badge--stub"
+            }
+          >
+            Confidence: {insights.capability.confidence} — {insights.capability.confidenceNote}
+          </span>
         </section>
 
         <section className="atlas-panel atlas-stack">

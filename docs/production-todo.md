@@ -138,15 +138,19 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
       Health, since Strava's activity data is richer). 4 new unit tests; the existing
       `test_endurance_multi_source.py` 5-sessions/3-sources assertion still passes unchanged,
       confirming genuinely distinct sessions aren't over-collapsed.
+      Connector freshness/confidence now landed too: `EnduranceCapabilitySnapshot.confidence`
+      (`high`/`medium`/`low`) + `confidence_note`, computed in `_capability_confidence()` from
+      each connected source's `last_sync_at` (freshest of the sources actually feeding the score
+      wins) — a score built from a week-old sync now visibly says so instead of looking as
+      current as one from an hour ago. Injectable `now` parameter, 5 new unit tests covering
+      fresh/medium/stale/multi-source/no-data cases. Surfaced in the capability page as a badge.
       **Still open**: windowing/decay (a session from a month ago currently counts identically to
-      one from today — deliberately not attempted this pass: doing it safely needs an injectable
-      clock so tests don't silently break as real dates age past a fixed window, which is more
-      scope than a drive-by fix), connector freshness/confidence surfaced in scores (each
-      integration already tracks `last_sync_at`; not yet surfaced in the capability response),
-      biometric normalization rules (hydration/sleep are currently combined with ad hoc linear
-      arithmetic, not real normalization), calendarized training plan (not started), escalation
-      flow for medical red flags (not started — this one especially needs product/legal input on
-      wording before writing code, not just engineering).
+      one from today — deliberately not attempted this pass: doing it safely needs the same
+      injectable-clock treatment just used for confidence, extended to the scoring math itself,
+      which is more scope than a drive-by fix), biometric normalization rules (hydration/sleep
+      are currently combined with ad hoc linear arithmetic, not real normalization), calendarized
+      training plan (not started), escalation flow for medical red flags (not started — this one
+      especially needs product/legal input on wording before writing code, not just engineering).
 
 ## 8. Connectors & mobile — P1 — SCAFFOLDED + HARDENED
 

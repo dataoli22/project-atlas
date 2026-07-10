@@ -61,6 +61,8 @@ export interface EnduranceCapabilityArea {
 export interface EnduranceCapabilitySnapshot {
   headline: string;
   areas: EnduranceCapabilityArea[];
+  confidence: "high" | "medium" | "low";
+  confidenceNote: string;
 }
 
 export interface EnduranceInsightItem {
