@@ -6,7 +6,8 @@ import type {
   EnduranceTimelineData
 } from "@atlas/shared";
 
-import { fetchJson } from "@/lib/api";
+import type { ApiDataSource } from "@/lib/api";
+import { fetchJson, requestJson } from "@/lib/api";
 
 const stubDashboard: EnduranceDashboardData = {
   generatedAt: "2026-07-08T09:00:00Z",
@@ -248,31 +249,50 @@ function mapInsightsResponse(response: EnduranceInsightsApiResponse): EnduranceI
   };
 }
 
+const DASHBOARD_FALLBACK: EnduranceDashboardApiResponse = {
+  generated_at: stubDashboard.generatedAt,
+  active_feature: stubDashboard.activeFeature,
+  cards: stubDashboard.cards,
+  latest_workout: {
+    title: stubDashboard.latestWorkout.title,
+    duration: stubDashboard.latestWorkout.duration,
+    distance: stubDashboard.latestWorkout.distance,
+    recovery_note: stubDashboard.latestWorkout.recoveryNote
+  },
+  coach_summary: stubDashboard.coachSummary,
+  support_links: stubDashboard.supportLinks.map((link) => ({
+    title: link.title,
+    url: link.url,
+    topic: link.topic,
+    why_recommended: link.whyRecommended,
+    resource_type: link.resourceType,
+    freshness_at: link.freshnessAt ?? null
+  }))
+};
+
 export async function getEnduranceDashboardData(): Promise<EnduranceDashboardData> {
   const response = await fetchJson<EnduranceDashboardApiResponse>("/api/v1/endurance/dashboard", {
-    fallback: {
-      generated_at: stubDashboard.generatedAt,
-      active_feature: stubDashboard.activeFeature,
-      cards: stubDashboard.cards,
-      latest_workout: {
-        title: stubDashboard.latestWorkout.title,
-        duration: stubDashboard.latestWorkout.duration,
-        distance: stubDashboard.latestWorkout.distance,
-        recovery_note: stubDashboard.latestWorkout.recoveryNote
-      },
-      coach_summary: stubDashboard.coachSummary,
-      support_links: stubDashboard.supportLinks.map((link) => ({
-        title: link.title,
-        url: link.url,
-        topic: link.topic,
-        why_recommended: link.whyRecommended,
-        resource_type: link.resourceType,
-        freshness_at: link.freshnessAt ?? null
-      }))
-    }
+    fallback: DASHBOARD_FALLBACK
   });
 
   return mapDashboardResponse(response);
+}
+
+/** Same as getEnduranceDashboardData, but also reports whether the data is live or fell back to
+ * local stub data (backend unreachable) - lets the dashboard page show a visible "using local
+ * example data" banner instead of silently pretending stub data is live. See lib/api.ts's
+ * requestJson/ApiDataSource. Only the dashboard uses this variant so far; the same pattern is
+ * worth extending to other pages' primary data fetch, tracked in production-todo.md. */
+export async function getEnduranceDashboardDataWithSource(): Promise<{
+  data: EnduranceDashboardData;
+  source: ApiDataSource;
+}> {
+  const { data: response, source } = await requestJson<EnduranceDashboardApiResponse>(
+    "/api/v1/endurance/dashboard",
+    { fallback: DASHBOARD_FALLBACK }
+  );
+
+  return { data: mapDashboardResponse(response), source };
 }
 
 export async function getEnduranceTimelineData(): Promise<EnduranceTimelineData> {

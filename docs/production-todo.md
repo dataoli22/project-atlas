@@ -200,10 +200,27 @@ desktop, and the hard iOS blocker.)
 - [ ] App icon / branding assets (default Electron icon in use).
 - [~] Packaged smoke test — done manually twice; not yet automated into CI.
 
-## 10. Frontend hardening — P1 — NOT STARTED
+## 10. Frontend hardening — P1 — PARTIAL
 
-- [ ] Real loading / empty / stale / retry states per route.
-- [ ] Error boundaries + route-level recovery.
+- [x] Error boundaries + route-level recovery: `app/error.tsx` (catches errors anywhere below
+      root layout, including `(shell)/layout.tsx`'s own fetch) and `app/not-found.tsx`, both with
+      a friendly panel and a "Try again"/"Back to dashboard" action, replacing Next's default
+      unstyled error/404 pages.
+- [x] Loading state: `(shell)/loading.tsx` — a shimmer skeleton shown automatically by Next's
+      Suspense boundary while any page under the shell (including the shell layout's own
+      `getAppLockSettingsData()` fetch) is resolving.
+- [x] Stale-data indicator (the "silent staleness" gap this surfaced): `lib/api.ts`'s
+      `requestJson` already returned `{data, source: "api" | "stub"}`, but every `lib/*-data.ts`
+      helper discarded `source` via the `fetchJson` wrapper — a failed backend call silently
+      rendered hardcoded stub data with zero indication anything was wrong. Added
+      `getEnduranceDashboardDataWithSource()` and a `<DataSourceBanner>` component, wired into
+      the dashboard page as the demonstrated pattern (verified live: banner shows against a
+      stopped backend, disappears once it's reachable). **Not yet extended to other pages'
+      fetches** (capability, timeline, planner, cooking, shopping, log, settings all still
+      silently fall back) — same pattern, same two functions to add per page.
+- [ ] Empty states per route (distinct from stale/error - "you have no data yet" vs "couldn't
+      reach the backend").
+- [ ] Extend the `source`-aware fetch + `<DataSourceBanner>` pattern to the remaining pages.
 - [ ] Accessibility audit; responsive QA (desktop + phone).
 - [ ] Production-safe cache strategy; version/build metadata display.
 - [ ] Upgrade Next.js past the `postcss` XSS advisory (GHSA-qx2v-qp2m-jg93) — `npm audit fix

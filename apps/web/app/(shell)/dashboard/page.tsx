@@ -1,8 +1,9 @@
 import type { EnduranceSupportLink, EnduranceSupportResourceType } from "@atlas/shared";
 
+import { DataSourceBanner } from "@/components/data-source-banner";
 import { PageScaffold } from "@/components/page-scaffold";
 import {
-  getEnduranceDashboardData,
+  getEnduranceDashboardDataWithSource,
   getEnduranceInsightsData,
   getEnduranceTimelineData
 } from "@/lib/endurance-data";
@@ -24,8 +25,8 @@ function groupSupportLinks(links: EnduranceSupportLink[]) {
 }
 
 export default async function DashboardPage() {
-  const [dashboard, timeline, insights] = await Promise.all([
-    getEnduranceDashboardData(),
+  const [{ data: dashboard, source }, timeline, insights] = await Promise.all([
+    getEnduranceDashboardDataWithSource(),
     getEnduranceTimelineData(),
     getEnduranceInsightsData()
   ]);
@@ -41,6 +42,7 @@ export default async function DashboardPage() {
         value: card.value
       }))}
     >
+      <DataSourceBanner source={source} />
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Latest workout</div>
