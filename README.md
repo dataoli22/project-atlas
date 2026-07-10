@@ -1,80 +1,63 @@
-# Project Atlas
+# Atlas
 
-Shared application workspace for:
+Atlas is a local-first, self-hosted health and fitness app for two modules:
 
-- Endurance and Capability
-- Nutrition and Meal Planning
+- **Endurance and Capability** — training, recovery, and capability tracking
+- **Nutrition and Meal Planning** — weekly meal plans, shopping lists, and cooking flow
 
-Atlas is being built as a local-first, self-contained open-source project. The intended distribution model is a user-run desktop or phone package with local services, not a centralized cloud website with mandatory hosted APIs.
+Everything runs on your own machine. There's no account to create, no cloud backend, and no
+Atlas-hosted server in the loop — your data, provider API keys, and AI conversations stay on
+your device unless you explicitly configure a cloud AI provider (Groq) or connector (Strava),
+in which case only that specific traffic goes directly from your device to that provider, never
+through Atlas.
 
-Original product planning docs (design-stage source, largely superseded by the implementation
-status in `docs/production-todo.md`):
+## Download
 
-- `docs/master-product-architecture.md`
-- `docs/prd-feature-1-endurance-capability.md`
-- `docs/prd-feature-2-nutrition-cooking-cost.md`
+**[Download the latest Windows installer from Releases](https://github.com/dataoli22/project-atlas/releases/latest)**
 
-Living implementation docs (start here):
+Run the downloaded `.exe` and follow the installer prompts. Windows SmartScreen will likely warn
+that the app isn't recognized — this is because it isn't code-signed yet, not because anything is
+wrong; see the install guide below for what to do.
 
-- `docs/production-todo.md` — master production backlog + status + agent handoff
-- `docs/packaging-and-installation.md` — dev install, desktop/Android packaging, release gates
-- `docs/ollama-on-device-and-agents.md` — on-device AI wiring and agent integration
-- `docs/nutrition-endurance-feature-spec.md` — refresh, calendar, prep hacks, videos, support links
-- `docs/mobile-architecture.md` — companion-mode mobile app, pairing, Android/iOS status
-- `docs/prod-readiness-audit.md` — archived; superseded by the docs above, kept as a short pointer
+macOS and Linux builds are configured but not yet published — Windows is the only actively
+supported platform right now.
 
-## Current workspace shape
+There's also an Android companion app for syncing Health Connect/Samsung Health data over your
+local network, currently a developer build (not on the Play Store) — see the Android install
+guide below.
 
-- `apps/web`: shared Next.js shell and feature routes
-- `apps/api`: shared FastAPI backend scaffold
-- `packages/shared`: shared feature and app contracts
-- `packages/config`: shared market, currency, and app defaults
-- `packages/ui`: shared UI package placeholder
-- `desktop`: Electron desktop shell (Windows installer built and verified; see
-  `docs/packaging-and-installation.md`)
-- `mobile`: Capacitor companion mobile app (Android scaffolded, unbuilt; iOS blocked on macOS
-  access; see `docs/mobile-architecture.md`)
+## Setting up
 
-## AI runtime posture
+New to Atlas? Read these in order:
 
-- Atlas prefers a cloud provider once configured (Groq's free tier, or Ollama pointed at a
-  cloud/hosted endpoint with an API key) for speed and capability, and automatically falls back
-  to on-device Ollama if that call fails. A fresh install with no keys still runs fully on
-  on-device Ollama by default.
-- AI keys and prompts always route directly from this device to the configured provider — never
-  through an Atlas-hosted relay, regardless of whether that provider is local or cloud.
-- `local_only_mode` is available as an opt-in hard guarantee that forces Ollama and blocks Groq,
-  for users who want inference to never leave the device.
-- Agent prompts should stay comprehensive in guardrails but lean in token use.
-- See `docs/ollama-on-device-and-agents.md` for the full wiring and the provider fallback chain.
+1. **[Installing on Windows](docs/user-guide-desktop-install.md)** — where to download it,
+   what to expect from the installer, and where your data ends up.
+2. **[First-run Ollama setup](docs/user-guide-ollama-first-run.md)** — Atlas can use a free local
+   AI model (Ollama) or a cloud provider (Groq); this walks through getting either one working.
+3. **[Android companion app install](docs/user-guide-android-install.md)** — optional, for
+   syncing workout/recovery data from your phone over your local network.
 
-## Local development
+## Using Atlas day to day
 
-```bash
-npm install
-npm run dev:web
-```
+- **[Integration troubleshooting](docs/user-guide-integration-troubleshooting.md)** — fixing
+  Strava, Health Connect, Samsung Health, or the nutrition search fallback when something isn't
+  syncing right.
+- **[Data retention & privacy](docs/user-guide-data-retention-and-privacy.md)** — exactly what's
+  stored, where, what (if anything) ever leaves your device, and how to delete everything.
+- **[Backup & export](docs/user-guide-backup-and-export.md)** — how to export your data and
+  restore it.
+- **[Recovery & restore](docs/user-guide-recovery-and-restore.md)** — what to do if Atlas won't
+  start, the database looks broken, or you're moving to a new machine.
 
-For the backend:
+## Project status
 
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r apps/api/requirements.txt
-python -m uvicorn app.main:app --reload --app-dir apps/api
-```
+Atlas is a solo, actively-developed project. Current status, what's done, and what's still open
+is tracked in [`docs/production-todo.md`](docs/production-todo.md).
 
-Full test suite: `npm run test:all` (backend pytest + web lint/build + Playwright E2E). Desktop
-and mobile have their own build commands — see `docs/packaging-and-installation.md` and
-`docs/mobile-architecture.md`.
+## For developers
 
-Useful smoke tests once the backend is running:
-
-```bash
-curl http://localhost:8000/api/v1/health
-curl http://localhost:8000/api/v1/app/features
-curl http://localhost:8000/api/v1/settings/ai
-curl -X POST http://localhost:8000/api/v1/chat -H "Content-Type: application/json" -d "{\"feature\":\"shared\",\"question\":\"What should I review next?\",\"history\":[]}"
-curl http://localhost:8000/api/v1/endurance/dashboard
-curl http://localhost:8000/api/v1/nutrition/planner
-```
+Technical documentation — architecture, local dev setup, build/packaging instructions, API
+reference, and contribution notes — lives under [`docs/`](docs). Start with
+[`docs/packaging-and-installation.md`](docs/packaging-and-installation.md) for local development,
+or [`docs/master-product-architecture.md`](docs/master-product-architecture.md) for the system
+overview.
