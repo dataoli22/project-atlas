@@ -392,9 +392,12 @@ desktop, and the hard iOS blocker.)
       it - every e2e-tested page had been rendering with **zero CSS applied** for the project's
       entire history, invisible until the new accessibility/responsive smoke suite caught it
       (confirmed the real packaged Electron app was never affected - electron-builder's
-      `extraResources` already copies static assets correctly at package time). Rolling the same
-      pattern out to the remaining pages (capability, timeline, nutrition, cooking, shopping) is
-      explicit follow-up, not done here.
+      `extraResources` already copies static assets correctly at package time). The same pattern
+      has since been rolled out to the remaining pages (capability, timeline, nutrition, cooking,
+      shopping) - `CapabilityBarChart` and `TrendBadge` on capability/timeline,
+      `.atlas-priority-badge` replacing ad-hoc badge reuse, `.atlas-timeline` for the
+      chronological timeline and cooking prep sequence, `.atlas-stat-grid` for prominent numeric
+      KPIs (nutrition targets, shopping budget snapshot).
 - [x] Error boundaries + route-level recovery: `app/error.tsx` (catches errors anywhere below
       root layout, including `(shell)/layout.tsx`'s own fetch) and `app/not-found.tsx`, both with
       a friendly panel and a "Try again"/"Back to dashboard" action, replacing Next's default
