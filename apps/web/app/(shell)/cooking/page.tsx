@@ -72,9 +72,9 @@ export default async function CookingPage() {
           <p className="atlas-note">
             {cookingPlan.batchDay} | {cookingPlan.batchWindow} | Today: {cookingPlan.todayFocus}
           </p>
-          <div className="atlas-stack">
+          <div className="atlas-timeline">
             {cookingPlan.steps.map((step, index) => (
-              <div key={step.title} className="atlas-list-card">
+              <div key={step.title} className="atlas-timeline__entry">
                 <div className="atlas-list-card__title">
                   Step {index + 1}: {step.title}
                 </div>

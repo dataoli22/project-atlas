@@ -1,9 +1,11 @@
 import type { EnduranceSupportLink, EnduranceSupportResourceType } from "@atlas/shared";
 
+import { CapabilityBarChart } from "@/components/capability-bar-chart";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { MedicalFlagBanner } from "@/components/medical-flag-banner";
 import { PageScaffold } from "@/components/page-scaffold";
 import { RefreshButton } from "@/components/refresh-button";
+import { TrendBadge } from "@/components/trend-badge";
 import { combineDataSources } from "@/lib/data-source";
 import {
   getEnduranceDashboardDataWithSource,
@@ -29,17 +31,11 @@ function groupSupportLinks(links: EnduranceSupportLink[]) {
   })).filter((group) => group.links.length > 0);
 }
 
-function getPriorityTone(priority: "high" | "medium" | "low") {
-  if (priority === "high") {
-    return { label: "Address next", badgeClassName: "atlas-source-badge atlas-source-badge--stub" };
-  }
-
-  if (priority === "medium") {
-    return { label: "Monitor", badgeClassName: "atlas-source-badge" };
-  }
-
-  return { label: "Keep reinforcing", badgeClassName: "atlas-source-badge" };
-}
+const PRIORITY_LABEL: Record<"high" | "medium" | "low", string> = {
+  high: "Address next",
+  medium: "Monitor",
+  low: "Keep reinforcing"
+};
 
 export default async function CapabilityPage() {
   const [{ data: dashboard, source: dashboardSource }, { data: timeline, source: timelineSource }, { data: insights, source: insightsSource }, localization] =
@@ -98,45 +94,7 @@ export default async function CapabilityPage() {
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Area breakdown</div>
-          <div
-            className="atlas-grid"
-            style={{
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))"
-            }}
-          >
-            {insights.capability.areas.map((area) => (
-              <article key={area.label} className="atlas-list-card atlas-stack" style={{ gap: "12px" }}>
-                <div className="atlas-list-card__title">{area.label}</div>
-                <div
-                  style={{
-                    display: "grid",
-                    gap: "10px"
-                  }}
-                >
-                  <div
-                    style={{
-                      height: "10px",
-                      borderRadius: "999px",
-                      background: "rgba(31, 107, 92, 0.12)",
-                      overflow: "hidden"
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: `${area.score}%`,
-                        height: "100%",
-                        borderRadius: "999px",
-                        background: "linear-gradient(90deg, var(--atlas-accent), var(--atlas-warm))"
-                      }}
-                    />
-                  </div>
-                  <div className="atlas-list-card__meta">
-                    <strong style={{ color: "var(--atlas-ink)" }}>{area.score}</strong> / 100 | {area.direction}
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
+          <CapabilityBarChart areas={insights.capability.areas} />
         </section>
 
         <section className="atlas-panel atlas-stack">
@@ -145,9 +103,9 @@ export default async function CapabilityPage() {
             {dashboard.cards.map((card) => (
               <div key={card.label} className="atlas-detail-list__row">
                 <dt>{card.label}</dt>
-                <dd>
-                  {card.value}
-                  {card.trend ? ` | ${card.trend}` : ""}
+                <dd style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+                  <span>{card.value}</span>
+                  {card.trend ? <TrendBadge text={card.trend} /> : null}
                 </dd>
               </div>
             ))}
@@ -177,17 +135,15 @@ export default async function CapabilityPage() {
               gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))"
             }}
           >
-            {insights.insights.map((insight) => {
-              const tone = getPriorityTone(insight.priority);
-
-              return (
-                <article key={insight.title} className="atlas-list-card atlas-stack" style={{ gap: "10px" }}>
-                  <span className={tone.badgeClassName}>{tone.label}</span>
-                  <div className="atlas-list-card__title">{insight.title}</div>
-                  <div className="atlas-list-card__meta">{insight.detail}</div>
-                </article>
-              );
-            })}
+            {insights.insights.map((insight) => (
+              <article key={insight.title} className="atlas-list-card atlas-stack" style={{ gap: "10px" }}>
+                <span className={`atlas-priority-badge atlas-priority-badge--${insight.priority}`}>
+                  {PRIORITY_LABEL[insight.priority]}
+                </span>
+                <div className="atlas-list-card__title">{insight.title}</div>
+                <div className="atlas-list-card__meta">{insight.detail}</div>
+              </article>
+            ))}
           </div>
         </section>
 

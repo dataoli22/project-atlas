@@ -106,24 +106,24 @@ export default async function ShoppingPage() {
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Budget snapshot</div>
-          <dl className="atlas-detail-list">
-            <div className="atlas-detail-list__row">
-              <dt>Planner budget</dt>
-              <dd>{plannerBudget}</dd>
+          <div className="atlas-stat-grid">
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Planner budget</div>
+              <div className="atlas-stat__value">{plannerBudget}</div>
             </div>
-            <div className="atlas-detail-list__row">
-              <dt>Projected spend</dt>
-              <dd>{projectedSpend}</dd>
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Projected spend</div>
+              <div className="atlas-stat__value">{projectedSpend}</div>
             </div>
-            <div className="atlas-detail-list__row">
-              <dt>Shopping estimate</dt>
-              <dd>{estimatedTotal}</dd>
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Shopping estimate</div>
+              <div className="atlas-stat__value">{estimatedTotal}</div>
             </div>
-            <div className="atlas-detail-list__row">
-              <dt>Budget remaining</dt>
-              <dd>{remainingBudget}</dd>
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Budget remaining</div>
+              <div className="atlas-stat__value">{remainingBudget}</div>
             </div>
-          </dl>
+          </div>
           <p className="atlas-note">
             The current list sits {budgetVarianceSummary} the planner projection and keeps the plan centered on repeat-use staples.
           </p>

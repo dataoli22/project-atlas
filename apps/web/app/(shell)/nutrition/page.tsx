@@ -54,15 +54,12 @@ export default async function NutritionPage() {
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Weekly frame</div>
+          <div className="atlas-meta">
+            <span className="atlas-tag">{planner.cuisine} cuisine</span>
+            <span>{planner.marketLabel}</span>
+            <span>{planner.currencyCode}</span>
+          </div>
           <dl className="atlas-detail-list">
-            <div className="atlas-detail-list__row">
-              <dt>Market</dt>
-              <dd>{planner.marketLabel}</dd>
-            </div>
-            <div className="atlas-detail-list__row">
-              <dt>Currency</dt>
-              <dd>{planner.currencyCode}</dd>
-            </div>
             <div className="atlas-detail-list__row">
               <dt>Schedule</dt>
               <dd>{planner.scheduleLabel}</dd>
@@ -106,24 +103,24 @@ export default async function NutritionPage() {
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Nutrition targets</div>
-          <dl className="atlas-detail-list">
-            <div className="atlas-detail-list__row">
-              <dt>Calories</dt>
-              <dd>{planner.nutritionTargets.calories}</dd>
+          <div className="atlas-stat-grid">
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Calories</div>
+              <div className="atlas-stat__value">{planner.nutritionTargets.calories}</div>
             </div>
-            <div className="atlas-detail-list__row">
-              <dt>Protein</dt>
-              <dd>{planner.nutritionTargets.proteinGrams} g</dd>
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Protein</div>
+              <div className="atlas-stat__value">{planner.nutritionTargets.proteinGrams} g</div>
             </div>
-            <div className="atlas-detail-list__row">
-              <dt>Fiber</dt>
-              <dd>{planner.nutritionTargets.fiberGrams} g</dd>
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Fiber</div>
+              <div className="atlas-stat__value">{planner.nutritionTargets.fiberGrams} g</div>
             </div>
-            <div className="atlas-detail-list__row">
-              <dt>Hydration</dt>
-              <dd>{planner.nutritionTargets.hydrationMl} ml</dd>
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Hydration</div>
+              <div className="atlas-stat__value">{planner.nutritionTargets.hydrationMl} ml</div>
             </div>
-          </dl>
+          </div>
           <div className="atlas-stack">
             {planner.costFocus.map((item) => (
               <div key={item.label} className="atlas-list-card">

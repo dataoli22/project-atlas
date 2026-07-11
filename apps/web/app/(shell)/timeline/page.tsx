@@ -1,3 +1,4 @@
+import { CapabilityBarChart } from "@/components/capability-bar-chart";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { EmptyState } from "@/components/empty-state";
 import { PageScaffold } from "@/components/page-scaffold";
@@ -65,46 +66,17 @@ export default async function TimelinePage() {
               note="Connect Strava, Health Connect, or Samsung Health in Settings to start building this timeline."
             />
           ) : (
-            <div className="atlas-stack">
+            <div className="atlas-timeline">
               {timeline.entries.map((entry, index) => (
-                <article
-                  key={`${entry.dayLabel}-${entry.sessionLabel}`}
-                  className="atlas-list-card"
-                  style={{
-                    gridTemplateColumns: "minmax(0, 88px) minmax(0, 1fr)",
-                    alignItems: "start",
-                    gap: "14px"
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "grid",
-                      gap: "6px",
-                      alignContent: "start"
-                    }}
-                  >
-                    <div className="atlas-source-badge">{entry.dayLabel}</div>
-                    <div className="atlas-note">#{String(index + 1).padStart(2, "0")}</div>
+                <div key={`${entry.dayLabel}-${entry.sessionLabel}`} className="atlas-timeline__entry">
+                  <div className="atlas-list-card__title">
+                    #{String(index + 1).padStart(2, "0")} | {entry.dayLabel} | {entry.sessionLabel}
                   </div>
-                  <div className="atlas-stack" style={{ gap: "10px" }}>
-                    <div>
-                      <div className="atlas-list-card__title">{entry.sessionLabel}</div>
-                      <div className="atlas-list-card__meta">
-                        {entry.duration} of work with a {entry.load.toLowerCase()} emphasis.
-                      </div>
-                    </div>
-                    <dl className="atlas-detail-list">
-                      <div className="atlas-detail-list__row">
-                        <dt>Load</dt>
-                        <dd>{entry.load}</dd>
-                      </div>
-                      <div className="atlas-detail-list__row">
-                        <dt>Captured via</dt>
-                        <dd>{getSourceLabel(entry.source)}</dd>
-                      </div>
-                    </dl>
+                  <div className="atlas-list-card__meta">
+                    {entry.duration} of work with a {entry.load.toLowerCase()} emphasis | Captured via{" "}
+                    {getSourceLabel(entry.source)}
                   </div>
-                </article>
+                </div>
               ))}
             </div>
           )}
@@ -145,16 +117,7 @@ export default async function TimelinePage() {
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Capability context</div>
           <p className="atlas-note">{insights.capability.headline}</p>
-          <dl className="atlas-detail-list">
-            {insights.capability.areas.map((area) => (
-              <div key={area.label} className="atlas-detail-list__row">
-                <dt>{area.label}</dt>
-                <dd>
-                  {area.score} | {area.direction}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <CapabilityBarChart areas={insights.capability.areas} />
         </section>
       </div>
     </PageScaffold>
