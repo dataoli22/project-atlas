@@ -96,6 +96,7 @@ export function OnboardingWizard({
     setGroqError(null);
     saveAISettings({
       ...aiSettings,
+      defaultProvider: "groq",
       allowGroq: true,
       groqApiKey: groqKeyInput.trim()
     }).then((result) => {

@@ -4,9 +4,14 @@ def test_read_ai_settings_exposes_cloud_first_with_local_fallback_defaults(clien
     assert response.status_code == 200
     payload = response.json()
 
-    assert payload["default_provider"] == "ollama"
+    # Cloud-first by default: groq is preferred once a key is added, with automatic on-device
+    # Ollama fallback either way (see registry.py's get_default_ai_settings) - not everyone has
+    # Ollama installed locally, and with no groq_api_key set yet this still resolves to trying
+    # Ollama, so nothing changes for someone who never adds a cloud key.
+    assert payload["default_provider"] == "groq"
     assert payload["local_only_mode"] is False
-    assert payload["allow_groq"] is False
+    assert payload["allow_groq"] is True
+    assert payload["groq_api_key_set"] is False
     assert "stay on this device" in payload["device_notice"]
     assert "on-device Ollama" in payload["device_notice"]
     assert {profile["module"] for profile in payload["prompt_profiles"]} == {

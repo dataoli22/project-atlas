@@ -168,8 +168,25 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
 
 (Details: `docs/build-and-run/ollama-on-device-and-agents.md`.)
 
-- [x] Cloud-first with automatic on-device Ollama fallback (`local_only_mode` default now
-      `false`, still available as an opt-in hard on-device guarantee).
+- [x] **Cloud-first with automatic on-device Ollama fallback - now actually true, not just
+      documented.** `local_only_mode` default `false` (opt-in hard on-device guarantee still
+      available), but the literal `default_provider` field was hardcoded to `"ollama"` with
+      `allow_groq=False` in `registry.py`'s `get_default_ai_settings()` - meaning even after a
+      user saved a Groq key, chat's provider attempt chain (`chat.py`) never actually tried it,
+      since it branches on `default_provider` not on whether a key exists. Found via a real user
+      report ("not everyone will have Ollama local, cloud should be the default") after shipping
+      the onboarding wizard's AI setup step - saving a key there unblocked `Continue` but silently
+      never got used for chat. The test asserting the old defaults was even named
+      `test_read_ai_settings_exposes_cloud_first_with_local_fallback_defaults` while asserting
+      `default_provider == "ollama"` - the test's own name contradicted its assertions, a strong
+      signal this was drift from intent, not a deliberate choice. Fixed: fresh-install default is
+      now `default_provider="groq"` + `allow_groq=True` (schema field defaults updated to match).
+      Safe with no key present - `chat.py` only attempts Groq when `allow_groq and groq_api_key`
+      are both truthy, so with no key this still resolves to trying on-device Ollama, identical
+      to before. The onboarding wizard's "Save Groq key" action now also explicitly sets
+      `defaultProvider: "groq"` in its payload so a saved key takes effect immediately regardless
+      of prior state. Verified live against a fresh backend: `GET /settings/ai` reports
+      `default_provider: "groq"`, `allow_groq: true`.
 - [x] First-run detection wizard, non-local base-URL warning, model pull button, structured
       provider error classification in chat, tag-normalization bug fix, provider attempt chain.
 - [~] Model bootstrap UX: pull button works; live percentage progress/disk usage/cancel need an

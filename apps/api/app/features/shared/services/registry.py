@@ -75,11 +75,17 @@ def get_markets() -> list[MarketOption]:
 
 def get_default_ai_settings() -> AISettings:
     settings = get_settings()
+    # Cloud-first by default (not everyone has Ollama installed locally): default_provider is
+    # "groq" and allow_groq is True out of the box, even though no key exists yet. This is safe -
+    # chat.py's provider attempt chain only ever tries Groq when both allow_groq AND a real
+    # groq_api_key are present, so with no key configured this resolves to trying on-device
+    # Ollama, identical to before. The moment a user adds a Groq key (or explicit Ollama key),
+    # Atlas actually prefers it, matching what device_notice below has always promised.
     return build_ai_settings_response(
-        default_provider="ollama",
+        default_provider="groq",
         local_only_mode=settings.local_only_mode,
         self_hosted_distribution=True,
-        allow_groq=False,
+        allow_groq=True,
         ollama_base_url=settings.ollama_base_url,
         ollama_model=settings.ollama_model,
         ollama_embed_model=settings.ollama_embed_model,

@@ -148,7 +148,7 @@ class AgentPromptProfile(BaseModel):
 
 
 class AISettings(BaseModel):
-    default_provider: AIProvider = "ollama"
+    default_provider: AIProvider = "groq"
     local_only_mode: bool = True
     self_hosted_distribution: bool = True
     allow_groq: bool = False
@@ -168,7 +168,7 @@ class AISettings(BaseModel):
 
 
 class AISettingsUpdate(BaseModel):
-    default_provider: AIProvider = "ollama"
+    default_provider: AIProvider = "groq"
     local_only_mode: bool = True
     self_hosted_distribution: bool = True
     allow_groq: bool = False
