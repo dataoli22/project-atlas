@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckCircle2, PartyPopper, Smartphone, UserCircle2, Watch, Zap } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
@@ -21,14 +22,17 @@ const STEP_LABEL: Record<WizardStep, string> = {
 const PROVIDERS = [
   {
     title: "Strava",
+    icon: Zap,
     detail: "Syncs recent activities and training load for the endurance module."
   },
   {
     title: "Health Connect",
+    icon: Smartphone,
     detail: "Android bridge for recovery inputs - hydration, steps, active energy."
   },
   {
     title: "Samsung Health",
+    icon: Watch,
     detail: "Android bridge for sleep, resting heart rate, and energy score."
   }
 ];
@@ -72,16 +76,21 @@ export function OnboardingWizard({ initialProfile, initialLocalization, markets 
           <span
             key={candidate}
             className={candidate === step ? "atlas-tag" : undefined}
-            style={{ opacity: index <= stepIndex ? 1 : 0.5 }}
+            style={{ opacity: index <= stepIndex ? 1 : 0.5, display: "inline-flex", alignItems: "center", gap: "4px" }}
           >
-            {index + 1}. {STEP_LABEL[candidate]}
+            {index < stepIndex ? <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" /> : `${index + 1}.`}{" "}
+            {STEP_LABEL[candidate]}
           </span>
         ))}
       </div>
 
       {step === "welcome" ? (
         <div className="atlas-stack">
-          <h2 className="atlas-panel__title" style={{ fontSize: "1.4rem" }}>
+          <h2
+            className="atlas-panel__title"
+            style={{ fontSize: "1.4rem", display: "flex", alignItems: "center", gap: "10px" }}
+          >
+            <UserCircle2 size={26} strokeWidth={1.75} aria-hidden="true" />
             Set up Atlas on this device
           </h2>
           <p className="atlas-note">
@@ -142,7 +151,13 @@ export function OnboardingWizard({ initialProfile, initialLocalization, markets 
           <div className="atlas-stack">
             {PROVIDERS.map((provider) => (
               <div key={provider.title} className="atlas-list-card">
-                <div className="atlas-list-card__title">{provider.title}</div>
+                <div
+                  className="atlas-list-card__title"
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <provider.icon size={17} strokeWidth={2} aria-hidden="true" />
+                  {provider.title}
+                </div>
                 <div className="atlas-list-card__meta">{provider.detail}</div>
               </div>
             ))}
@@ -163,7 +178,11 @@ export function OnboardingWizard({ initialProfile, initialLocalization, markets 
 
       {step === "finish" ? (
         <div className="atlas-stack">
-          <h2 className="atlas-panel__title" style={{ fontSize: "1.2rem" }}>
+          <h2
+            className="atlas-panel__title"
+            style={{ fontSize: "1.2rem", display: "flex", alignItems: "center", gap: "10px" }}
+          >
+            <PartyPopper size={22} strokeWidth={1.75} aria-hidden="true" />
             Ready to go
           </h2>
           <p className="atlas-note">

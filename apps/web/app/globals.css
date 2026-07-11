@@ -218,6 +218,17 @@ textarea {
   padding: 12px 14px;
   border-radius: 16px;
   color: var(--atlas-muted);
+  transition: background var(--atlas-transition), color var(--atlas-transition);
+}
+
+.atlas-nav-link:hover {
+  background: rgba(31, 107, 92, 0.06);
+}
+
+.atlas-nav-link__label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .atlas-nav-link--active {
