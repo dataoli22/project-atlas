@@ -148,6 +148,21 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
       races the navigation) could land back on the gate with the stale value still rendered -
       found by testing the actual click-through, not just the API call succeeding.
       3 new tests (`test_onboarding.py`).
+- [x] **Required AI setup step, providers stay skippable.** New "AI setup" wizard step between
+      Profile and Connect providers - `hasWorkingAiPath()` requires at least one real, verified
+      path before `Continue` unlocks: on-device Ollama confirmed reachable via a live health
+      check (no key needed - Atlas's zero-config default), OR a Groq API key saved, OR a
+      cloud-Ollama key saved. Deliberately not a literal "enter an API key" requirement -
+      forcing a needless cloud key on someone who already has local Ollama running would
+      contradict the app's local-first default. Health providers (Strava/Health Connect/Samsung
+      Health) remain explicitly skippable, unchanged. Also confirmed
+      `has_completed_onboarding` genuinely gates on first install only, not every update: it's
+      stored in the user's local SQLite state (`AppData\Atlas\atlas.db`), which an app update
+      never touches - only a fresh install with no existing state file sees the wizard. Verified
+      live end-to-end: fresh backend, walked the real UI through Welcome → Profile → AI setup,
+      confirmed `Continue` stays disabled with no AI path configured, saved a Groq key through
+      the actual form, confirmed `Continue` unlocks and `GET /settings/ai` reflects
+      `groq_api_key_set: true` immediately.
 
 ## 4. AI runtime (Ollama + cloud-first) — P0/P1 — MOSTLY DONE
 

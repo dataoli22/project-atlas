@@ -18,6 +18,7 @@ export default async function SettingsSetupPage() {
         initialProfile={onboarding.profile.data}
         initialLocalization={onboarding.localization.data}
         markets={onboarding.markets.data}
+        initialAiSettings={onboarding.ai.data}
       />
     </PageScaffold>
   );
