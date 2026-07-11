@@ -1,6 +1,12 @@
 ext {
-    // 26, not Capacitor's default 22 - required by androidx.health.connect:connect-client.
-    minSdkVersion = 26
+    // 29 (not Capacitor's default 22, not the 26 androidx.health.connect:connect-client alone
+    // required) - the Samsung Health Data SDK's own AAR manifest declares
+    // <uses-sdk android:minSdkVersion="29"/>, which fails the manifest merge if this project's
+    // minSdkVersion is lower. Bumping the whole app rather than overriding the merge check
+    // (tools:overrideLibrary) deliberately - an override would build but silently be wrong on
+    // real Android 9 (API 28) and below devices, which the SDK likely never actually supports.
+    // API 29 = Android 10 (2019); the real-world reach lost is small for a companion health app.
+    minSdkVersion = 29
     compileSdkVersion = 34
     targetSdkVersion = 34
     androidxActivityVersion = '1.8.0'

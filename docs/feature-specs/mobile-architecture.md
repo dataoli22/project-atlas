@@ -158,17 +158,28 @@ so the dependency is pinned to `1.1.0-alpha07`, the last version that only needs
 (added to `app/build.gradle`); and the plugin's `requestPermissions` needed an `override` modifier
 since Capacitor's base `Plugin` class already declares that method name.
 
-**What's explicitly NOT verified yet**: the APK has not been installed on a device/emulator or
-run. Health Connect permission grant/deny/partial-grant flows, and a real end-to-end sync against
-a paired desktop, still need to be exercised on real hardware. See section 3.
+**Verified live on a real Android emulator** (API 34 google_apis x86_64, via `avdmanager`): the
+debug APK installs and runs, pairing against a locally-running `atlas-api.exe` sidecar over the
+emulator's `10.0.2.2` host alias succeeds end-to-end (real pairing code exchange, not a stub), and
+tapping "Sync Health Connect" launches the genuine Health Connect OS consent screen and correctly
+handles a not-granted result without crashing. This surfaced two real, previously-undiscovered
+bugs that blocked LAN pairing entirely on any modern Android device (not emulator-specific):
+1. No `network_security_config.xml` existed, so Android 9+'s default cleartext block silently
+   killed every LAN request. Fixed via `mobile/android/app/src/main/res/xml/network_security_config.xml`.
+2. Capacitor's default `androidScheme: "https"` made Chromium block the LAN `http://` fetch as
+   mixed content, independent of the OS-level fix above. Fixed by setting
+   `server.androidScheme: "http"` in `mobile/capacitor.config.ts`.
+
+Full permission-grant (not just deny) and the data-read path still need one more pass, plus a
+partial-grant flow test - the emulator's Health Connect build didn't list Atlas under "App
+permissions" after a first deny, which needs investigating on real hardware. See section 3.
 
 Screens (`mobile/src/App.tsx`):
 - **Pair screen**: enter the desktop's LAN address, test connectivity
   (`GET /api/v1/health`), enter the pairing code and a device name, confirm pairing.
-- **Sync screen**: shows pairing status, a "Send test sync" button that calls the real
-  `device-sync` endpoint with an **empty** payload (exercises the full pairing + auth + sync
-  wiring without depending on Health Connect data collection, which isn't implemented — see
-  below), and an unpair button.
+- **Sync screen**: shows Health Connect / Samsung Health availability and two real sync
+  buttons ("Sync Health Connect", "Sync Samsung Health"), each requesting permissions then
+  reading and posting real on-device data to the matching `device-sync` endpoint.
 
 Pairing state persists on-device via `@capacitor/preferences` (`mobile/src/pairing-store.ts`) —
 the desktop base URL, device ID, and device token, never synced anywhere else.
@@ -181,7 +192,43 @@ the desktop base URL, device ID, and device token, never synced anywhere else.
 implements it against `HealthConnectClient`, registered in `MainActivity.java`. It compiles and
 links (see above), but permission grant/deny/partial-grant flows and the actual record-reading
 logic have not been exercised against a real device or emulator yet — that's the next step, not a
-future implementation task.
+future implementation task. `App.tsx`'s "Sync Health Connect" button now requests permissions,
+reads sessions/hydration/weight/steps from the trailing 24h window, and posts real values (not an
+empty test payload) to `/api/v1/integrations/health_connect/device-sync`.
+
+### Samsung Health data collection — implemented, unbuilt-on-device, partner access obtained
+
+Samsung Health Partner Program approval was obtained and the real Samsung Health Data SDK v1.1.0
+`.aar` (`mobile/android/app/libs/samsung-health-data-api-1.1.0.aar`, gitignored — it's Samsung's
+proprietary binary, not ours to redistribute in a public repo; anyone rebuilding this project needs
+their own partner approval and must download the SDK themselves from Samsung's developer portal)
+is wired into `mobile/android/app/build.gradle`. Its manifest requires `minSdkVersion 29`, so the
+whole app's `minSdkVersion` was bumped from 26 to 29 (`mobile/android/variables.gradle`) rather than
+suppressing the manifest merge check.
+
+`mobile/android/app/src/main/java/com/projectatlas/mobile/SamsungHealthPlugin.kt` implements the
+JS interface (`mobile/src/samsung-health-plugin.ts`) against `HealthDataStore`, reading SLEEP,
+HEART_RATE, and ENERGY_SCORE data types (the only ones this SDK version exposes that map to the
+backend's `SamsungHealthDeviceSyncRequest` fields). Real exact field/method signatures were
+obtained by decompiling the `.aar`'s `classes.jar` with `javap` (Samsung's bundled docs are just
+meta-refresh redirects to their live site, unusable offline) — notably, static SDK fields declared
+via Kotlin `@JvmField` in a companion object must be accessed through the class
+(`DataType.SleepType.SESSIONS`), not through a `DataTypes.SLEEP` instance, which Kotlin disallows
+even though Java would permit it. `:app:compileDebugKotlin` succeeds against the real SDK classes
+(verified with `JAVA_HOME` pointed at Android Studio's bundled JBR).
+
+Known real gaps, not fabricated around:
+- **No dedicated "resting heart rate" data type** in SDK v1.1.0 — `readRestingHeartRate()`
+  approximates it as the minimum `HEART_RATE` reading over the trailing 24h window
+  (`HeartRateType.MIN_HEART_RATE`, an SDK-aggregated field, not client-computed).
+- **No "stress" data type at all** in SDK v1.1.0 — `readStressLevel()` always resolves `null`.
+- **No exercise-session read type exposed** in this SDK version — `readRecentSessions()` always
+  returns empty; Health Connect's `ExerciseSessionRecord` already covers this ground on devices
+  where Samsung Health writes into the shared Health Connect store.
+- **The Samsung Health app itself is Samsung-device-exclusive** (Galaxy Store distribution, not
+  Google Play), so it cannot be installed on a generic AOSP emulator — permission grant/deny flows
+  and real data shape need an actual Samsung device to verify, same caveat as Health Connect but
+  stronger (Health Connect at least installs on any Android 14+ emulator).
 
 ---
 
@@ -254,11 +301,18 @@ actual Mac + iPhone, which is outside this environment.
 
 ## 5. Open items
 
-- [ ] Real Android build + device/emulator test (needs Android Studio + JDK 17+ on a real machine)
+- [x] Real Android build (Android Studio's SDK/JDK now installed): `assembleDebug` produces a real
+      APK, `compileDebugKotlin` succeeds against both `HealthConnectPlugin.kt` and
+      `SamsungHealthPlugin.kt` (the latter against the real Samsung Health `.aar`). Still needed:
+      an actual on-device run — see the Health Connect and Samsung Health sections above for what
+      each specifically still needs verified.
 - [x] Native `HealthConnectPlugin.kt` implementation — written, registered in `MainActivity.java`,
-      Health Connect Gradle dependency + manifest permissions added; **unbuilt and untested**
-      (no Android SDK in this environment) — build and exercise permission flows in Android
-      Studio before relying on it.
+      compiles; `App.tsx`'s sync button now sends real collected data, not an empty test payload.
+      Permission grant/deny/partial-grant flows still need a real device/emulator.
+- [x] Native `SamsungHealthPlugin.kt` implementation — Partner Program access obtained, real SDK
+      `.aar` wired in, plugin written against decompiled real signatures, registered in
+      `MainActivity.java`, compiles. Cannot be exercised on any emulator (Samsung Health app is
+      device-exclusive) — needs a real Samsung device.
 - [x] In-app "restart to apply" UX for the LAN pairing toggle — done, see section 2
 - [x] Pairing code brute-force protection — done, see section 2
 - [x] Mobile sync retry/backoff on transient network failures — done, see section 2

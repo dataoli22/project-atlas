@@ -377,19 +377,45 @@ desktop, and the hard iOS blocker.)
       this project doesn't target yet), added explicit `jvmTarget = "17"` (Kotlin/Java compiler
       mismatch), added `override` to `requestPermissions` (collided with Capacitor's base
       `Plugin` method of the same name). `minSdkVersion` bumped to 26 (required by the SDK).
+- [x] `App.tsx`'s sync screen now sends real collected data, not an empty test payload — the
+      "Sync Health Connect" button requests permissions then reads sessions/hydration/weight/steps
+      from the trailing 24h window before posting to the desktop.
+- [x] **Verified live on a real Android emulator** (API 34, google_apis x86_64 image via
+      `avdmanager`/`sdkmanager`) — installed the actual debug APK, paired with a locally-running
+      `atlas-api.exe` sidecar over the emulator's `10.0.2.2` host alias, and drove the real
+      `requestPermissions()` flow, which launched the genuine Health Connect OS consent screen and
+      correctly handled the not-granted result. Found and fixed two real, previously-undiscovered
+      bugs this surfaced (neither is Samsung-specific — both blocked LAN pairing entirely on any
+      modern Android device, not just the emulator):
+      1. **No `network_security_config.xml` existed at all**, so Android 9+'s default
+         cleartext-blocking silently killed every LAN pairing request. Added
+         `mobile/android/app/src/main/res/xml/network_security_config.xml` with
+         `cleartextTrafficPermitted="true"` (app-wide - the app makes no other network calls, so
+         nothing else is weakened) and wired it via `android:networkSecurityConfig` in
+         `AndroidManifest.xml`.
+      2. **Capacitor's default `androidScheme: "https"`** made the app's own origin `https://localhost`,
+         so Chromium's mixed-content policy blocked the LAN `http://` fetch independently of the
+         OS-level cleartext setting above (confirmed via logcat:
+         `Mixed Content: ... blocked; the content must be served over HTTPS`). Fixed by setting
+         `server.androidScheme: "http"` in `mobile/capacitor.config.ts`, Capacitor's documented
+         approach for apps that talk HTTP to a local/LAN device.
 - [ ] **APK not yet installed/run on a device or emulator** — permission grant/deny/partial-grant
       flows and a real end-to-end sync against a paired desktop still need real hardware. See
       `docs/feature-specs/mobile-architecture.md` section 3.
-- [~] Samsung Health SDK bridge for mobile: documented interface (`mobile/src/samsung-health-plugin.ts`)
-      and `syncSamsungHealthData()` (`desktop-api.ts`) wired into the sync screen alongside
-      Health Connect, mirroring the same pattern. **Native implementation is blocked differently
-      than Health Connect/HealthKit were** — Health Connect and HealthKit only needed device/SDK
-      access (now unblocked for Health Connect); the Samsung Health SDK additionally requires
-      enrolling in and being approved for the Samsung Health Partner Program before it will even
-      authenticate, which is a business/legal step, not engineering. On modern Samsung devices
-      much of this data (steps, sleep, heart rate, workouts) already flows into Health Connect,
-      which the Health Connect plugin already covers — the fields unique to Samsung Health
-      (`stressLevel`/`energyScore`) are the main reason to still pursue partner approval later.
+- [x] Samsung Health SDK bridge for mobile: Partner Program approval obtained, real SDK v1.1.0
+      `.aar` wired into `mobile/android/app/build.gradle` (gitignored — Samsung's proprietary
+      binary, not ours to redistribute). `SamsungHealthPlugin.kt` implements the JS interface
+      against `HealthDataStore`, reading SLEEP/HEART_RATE/ENERGY_SCORE (real signatures obtained
+      by decompiling the `.aar` with `javap`, since the SDK's bundled docs are unusable redirect
+      stubs). `minSdkVersion` bumped 26→29 (the SDK's own AAR manifest requires it).
+      `:app:compileDebugKotlin` succeeds against the real SDK classes. `App.tsx` has a real "Sync
+      Samsung Health" button wired to it. Real, honestly-scoped gaps in SDK v1.1.0 itself (not
+      fabricated around): no dedicated resting-HR type (approximated via `MIN_HEART_RATE`), no
+      stress data type at all (`readStressLevel()` always resolves null), no exercise-session read
+      type (`readRecentSessions()` always empty — Health Connect covers this on modern devices).
+      **Cannot be exercised on any emulator** — the Samsung Health app itself is Samsung-device-
+      exclusive (Galaxy Store, not Google Play) — needs a real Samsung device to verify permission
+      flows and actual data shape.
 - [x] iOS: Capacitor scaffold committed (`mobile/ios/`, via `npx cap add ios`); ships as a
       self-compiled build (free Apple ID / Personal Team, 7-day resign) rather than through the
       App Store — see `docs/feature-specs/mobile-architecture.md` section 4 for the full build/sideload flow.

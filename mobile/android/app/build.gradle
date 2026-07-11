@@ -56,6 +56,14 @@ dependencies {
     // side effect of an unrelated dependency bump.
     implementation "androidx.health.connect:connect-client:1.1.0-alpha07"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+
+    // Samsung Health Data SDK - proprietary, partner-program-gated, not on Maven Central.
+    // libs/samsung-health-data-api-1.1.0.aar is gitignored (*.aar in mobile/android/.gitignore)
+    // deliberately - it's Samsung's binary, not ours to redistribute in a public repo. Anyone
+    // else building this project needs their own Samsung Health Partner Program approval and
+    // must download the SDK from Samsung's developer portal themselves, placing the .aar at
+    // this exact path. See SamsungHealthPlugin.kt.
+    implementation files('libs/samsung-health-data-api-1.1.0.aar')
 }
 
 apply from: 'capacitor.build.gradle'

@@ -1,9 +1,22 @@
 import { useEffect, useState } from "react";
 
-import { confirmPairing, syncHealthConnectData, testConnection } from "./desktop-api";
+import {
+  confirmPairing,
+  syncHealthConnectData,
+  syncSamsungHealthData,
+  testConnection,
+  type SamsungHealthSyncPayload,
+  type SyncPayload
+} from "./desktop-api";
 import { clearPairing, loadPairing, savePairing, type StoredPairing } from "./pairing-store";
 import { HealthConnect } from "./health-connect-plugin";
 import { SamsungHealth } from "./samsung-health-plugin";
+
+const SYNC_WINDOW_HOURS = 24;
+
+function sinceIso(): string {
+  return new Date(Date.now() - SYNC_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+}
 
 export default function App() {
   const [pairing, setPairing] = useState<StoredPairing | null>(null);
@@ -121,9 +134,10 @@ function PairScreen({ onPaired }: { onPaired: (pairing: StoredPairing) => void }
 }
 
 function SyncScreen({ pairing, onUnpair }: { pairing: StoredPairing; onUnpair: () => void }) {
-  const [status, setStatus] = useState("Paired. Health Connect data collection is not implemented yet.");
+  const [status, setStatus] = useState("Paired. Ready to sync.");
   const [isError, setIsError] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncingHealthConnect, setIsSyncingHealthConnect] = useState(false);
+  const [isSyncingSamsungHealth, setIsSyncingSamsungHealth] = useState(false);
   const [healthConnectAvailable, setHealthConnectAvailable] = useState<boolean | null>(null);
   const [samsungHealthAvailable, setSamsungHealthAvailable] = useState<boolean | null>(null);
 
@@ -131,26 +145,88 @@ function SyncScreen({ pairing, onUnpair }: { pairing: StoredPairing; onUnpair: (
     HealthConnect.isAvailable()
       .then((result) => setHealthConnectAvailable(result.available))
       .catch(() => setHealthConnectAvailable(false));
-    // Always resolves to unavailable today - see samsung-health-plugin.ts for why (blocked on
-    // Samsung Health Partner Program approval, not just missing native code).
     SamsungHealth.isAvailable()
       .then((result) => setSamsungHealthAvailable(result.available))
       .catch(() => setSamsungHealthAvailable(false));
   }, []);
 
-  async function runManualSync() {
-    setIsSyncing(true);
+  async function runHealthConnectSync() {
+    setIsSyncingHealthConnect(true);
     setIsError(false);
-    // Sends an empty payload - this exercises and verifies the real pairing + auth + sync
-    // wiring end to end without depending on the not-yet-implemented Health Connect plugin.
-    const result = await syncHealthConnectData(pairing, {
-      device_label: pairing.deviceName,
-      bridge_source: "manual-import",
-      recent_sessions: []
-    });
-    setStatus(result.ok ? "Sync succeeded (test payload - no Health Connect data collected yet)." : result.message);
-    setIsError(!result.ok);
-    setIsSyncing(false);
+    try {
+      const permission = await HealthConnect.requestPermissions();
+      if (!permission.granted) {
+        setStatus("Health Connect permissions were not granted.");
+        setIsError(true);
+        return;
+      }
+
+      const since = sinceIso();
+      const [sessions, hydration, weight, steps] = await Promise.all([
+        HealthConnect.readRecentSessions({ sinceIso: since }),
+        HealthConnect.readHydrationMl({ sinceIso: since }),
+        HealthConnect.readBodyWeightKg(),
+        HealthConnect.readStepCount({ sinceIso: since })
+      ]);
+
+      const payload: SyncPayload = {
+        device_label: pairing.deviceName,
+        bridge_source: "health-connect-sdk",
+        recent_sessions: sessions.sessions,
+        ...(hydration.hydrationMl !== null ? { hydration_ml: hydration.hydrationMl } : {}),
+        ...(weight.bodyWeightKg !== null ? { body_weight_kg: weight.bodyWeightKg } : {}),
+        ...(steps.stepCount !== null ? { step_count: steps.stepCount } : {})
+      };
+
+      const result = await syncHealthConnectData(pairing, payload);
+      setStatus(result.ok ? "Health Connect sync succeeded." : result.message);
+      setIsError(!result.ok);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Health Connect sync failed.");
+      setIsError(true);
+    } finally {
+      setIsSyncingHealthConnect(false);
+    }
+  }
+
+  async function runSamsungHealthSync() {
+    setIsSyncingSamsungHealth(true);
+    setIsError(false);
+    try {
+      const permission = await SamsungHealth.requestPermissions();
+      if (!permission.granted) {
+        setStatus("Samsung Health permissions were not granted.");
+        setIsError(true);
+        return;
+      }
+
+      const [sessions, sleep, restingHr, energyScore, stressLevel] = await Promise.all([
+        SamsungHealth.readRecentSessions({ sinceIso: sinceIso() }),
+        SamsungHealth.readSleepHours(),
+        SamsungHealth.readRestingHeartRate(),
+        SamsungHealth.readEnergyScore(),
+        SamsungHealth.readStressLevel()
+      ]);
+
+      const payload: SamsungHealthSyncPayload = {
+        device_label: pairing.deviceName,
+        bridge_source: "samsung-health-sdk",
+        recent_sessions: sessions.sessions,
+        ...(sleep.sleepHours !== null ? { sleep_hours: sleep.sleepHours } : {}),
+        ...(restingHr.restingHr !== null ? { resting_hr: restingHr.restingHr } : {}),
+        ...(energyScore.energyScore !== null ? { energy_score: energyScore.energyScore } : {}),
+        ...(stressLevel.stressLevel !== null ? { stress_level: stressLevel.stressLevel } : {})
+      };
+
+      const result = await syncSamsungHealthData(pairing, payload);
+      setStatus(result.ok ? "Samsung Health sync succeeded." : result.message);
+      setIsError(!result.ok);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Samsung Health sync failed.");
+      setIsError(true);
+    } finally {
+      setIsSyncingSamsungHealth(false);
+    }
   }
 
   return (
@@ -165,21 +241,29 @@ function SyncScreen({ pairing, onUnpair }: { pairing: StoredPairing; onUnpair: (
       </div>
       <div className="atlas-mobile-list-item">
         <span>Health Connect</span>
-        <strong>{healthConnectAvailable === null ? "Checking..." : healthConnectAvailable ? "Available" : "Not implemented"}</strong>
+        <strong>{healthConnectAvailable === null ? "Checking..." : healthConnectAvailable ? "Available" : "Not available"}</strong>
       </div>
       <div className="atlas-mobile-list-item">
         <span>Samsung Health</span>
         <strong>
-          {samsungHealthAvailable === null
-            ? "Checking..."
-            : samsungHealthAvailable
-              ? "Available"
-              : "Blocked on Samsung Partner Program approval"}
+          {samsungHealthAvailable === null ? "Checking..." : samsungHealthAvailable ? "Available" : "App not installed"}
         </strong>
       </div>
 
-      <button className="atlas-mobile-button" onClick={runManualSync} disabled={isSyncing}>
-        {isSyncing ? "Syncing..." : "Send test sync"}
+      <button
+        className="atlas-mobile-button"
+        onClick={runHealthConnectSync}
+        disabled={isSyncingHealthConnect || healthConnectAvailable === false}
+      >
+        {isSyncingHealthConnect ? "Syncing..." : "Sync Health Connect"}
+      </button>
+
+      <button
+        className="atlas-mobile-button"
+        onClick={runSamsungHealthSync}
+        disabled={isSyncingSamsungHealth || samsungHealthAvailable === false}
+      >
+        {isSyncingSamsungHealth ? "Syncing..." : "Sync Samsung Health"}
       </button>
 
       <button className="atlas-mobile-button atlas-mobile-button--secondary" onClick={onUnpair}>

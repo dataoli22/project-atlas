@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(HealthConnectPlugin.class);
+        registerPlugin(SamsungHealthPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

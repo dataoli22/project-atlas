@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 9+ (API 28+) blocks cleartext (plain HTTP) traffic by default. LAN pairing
+  (mobile/src/desktop-api.ts, pairing-store.ts) is deliberately HTTP-only to a user-entered
+  local IP:port - the desktop pairing UI documents "nothing is sent anywhere else", i.e. this
+  is intentionally LAN-scoped, not a fallback to fetch arbitrary internet endpoints over HTTP.
+  There's no fixed domain to allowlist (the address is whatever IP the user types in), so
+  cleartext is permitted app-wide rather than per-domain; this doesn't weaken anything for actual
+  internet traffic, which this app doesn't make outside of the paired desktop.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
