@@ -7,6 +7,7 @@ export interface AppPreference {
   enabledFeatureFlags: AtlasFeature[];
   preferredPlatformDensity: PlatformDensity;
   sharedLocale: string;
+  hasCompletedOnboarding: boolean;
 }
 
 export interface SharedHealthProfile {

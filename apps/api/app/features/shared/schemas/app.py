@@ -75,6 +75,10 @@ class AppPreferences(BaseModel):
     enabled_feature_flags: list[FeatureKey]
     preferred_platform_density: DensityMode = "comfortable"
     shared_locale: str = "en-IN"
+    # Deliberately NOT on AppPreferencesUpdate - it's set exactly once via
+    # POST /api/v1/app/onboarding/complete, not as part of the general preferences form, so a
+    # routine preference change (density, active feature) can never accidentally reset it.
+    has_completed_onboarding: bool = False
 
 
 class AppPreferencesUpdate(BaseModel):

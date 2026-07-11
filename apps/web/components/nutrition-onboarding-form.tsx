@@ -15,6 +15,7 @@ type NutritionOnboardingFormProps = {
   initialProfile: ProfileSettingsData;
   initialLocalization: LocalizationSettingsData;
   markets: MarketOptionData[];
+  onSaved?: () => void;
 };
 
 type OnboardingStep = "identity" | "metrics" | "market";
@@ -127,7 +128,8 @@ function getStepRequirements(
 export function NutritionOnboardingForm({
   initialProfile,
   initialLocalization,
-  markets
+  markets,
+  onSaved
 }: NutritionOnboardingFormProps) {
   const [profile, setProfile] = useState<ProfileSettingsData>(initialProfile);
   const [localization, setLocalization] = useState<LocalizationSettingsData>(initialLocalization);
@@ -251,6 +253,7 @@ export function NutritionOnboardingForm({
           ? "Saved through shared API settings endpoints."
           : "Saved locally with stub fallback for any unavailable endpoint."
       );
+      onSaved?.();
     });
   }
 

@@ -42,6 +42,7 @@ type AppPreferencesApiResponse = {
   enabled_feature_flags: AtlasFeature[];
   preferred_platform_density: PlatformDensity;
   shared_locale: string;
+  has_completed_onboarding?: boolean;
 };
 
 type SharedMetricApiResponse = {
@@ -684,10 +685,14 @@ export async function getFeatureRegistryData(): Promise<DataEnvelope<FeatureRegi
 
 export async function getAppPreferencesData(): Promise<DataEnvelope<AppPreferencesData>> {
   const fallback: AppPreferencesApiResponse = {
-    active_feature: "endurance",
+    active_feature: "nutrition",
     enabled_feature_flags: FEATURE_DEFINITIONS.map((feature) => feature.key),
     preferred_platform_density: "comfortable",
-    shared_locale: localizationFallback.locale
+    shared_locale: localizationFallback.locale,
+    // Fallback only fires when the local API is unreachable - defaulting this to true prevents
+    // an offline/unreachable backend from trapping the user behind an onboarding gate they have
+    // no way to submit through.
+    has_completed_onboarding: true
   };
 
   const result = await requestJson<AppPreferencesApiResponse>("/api/v1/app/preferences", {
@@ -699,7 +704,8 @@ export async function getAppPreferencesData(): Promise<DataEnvelope<AppPreferenc
       activeFeature: result.data.active_feature,
       enabledFeatureFlags: result.data.enabled_feature_flags,
       preferredPlatformDensity: result.data.preferred_platform_density,
-      sharedLocale: result.data.shared_locale
+      sharedLocale: result.data.shared_locale,
+      hasCompletedOnboarding: result.data.has_completed_onboarding ?? true
     },
     source: result.source
   };
@@ -726,7 +732,34 @@ export async function saveAppPreferences(
       activeFeature: result.data.active_feature,
       enabledFeatureFlags: result.data.enabled_feature_flags,
       preferredPlatformDensity: result.data.preferred_platform_density,
-      sharedLocale: result.data.shared_locale
+      sharedLocale: result.data.shared_locale,
+      hasCompletedOnboarding: result.data.has_completed_onboarding ?? preferences.hasCompletedOnboarding
+    },
+    source: result.source
+  };
+}
+
+export async function completeOnboarding(): Promise<DataEnvelope<AppPreferencesData>> {
+  const fallback: AppPreferencesApiResponse = {
+    active_feature: "nutrition",
+    enabled_feature_flags: FEATURE_DEFINITIONS.map((feature) => feature.key),
+    preferred_platform_density: "comfortable",
+    shared_locale: localizationFallback.locale,
+    has_completed_onboarding: true
+  };
+
+  const result = await requestJson<AppPreferencesApiResponse>("/api/v1/app/onboarding/complete", {
+    method: "POST",
+    fallback
+  });
+
+  return {
+    data: {
+      activeFeature: result.data.active_feature,
+      enabledFeatureFlags: result.data.enabled_feature_flags,
+      preferredPlatformDensity: result.data.preferred_platform_density,
+      sharedLocale: result.data.shared_locale,
+      hasCompletedOnboarding: result.data.has_completed_onboarding ?? true
     },
     source: result.source
   };

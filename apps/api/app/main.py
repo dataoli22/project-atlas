@@ -3,6 +3,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
 from app.api.router import api_router
@@ -87,6 +88,29 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         openapi_url=f"{settings.api_v1_prefix}/openapi.json",
         lifespan=_lifespan,
+    )
+    # No CORS middleware existed before this - every client-side ("use client") form submission
+    # calls fetch() directly from the browser/renderer to this API on a *different port* (the
+    # web server and API sidecar each get their own dynamically-allocated port, even in the
+    # packaged Electron app - see desktop/electron/main.js), which makes it a genuinely
+    # cross-origin request by browser rules. Without this, every such call was silently rejected
+    # by the browser's CORS check and swallowed by requestJson's fallback-on-error handling
+    # (apps/web/lib/api.ts) - the UI would show "saved" via local stub state while nothing ever
+    # reached the backend. Only caught because live-testing this session actually clicked through
+    # a real browser flow instead of verifying via curl (which bypasses browser CORS entirely).
+    #
+    # Deliberately loopback-only, NOT a wildcard: the regex matches any 127.0.0.1/localhost
+    # origin regardless of port (covering every dynamically-allocated dev/packaged port), but
+    # never a LAN device's origin - the CORS check is based on the *requesting page's* origin,
+    # not network reachability, so this stays safe even when a user opts into LAN pairing
+    # (ATLAS_API_HOST=0.0.0.0 for phone pairing, documented in packaging-and-installation.md). A
+    # wildcard would let any website open in any LAN browser script-read this API while LAN
+    # pairing is on; this regex does not.
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"^https?://(127\.0\.0\.1|localhost)(:\d+)?$",
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
     application.add_middleware(RequestIdLoggingMiddleware)
     application.include_router(api_router, prefix=settings.api_v1_prefix)

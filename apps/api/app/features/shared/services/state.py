@@ -106,6 +106,12 @@ class SharedStateStore:
             self._persist_state_unlocked()
             return self._preferences.model_copy(deep=True)
 
+    def mark_onboarding_complete(self) -> AppPreferences:
+        with self._lock:
+            self._preferences = self._preferences.model_copy(update={"has_completed_onboarding": True})
+            self._persist_state_unlocked()
+            return self._preferences.model_copy(deep=True)
+
     def get_profile(self) -> ProfileSettings:
         with self._lock:
             return self._profile.model_copy(deep=True)

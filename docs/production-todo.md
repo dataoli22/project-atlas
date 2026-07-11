@@ -14,7 +14,7 @@ Legend: **[ ]** todo · **[~]** in progress · **[x]** done · **P0** blocking G
 
 ## 0. Current status snapshot
 
-- Backend tests: **231 passing** (`npm run test:api`). E2E: **21 passing**
+- Backend tests: **240 passing** (`npm run test:api`). E2E: **21 passing**
   (`npm run test:e2e`, including a new axe-core accessibility + responsive smoke suite). CI green
   (`.github/workflows/ci.yml`: api / web / security / e2e).
 - Repo: `https://github.com/dataoli22/project-atlas` (private, `main`).
@@ -56,6 +56,23 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
 ## 1. Foundation & hygiene — P0 — DONE (except preflight + clean-room script)
 
 - [x] git/CI/build hygiene: `.gitignore` coverage, clean-before-build step, CI pipeline live.
+- [x] **CORS middleware** (`apps/api/app/main.py`) — a real, previously-undiscovered bug: no
+      CORS middleware existed at all, so every client-side ("use client") form submission
+      calling `fetch` directly from the browser was a genuinely cross-origin request (the web UI
+      and API run on different ports, even in the packaged app - see `desktop/electron/main.js`).
+      The browser silently blocked every such call, and `requestJson`'s fallback-on-error
+      handling (`apps/web/lib/api.ts`) swallowed it - the UI showed "saved" from local stub state
+      while nothing ever reached the backend. Only caught because live-testing the onboarding
+      flow this session actually clicked through a real browser session instead of verifying via
+      `curl` (which bypasses browser CORS entirely - the standing convention for prior live
+      verification in this project, which is exactly why this went unnoticed). Fixed with
+      `allow_origin_regex` matching only `127.0.0.1`/`localhost` at any port - deliberately not a
+      wildcard, so a LAN device's browser still can't script-read the API when LAN pairing
+      (`ATLAS_API_HOST=0.0.0.0`) is enabled; the CORS check is based on the requesting page's
+      origin, not network reachability. 4 new tests (`test_cors.py`). **This likely means any
+      earlier "verified live" client-side form save in this project's history that was only
+      checked via curl was never actually exercised through a real browser click** - worth a
+      pass revisiting those with real browser testing now that this is fixed, not assumed clean.
 - [ ] Release preflight rejecting stale generated artifacts.
 - [ ] Documented manual clean-room install script (CI provides this per-push, but no standalone
       script exists yet).
@@ -101,6 +118,30 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
 - [x] Permission gate on the one existing destructive action (integration disconnect requires
       explicit confirmation). Apply the same `confirm: true` pattern when "delete history" /
       "rotate secrets" endpoints are eventually built — don't invent them just to gate them.
+- [x] **First-run onboarding gate, live data from day one, health providers explicitly
+      skippable.** New `AppPreferences.has_completed_onboarding` (deliberately NOT on
+      `AppPreferencesUpdate` - set exactly once via a dedicated
+      `POST /api/v1/app/onboarding/complete`, so a routine preference change can never
+      accidentally reset it). `<OnboardingGate>` (`components/onboarding-gate.tsx`) wraps the
+      shell layout and redirects to `/onboarding` until the flag is set, exempting `/settings`
+      so a user can detour into Settings → Integrations mid-flow without the gate bouncing them
+      back to step one. `/onboarding` is now a real 4-step wizard
+      (`components/onboarding-wizard.tsx`: Welcome → Profile & plan → Connect providers →
+      Finish) instead of a flat settings page - the "Connect providers" step lists
+      Strava/Health Connect/Samsung Health with a link into Settings and a prominent "Skip for
+      now", matching the product decision that providers stay entirely optional. Nutrition is
+      genuinely live from day one without any connector: the profile/market captured in step 2
+      feeds the same deterministic blueprint generation already used everywhere
+      (`nutrition/service.py`), verified live end-to-end (`GET /nutrition/planner` reflects the
+      onboarding-entered market/cuisine immediately). Endurance still needs a connector for real
+      data (shows illustrative stub content otherwise) - inherent to having no wearable/manual
+      entry, not something onboarding alone can fix, and out of scope for this pass. The finish
+      step uses a hard `window.location.assign` navigation, not `router.push`: the shell
+      layout's `OnboardingGate` reads its flag from a server-fetched prop, and Next.js layouts
+      persist across client-side navigation, so a plain push (even preceded by `router.refresh()`,
+      which races the navigation) could land back on `/onboarding` with the stale value still
+      rendered - found by testing the actual click-through, not just the API call succeeding.
+      3 new tests (`test_onboarding.py`).
 
 ## 4. AI runtime (Ollama + cloud-first) — P0/P1 — MOSTLY DONE
 

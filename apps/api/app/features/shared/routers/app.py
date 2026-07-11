@@ -52,6 +52,11 @@ def update_preferences(payload: AppPreferencesUpdate) -> AppPreferences:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.post("/app/onboarding/complete", response_model=AppPreferences)
+def complete_onboarding() -> AppPreferences:
+    return shared_state.mark_onboarding_complete()
+
+
 @router.get("/app/lock", response_model=AppLockSettings)
 def read_app_lock() -> AppLockSettings:
     return shared_state.get_app_lock_settings()
