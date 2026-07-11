@@ -1,7 +1,7 @@
 {
   "name": "@atlas/desktop",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Atlas desktop shell (Electron) - wraps the local FastAPI sidecar and Next.js standalone server in a native window with auto-updates via GitHub Releases.",
   "author": "Project Atlas",
   "main": "electron/main.js",
