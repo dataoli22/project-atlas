@@ -69,10 +69,15 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
       `allow_origin_regex` matching only `127.0.0.1`/`localhost` at any port - deliberately not a
       wildcard, so a LAN device's browser still can't script-read the API when LAN pairing
       (`ATLAS_API_HOST=0.0.0.0`) is enabled; the CORS check is based on the requesting page's
-      origin, not network reachability. 4 new tests (`test_cors.py`). **This likely means any
-      earlier "verified live" client-side form save in this project's history that was only
-      checked via curl was never actually exercised through a real browser click** - worth a
-      pass revisiting those with real browser testing now that this is fixed, not assumed clean.
+      origin, not network reachability. 4 new tests (`test_cors.py`).
+- [x] **Real-browser verification pass, post-CORS-fix**: re-tested a representative cross-section
+      of every mutating pattern in the app by actually clicking through a live browser session
+      (not curl) against a real backend - AI runtime settings save (changed the Ollama model
+      field to a marker value, confirmed it round-tripped via `GET /settings/ai`), search
+      settings save, feature preferences save, pantry item add (`GET /nutrition/pantry` reflected
+      the added item), and app-lock enable (`GET /app/lock` reflected `enabled: true`). Zero CORS
+      errors, all changes persisted correctly. High confidence the CORS gap is genuinely closed
+      across the app, not just for the onboarding flow that surfaced it.
 - [ ] Release preflight rejecting stale generated artifacts.
 - [ ] Documented manual clean-room install script (CI provides this per-push, but no standalone
       script exists yet).
