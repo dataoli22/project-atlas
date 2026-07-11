@@ -358,7 +358,25 @@ desktop, and the hard iOS blocker.)
       `desktop/scripts/build-api-sidecar.mjs`) — verified standalone and inside the packaged app.
 - [x] OS app-data user-data path (`app.getPath("userData")` → `ATLAS_LOCAL_DB_PATH`/
       `ATLAS_LOCAL_STATE_PATH`), including an `app.setName("Atlas")` fix for a clean folder name.
-- [x] `electron-updater` wired (GitHub Releases) — not yet exercised against a real release.
+- [x] **`electron-updater` wired and verified against a real published release.**
+      `desktop/electron/main.js`'s `initializeAutoUpdates()` checks on launch and every 4 hours,
+      auto-downloads a newer version in the background, and prompts the user to restart once the
+      download completes (rather than force-installing). Found and fixed a real gap while
+      verifying this: `npm run desktop:dist` (plain `--win`, no `--publish`) never generates or
+      uploads `latest.yml`, the manifest `electron-updater` needs - a release created by manually
+      uploading just the installer (as `v0.1.0` originally was) leaves every running app's update
+      check silently finding nothing, forever, with no error. New `npm run desktop:release`
+      (`electron-builder --win --publish always`) publishes the installer plus
+      `latest.yml`/`.blockmap` correctly. Also found and fixed a real NSIS incompatibility while
+      publishing the first real release: a hand-built multi-resolution `.ico` with a
+      PNG-compressed 256px frame (needed to satisfy electron-builder's own ≥256px exe-icon
+      requirement) crashes this repo's NSIS version's `MUI_ICON` loader with "invalid icon file
+      size" - fixed by giving electron-builder a single 512x512 PNG and letting its own icon
+      pipeline generate the platform `.ico`/`.icns` instead of hand-building one
+      (`scripts/generate-app-icons.mjs`). Published `v0.1.1` via the corrected flow and confirmed
+      the release's `latest.yml` references the exact uploaded asset name - the actual baseline
+      going forward. `v0.1.0` remains published as a download-only artifact (its assets don't
+      match a manifest, so it never offered auto-update to begin with).
 - [x] macOS/Linux **zip** targets configured (no native installers for those platforms, per
       product decision) — config-only, never built on those OSes.
 - [ ] Signed installers — **blocked on a real code-signing certificate** (business decision, not

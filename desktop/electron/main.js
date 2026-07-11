@@ -258,6 +258,59 @@ async function createWindow(webUrl, apiBaseUrl) {
   await mainWindow.loadURL(webUrl);
 }
 
+// electron-updater checks the GitHub Release matching the running app's version for a
+// `latest.yml` manifest (produced by `electron-builder --publish` - a plain `--win` build does
+// NOT generate or upload it, so a release built without --publish leaves auto-update with
+// nothing to compare against). See docs/build-and-run/packaging-and-installation.md for the
+// publish flow. Update behavior here: silently check on launch and every 4 hours after,
+// download in the background if a newer version is found, then ask the user to restart once the
+// download finishes rather than installing without asking - a background download can finish
+// while the user is mid-task, and force-quitting would lose that context.
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+
+function initializeAutoUpdates() {
+  const { autoUpdater } = require("electron-updater");
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("update-available", (info) => {
+    console.log(`Atlas update available: ${info.version} (downloading in background).`);
+  });
+
+  autoUpdater.on("update-downloaded", (info) => {
+    dialog
+      .showMessageBox({
+        type: "info",
+        buttons: ["Restart now", "Later"],
+        defaultId: 0,
+        cancelId: 1,
+        title: "Atlas update ready",
+        message: `Atlas ${info.version} has downloaded and is ready to install.`,
+        detail: "Restart now to apply it, or it will install automatically the next time you quit Atlas."
+      })
+      .then((result) => {
+        if (result.response === 0) {
+          autoUpdater.quitAndInstall();
+        }
+      });
+  });
+
+  autoUpdater.on("error", (error) => {
+    console.error("Atlas update check failed:", error);
+  });
+
+  autoUpdater.checkForUpdates().catch((error) => {
+    console.error("Atlas update check failed:", error);
+  });
+
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch((error) => {
+      console.error("Atlas update check failed:", error);
+    });
+  }, UPDATE_CHECK_INTERVAL_MS);
+}
+
 async function startSidecarsAndShowWindow() {
   let apiPort;
   let webPort;
@@ -276,10 +329,7 @@ async function startSidecarsAndShowWindow() {
     await createWindow(webUrl, `http://127.0.0.1:${apiPort}`);
 
     if (IS_PACKAGED) {
-      const { autoUpdater } = require("electron-updater");
-      autoUpdater.checkForUpdatesAndNotify().catch((error) => {
-        console.error("Atlas update check failed:", error);
-      });
+      initializeAutoUpdates();
     }
   } catch (error) {
     dialog.showErrorBox(

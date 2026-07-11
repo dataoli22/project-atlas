@@ -1,7 +1,7 @@
 {
   "name": "project-atlas",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "workspaces": [
     "apps/*",
     "packages/*",
@@ -26,6 +26,7 @@
     "desktop:build:api": "node desktop/scripts/build-api-sidecar.mjs",
     "desktop:dev": "npm run build:web && npm --workspace @atlas/desktop run dev",
     "desktop:dist": "npm run build:web && npm run desktop:build:api && npm --workspace @atlas/desktop run dist",
+    "desktop:release": "npm run build:web && npm run desktop:build:api && npm --workspace @atlas/desktop run dist:publish",
     "mobile:build": "npm --workspace @atlas/mobile run build",
     "mobile:android": "npm --workspace @atlas/mobile run cap:android",
     "mobile:ios": "npm --workspace @atlas/mobile run cap:ios"
@@ -33,7 +34,6 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
-    "png-to-ico": "^3.0.2",
     "sharp": "^0.35.3"
   }
 }

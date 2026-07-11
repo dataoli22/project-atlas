@@ -131,6 +131,35 @@ automatically. No separate update-hosting infrastructure needed.
 `win-unpacked` output (not dev mode) and verified: real window, real PyInstaller API binary (not
 Python-from-source), dynamically allocated ports, and correct OS app-data persistence.
 
+### Publishing a release (required for auto-update to actually work)
+
+`npm run desktop:dist` (`electron-builder --win`, no `--publish` flag) only builds the installer
+locally - it does **not** generate or upload `latest.yml`, the update manifest
+`electron-updater` reads to know a newer version exists. A release created by manually uploading
+the `.exe` (e.g. `gh release create` with just the installer attached) has no `latest.yml`, so
+every running app's update check silently finds nothing to update to, forever - not an error,
+just a permanently-stale baseline.
+
+To cut a real, auto-update-capable release:
+
+1. Bump `"version"` in `desktop/package.json` (and ideally the root `package.json` to match).
+2. Set a `GH_TOKEN` env var with `repo` scope (`gh auth token` if you're already logged in via
+   the `gh` CLI works for a local one-off release).
+3. Run `npm run desktop:release` (`electron-builder --win --publish always`) - this builds the
+   installer **and** uploads it plus `latest.yml`/`.blockmap` to a GitHub Release matching the
+   version, creating the release if it doesn't exist yet.
+4. Every already-installed Atlas instance checks for updates on launch and every 4 hours after
+   (`desktop/electron/main.js`'s `initializeAutoUpdates`), downloads a newer version in the
+   background, and prompts to restart once the download finishes.
+
+The `v0.1.0` release published earlier this session was created via a manual-upload shortcut
+(installer only, no `--publish`), so it has no `latest.yml` - it works as a download link but
+was never an auto-update baseline. `v0.1.1` was published via the real `desktop:release` flow
+above and does have a correctly-matched `latest.yml`, so it's the actual working baseline going
+forward. (Publishing `v0.1.1` also surfaced a real NSIS incompatibility with a hand-built
+multi-resolution `.ico`'s PNG-compressed 256px frame - fixed by letting electron-builder generate
+the platform icon files itself from a single PNG, see `scripts/generate-app-icons.mjs`.)
+
 ### Architecture (as built)
 
 ```
@@ -210,9 +239,9 @@ Build it with: `pip install -r apps/api/requirements.txt -r apps/api/requirement
 | Dynamic port allocation | **Done** — see above |
 | OS app-data user-data path | **Done** — see above, including the `app.setName` fix |
 | `electron-builder` config: Windows NSIS, macOS/Linux **zip**, GitHub Releases publish provider | **Done** for config; **Windows-verified only** — macOS/Linux zip targets are configured (`npm run dist:mac` / `dist:linux`) but never actually built or run on those OSes from this machine |
-| `electron-updater` wired (`checkForUpdatesAndNotify` on packaged launch) | **Done**, but **unverified** — needs an actual published release to test against |
+| `electron-updater` wired (check on launch + every 4h, background download, restart-prompt on `update-downloaded`) | **Done** in code (`desktop/electron/main.js`'s `initializeAutoUpdates`). **Not yet exercised against a real update** — needs a version published via `npm run desktop:release` (see above), then a second version published to confirm an already-installed instance actually detects, downloads, and prompts to restart. |
 | Code signing | **Blocked on a real certificate.** `electron-builder` auto-detects the standard `CSC_LINK` (path/URL to a `.pfx`/`.p12`) and `CSC_KEY_PASSWORD` env vars — set them and it signs automatically, no config change needed. Nobody has provided a cert, so builds are unsigned today (confirmed in build output: `no signing info identified, signing is skipped`) and will trigger Windows SmartScreen warnings. Getting a cert (Windows EV/OV code-signing cert from a CA, or an Apple Developer ID for macOS) is a business/purchasing step, not an engineering one. |
-| App icon / branding assets | **Not done** — `desktop/build/` is a placeholder; `electron-builder` falls back to its default icon (confirmed in build output) |
+| App icon / branding assets | **Done** — `assets/brand/atlas-mark.svg` + `scripts/generate-app-icons.mjs` generate `desktop/build/icon.ico`/`icon.png`, wired into `desktop/package.json`'s `build.win.icon`/`build.mac.icon`/`build.linux.icon`. Still missing a real macOS `.icns` (needs `iconutil`, unavailable on this Windows machine). |
 | `npm run desktop:dev`/`dist` npm-workspace quirks | **Hit and fixed**: `electron-builder` couldn't auto-detect the Electron version through hoisted workspace `node_modules` (fixed with an explicit `electronVersion` field); its internal "install production dependencies" step corrupted the hoisted `node_modules` tree entirely, deleting `electron-builder` itself mid-run (fixed with `"npmRebuild": false` — desktop has no native deps needing a rebuild) |
 
 ### Known environment quirk (not a code bug)
@@ -365,7 +394,9 @@ its own sidecar, detects or assists installing Ollama, and all data stays on dev
 - [x] OS app-data user-data path wired via `ATLAS_LOCAL_DB_PATH` / `ATLAS_LOCAL_STATE_PATH` env vars
 - [ ] Signed Windows + macOS installers — blocked on a real code-signing certificate; wiring
       (`CSC_LINK`/`CSC_KEY_PASSWORD`) is ready
-- [x] Updater wired (`electron-updater` + GitHub Releases provider) — not yet exercised against a real published release
+- [x] Updater wired (`electron-updater` + GitHub Releases provider, periodic 4h check, background
+      download, restart-prompt UI) — needs `npm run desktop:release` (not plain `desktop:dist`)
+      to publish a `latest.yml` manifest before it can be exercised against a real update
 - [ ] Alembic migrations for normalized tables (once relational data is needed)
 - [x] OS-native secret storage (DPAPI / Keychain / libsecret with base64 fallback); Android
       Keystore remains for the native Android shell

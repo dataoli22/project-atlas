@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "Project Atlas API"
-    app_version: str = "0.1.0"
+    app_version: str = "0.1.1"
     environment: str = "development"
     api_v1_prefix: str = "/api/v1"
     # Nutrition is the higher-usage module day to day, so it's the default landing feature

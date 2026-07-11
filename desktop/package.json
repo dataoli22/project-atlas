@@ -1,7 +1,7 @@
 {
   "name": "@atlas/desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Atlas desktop shell (Electron) - wraps the local FastAPI sidecar and Next.js standalone server in a native window with auto-updates via GitHub Releases.",
   "author": "Project Atlas",
   "main": "electron/main.js",
@@ -10,7 +10,8 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win",
     "dist:mac": "electron-builder --mac",
-    "dist:linux": "electron-builder --linux"
+    "dist:linux": "electron-builder --linux",
+    "dist:publish": "electron-builder --win --publish always"
   },
   "devDependencies": {
     "electron": "^33.2.1",
@@ -49,7 +50,7 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "build/icon.ico"
+      "icon": "build/icon.png"
     },
     "nsis": {
       "oneClick": false,
@@ -69,7 +70,8 @@
     "publish": {
       "provider": "github",
       "owner": "dataoli22",
-      "repo": "project-atlas"
+      "repo": "project-atlas",
+      "releaseType": "release"
     }
   }
 }
