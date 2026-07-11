@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { App as CapacitorApp, type URLOpenListenerEvent } from "@capacitor/app";
 
 import {
   confirmPairing,
@@ -18,14 +19,55 @@ function sinceIso(): string {
   return new Date(Date.now() - SYNC_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 }
 
+interface DeepLinkPairing {
+  desktopBaseUrl: string;
+  code: string;
+}
+
+/**
+ * Parses the atlas://pair?host=...&port=...&code=... deep link the desktop's QR code encodes
+ * (see AndroidManifest.xml's atlas/pair intent-filter and the desktop pairing-settings-form's QR
+ * rendering). Returns null for anything else so a malformed or unrelated URL just falls through
+ * to the normal manual-entry pairing screen instead of throwing.
+ */
+function parsePairingDeepLink(url: string): DeepLinkPairing | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "atlas:" || parsed.hostname !== "pair") {
+      return null;
+    }
+    const host = parsed.searchParams.get("host");
+    const port = parsed.searchParams.get("port");
+    const code = parsed.searchParams.get("code");
+    if (!host || !port || !code) {
+      return null;
+    }
+    return { desktopBaseUrl: `${host}:${port}`, code };
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   const [pairing, setPairing] = useState<StoredPairing | null>(null);
   const [isLoadingPairing, setIsLoadingPairing] = useState(true);
+  const [deepLinkPairing, setDeepLinkPairing] = useState<DeepLinkPairing | null>(null);
 
   useEffect(() => {
     loadPairing()
       .then(setPairing)
       .finally(() => setIsLoadingPairing(false));
+
+    const listenerPromise = CapacitorApp.addListener("appUrlOpen", (event: URLOpenListenerEvent) => {
+      const parsed = parsePairingDeepLink(event.url);
+      if (parsed) {
+        setDeepLinkPairing(parsed);
+      }
+    });
+
+    return () => {
+      listenerPromise.then((listener) => listener.remove());
+    };
   }, []);
 
   if (isLoadingPairing) {
@@ -38,19 +80,37 @@ export default function App() {
       {pairing ? (
         <SyncScreen pairing={pairing} onUnpair={() => { clearPairing(); setPairing(null); }} />
       ) : (
-        <PairScreen onPaired={setPairing} />
+        <PairScreen onPaired={setPairing} deepLink={deepLinkPairing} />
       )}
     </div>
   );
 }
 
-function PairScreen({ onPaired }: { onPaired: (pairing: StoredPairing) => void }) {
-  const [desktopBaseUrl, setDesktopBaseUrl] = useState("");
-  const [code, setCode] = useState("");
+function PairScreen({
+  onPaired,
+  deepLink
+}: {
+  onPaired: (pairing: StoredPairing) => void;
+  deepLink: DeepLinkPairing | null;
+}) {
+  const [desktopBaseUrl, setDesktopBaseUrl] = useState(deepLink?.desktopBaseUrl ?? "");
+  const [code, setCode] = useState(deepLink?.code ?? "");
   const [deviceName, setDeviceName] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
+
+  useEffect(() => {
+    if (!deepLink) {
+      return;
+    }
+    setDesktopBaseUrl(deepLink.desktopBaseUrl);
+    setCode(deepLink.code);
+    // QR scan already proved the user has the pairing code and chose to pair - auto-submit
+    // rather than making them re-tap "Pair with desktop" after the fields fill themselves.
+    void pair(deepLink.desktopBaseUrl, deepLink.code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLink]);
 
   async function checkConnection() {
     setIsBusy(true);
@@ -61,12 +121,16 @@ function PairScreen({ onPaired }: { onPaired: (pairing: StoredPairing) => void }
     setIsBusy(false);
   }
 
-  async function pair() {
+  async function pair(overrideBaseUrl?: string, overrideCode?: string) {
     setIsBusy(true);
     setIsError(false);
     setStatus(null);
     try {
-      const result = await confirmPairing(desktopBaseUrl, code, deviceName || "Unnamed phone");
+      const result = await confirmPairing(
+        overrideBaseUrl ?? desktopBaseUrl,
+        overrideCode ?? code,
+        deviceName || "Unnamed phone"
+      );
       await savePairing(result);
       onPaired(result);
     } catch (error) {
@@ -122,7 +186,7 @@ function PairScreen({ onPaired }: { onPaired: (pairing: StoredPairing) => void }
 
       <button
         className="atlas-mobile-button"
-        onClick={pair}
+        onClick={() => pair()}
         disabled={isBusy || !desktopBaseUrl || !code}
       >
         {isBusy ? "Pairing..." : "Pair with desktop"}

@@ -1,0 +1,75 @@
+name: Android release
+
+# Manual trigger only, not on every push - this publishes a public, signed, installable APK to
+# GitHub Releases (the only distribution channel since Play Store is off the table), so it should
+# be a deliberate action, not something that fires on every merge to main.
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Version name for this release (e.g. 0.2.0)"
+        required: true
+
+jobs:
+  build-and-release:
+    name: Build signed APK and publish release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Build web assets and sync into Android project
+        working-directory: mobile
+        run: npm run cap:sync
+
+      - name: Decode release keystore
+        working-directory: mobile/android/app
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > atlas-release.jks
+
+      - name: Build signed release APK
+        working-directory: mobile/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Remove decoded keystore
+        if: always()
+        run: rm -f mobile/android/app/atlas-release.jks
+
+      - name: Rename APK for release
+        run: |
+          mkdir -p release-artifact
+          cp mobile/android/app/build/outputs/apk/release/app-release.apk \
+             "release-artifact/atlas-companion-${{ inputs.version_name }}.apk"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "mobile-v${{ inputs.version_name }}"
+          name: "Atlas Companion v${{ inputs.version_name }}"
+          body: |
+            Atlas Companion (Android) v${{ inputs.version_name }}
+
+            Install: download the APK below, then allow "install from unknown sources" when
+            prompted (Play Store distribution isn't used - this is a directly-signed sideload
+            build). Pair it with your desktop via Settings -> Phone pairing, either by scanning
+            the QR code shown there or entering the address/code manually.
+          files: release-artifact/atlas-companion-${{ inputs.version_name }}.apk
+          draft: false

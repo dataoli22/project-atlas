@@ -1,9 +1,31 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import QRCode from "qrcode";
 
 import type { PairedDeviceData, PairingStartData } from "@/lib/pairing-data";
 import { revokeDevice, startPairing } from "@/lib/pairing-data";
+
+// Where a phone lands if it scans the QR without the Atlas Companion app installed yet (the
+// intent:// URI's browser_fallback_url, below). Points at GitHub Releases rather than a page
+// served by this desktop over LAN, since GitHub is reachable from any network the phone has
+// data/Wi-Fi on - a locally-served fallback would only work if the phone happens to already be on
+// the same LAN as the desktop, which is often true but not guaranteed at scan time.
+const COMPANION_APK_RELEASES_URL = "https://github.com/dataoli22/project-atlas/releases/latest";
+
+/**
+ * Builds the Android "intent://" URI a QR code scan opens: if the Atlas Companion app
+ * (com.projectatlas.mobile) is installed, it launches directly into MainActivity's atlas://pair
+ * deep link (AndroidManifest.xml's atlas/pair intent-filter) with the pairing details pre-filled;
+ * if not installed, Chrome falls back to browser_fallback_url so the user can grab the APK, then
+ * re-scan (or the app deep-links automatically next time since the intent persists in the QR).
+ * This is the standard Chrome-documented pattern for "open app or fall back to install", not a
+ * custom scheme that would just fail silently with no app found.
+ */
+function buildPairingQrPayload(host: string, port: number, code: string): string {
+  const params = new URLSearchParams({ host, port: String(port), code });
+  return `intent://pair?${params.toString()}#Intent;scheme=atlas;package=com.projectatlas.mobile;S.browser_fallback_url=${encodeURIComponent(COMPANION_APK_RELEASES_URL)};end`;
+}
 
 type PairingSettingsFormProps = {
   initialDevices: PairedDeviceData[];
@@ -20,6 +42,18 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
   );
   const [isStarting, startPairTransition] = useTransition();
   const [isRevoking, startRevokeTransition] = useTransition();
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pairingCode || pairingCode.lanAddresses.length === 0) {
+      setQrDataUrl(null);
+      return;
+    }
+    const payload = buildPairingQrPayload(pairingCode.lanAddresses[0], pairingCode.port, pairingCode.code);
+    QRCode.toDataURL(payload, { margin: 1, width: 220 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(null));
+  }, [pairingCode]);
 
   function beginPairing() {
     startPairTransition(async () => {
@@ -92,6 +126,15 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
               :{pairingCode.port}
             </div>
             <div className="atlas-control-card__meta">Expires {pairingCode.expiresAt}</div>
+            {qrDataUrl ? (
+              <div className="atlas-control-card__meta">
+                <img src={qrDataUrl} alt="Scan with your phone's camera to pair" width={220} height={220} />
+                <p className="atlas-note">
+                  Scan with your phone&apos;s camera. If Atlas Companion isn&apos;t installed yet,
+                  this takes you to the app download instead - scan again once it&apos;s installed.
+                </p>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

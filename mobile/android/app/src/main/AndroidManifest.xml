@@ -23,6 +23,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- QR-code pairing deep link: the desktop's pairing screen renders a QR encoding
+                 atlas://pair?host=...&port=...&code=... - scanning it opens this activity
+                 directly (via the "intent://" Android Chrome pattern with a browser_fallback_url
+                 for when the app isn't installed yet, see the desktop-side install-landing page),
+                 skipping manual IP:port + code entry. Parsed in App.tsx via @capacitor/app's
+                 appUrlOpen listener, not here - this filter only routes the OS intent to us. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="atlas" android:host="pair" />
+            </intent-filter>
+
         </activity>
 
         <!-- Required so the Health Connect app can show Atlas as a data-reading client and
