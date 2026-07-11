@@ -423,6 +423,15 @@ desktop, and the hard iOS blocker.)
       the release's `latest.yml` references the exact uploaded asset name - the actual baseline
       going forward. `v0.1.0` remains published as a download-only artifact (its assets don't
       match a manifest, so it never offered auto-update to begin with).
+- [x] **In-app Updates panel** (`components/updates-panel.tsx`, on `/settings`): the only prior
+      visibility into update status was a native OS dialog once a download finished - nothing
+      showed current version, whether a check had run, or download progress. New IPC bridge
+      (`desktop/electron/main.js`'s `updateStatus`/`setUpdateStatus`, forwarded over
+      `atlas:update-status`; `preload.js`'s `atlasDesktop.updates`) mirrors electron-updater's
+      real state (checking/downloading/downloaded/error/up-to-date, with progress percent) into
+      the renderer, plus a manual "Check for updates" button and a "Restart and install now"
+      button once a download completes. Shows an honest explanatory note instead of a broken UI
+      when opened outside the packaged app (`window.atlasDesktop` is undefined there).
 - [x] macOS/Linux **zip** targets configured (no native installers for those platforms, per
       product decision) — config-only, never built on those OSes.
 - [ ] Signed installers — **blocked on a real code-signing certificate** (business decision, not

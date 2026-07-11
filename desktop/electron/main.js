@@ -268,17 +268,44 @@ async function createWindow(webUrl, apiBaseUrl) {
 // while the user is mid-task, and force-quitting would lose that context.
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
+// Mirrored to the renderer so the in-app Settings -> Updates page has something real to show,
+// not just a native OS dialog the user might miss. See preload.js's atlasDesktop.updates and
+// components/updates-panel.tsx.
+let updateStatus = { state: "idle", currentVersion: app.getVersion() };
+let autoUpdaterRef = null;
+
+function setUpdateStatus(patch) {
+  updateStatus = { ...updateStatus, ...patch, currentVersion: app.getVersion() };
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("atlas:update-status", updateStatus);
+  }
+}
+
 function initializeAutoUpdates() {
   const { autoUpdater } = require("electron-updater");
+  autoUpdaterRef = autoUpdater;
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
+  autoUpdater.on("checking-for-update", () => {
+    setUpdateStatus({ state: "checking", error: null });
+  });
+
   autoUpdater.on("update-available", (info) => {
-    console.log(`Atlas update available: ${info.version} (downloading in background).`);
+    setUpdateStatus({ state: "downloading", latestVersion: info.version, progressPercent: 0 });
+  });
+
+  autoUpdater.on("update-not-available", (info) => {
+    setUpdateStatus({ state: "up-to-date", latestVersion: info.version, lastCheckedAt: new Date().toISOString() });
+  });
+
+  autoUpdater.on("download-progress", (progress) => {
+    setUpdateStatus({ state: "downloading", progressPercent: Math.round(progress.percent) });
   });
 
   autoUpdater.on("update-downloaded", (info) => {
+    setUpdateStatus({ state: "downloaded", latestVersion: info.version });
     dialog
       .showMessageBox({
         type: "info",
@@ -298,6 +325,7 @@ function initializeAutoUpdates() {
 
   autoUpdater.on("error", (error) => {
     console.error("Atlas update check failed:", error);
+    setUpdateStatus({ state: "error", error: String(error?.message ?? error) });
   });
 
   autoUpdater.checkForUpdates().catch((error) => {
@@ -310,6 +338,27 @@ function initializeAutoUpdates() {
     });
   }, UPDATE_CHECK_INTERVAL_MS);
 }
+
+ipcMain.handle("atlas:get-update-status", () => updateStatus);
+ipcMain.handle("atlas:check-for-updates", async () => {
+  if (!IS_PACKAGED) {
+    return { state: "unsupported", currentVersion: app.getVersion() };
+  }
+  if (!autoUpdaterRef) {
+    return updateStatus;
+  }
+  try {
+    await autoUpdaterRef.checkForUpdates();
+  } catch (error) {
+    console.error("Atlas manual update check failed:", error);
+  }
+  return updateStatus;
+});
+ipcMain.handle("atlas:install-update", () => {
+  if (autoUpdaterRef && updateStatus.state === "downloaded") {
+    autoUpdaterRef.quitAndInstall();
+  }
+});
 
 async function startSidecarsAndShowWindow() {
   let apiPort;

@@ -4,6 +4,7 @@ import { AppLockSettingsForm } from "@/components/app-lock-settings-form";
 import { FeaturePreferencesForm } from "@/components/feature-preferences-form";
 import { PageScaffold } from "@/components/page-scaffold";
 import { DataSourceBadge, SettingsDataList } from "@/components/settings-data-list";
+import { UpdatesPanel } from "@/components/updates-panel";
 import { getAppLockSettingsData } from "@/lib/app-lock-data";
 import { getSettingsPageData } from "@/lib/settings-data";
 
@@ -73,6 +74,8 @@ export default async function SettingsPage() {
         />
 
         <AppLockSettingsForm initialSettings={appLock.data} initialSource={appLock.source} />
+
+        <UpdatesPanel />
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Profile defaults</div>

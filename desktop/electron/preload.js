@@ -22,4 +22,14 @@ contextBridge.exposeInMainWorld("atlasDesktop", {
     set: (enabled) => ipcRenderer.invoke("atlas:set-lan-pairing", enabled),
     restart: () => ipcRenderer.invoke("atlas:restart-app"),
   },
+  updates: {
+    getStatus: () => ipcRenderer.invoke("atlas:get-update-status"),
+    check: () => ipcRenderer.invoke("atlas:check-for-updates"),
+    install: () => ipcRenderer.invoke("atlas:install-update"),
+    onStatusChange: (callback) => {
+      const listener = (_event, status) => callback(status);
+      ipcRenderer.on("atlas:update-status", listener);
+      return () => ipcRenderer.removeListener("atlas:update-status", listener);
+    },
+  },
 });
