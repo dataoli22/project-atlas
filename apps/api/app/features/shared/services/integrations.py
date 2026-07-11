@@ -283,41 +283,16 @@ class HealthConnectIntegrationAdapter(IntegrationAdapter):
         )
 
     def sync(self) -> IntegrationOperationResult:
-        current = next(item for item in shared_state.get_integrations() if item.key == self.source)
-        if not current.connected:
-            raise ValueError("Connect the integration before running a sync.")
-        integration = shared_state.store_health_connect_sync(
-            recent_sessions=[
-                {
-                    "session_label": "Health Connect steady run",
-                    "session_type": "Run",
-                    "duration_minutes": 52,
-                    "distance_km": 8.6,
-                    "start_date": "2026-07-09T06:10:00Z",
-                    "source": "health-connect-live",
-                },
-                {
-                    "session_label": "Health Connect walk",
-                    "session_type": "Walk",
-                    "duration_minutes": 34,
-                    "distance_km": 2.8,
-                    "start_date": "2026-07-08T18:25:00Z",
-                    "source": "health-connect-live",
-                },
-            ],
-            hydration_ml=2400,
-            body_weight_kg=69.8,
-            step_count=10840,
-            active_energy_kcal=684,
-            bridge_source="local-stub",
-        )
-        return IntegrationOperationResult(
-            integration=integration,
-            launch_url=None,
-            local_only_notice=(
-                "Health Connect is still running on local stubbed device data, but the runtime contract now carries "
-                "session history, hydration, body-weight, steps, and active-energy fields for the packaged Android adapter."
-            ),
+        # Unlike Strava (a desktop-initiated pull against a cloud API), Health Connect only
+        # exists on the phone - there is nothing for the desktop to pull from. Real data arrives
+        # exclusively via POST /health_connect/device-sync, pushed by the paired Android app's
+        # "Sync Health Connect" button (mobile/src/App.tsx). This method used to fabricate two
+        # canned sessions labeled "health-connect-live" on every call, which looked like real data
+        # but never reflected anything the user's phone actually recorded. Raising here instead
+        # surfaces the real requirement instead of quietly lying.
+        raise ValueError(
+            "Health Connect data only syncs from the paired phone app, not from the desktop. "
+            "Pair a phone under Settings -> Phone pairing, then tap \"Sync Health Connect\" there."
         )
 
 
@@ -346,41 +321,12 @@ class SamsungHealthIntegrationAdapter(IntegrationAdapter):
         )
 
     def sync(self) -> IntegrationOperationResult:
-        current = next(item for item in shared_state.get_integrations() if item.key == self.source)
-        if not current.connected:
-            raise ValueError("Connect the integration before running a sync.")
-        integration = shared_state.store_samsung_health_sync(
-            recent_sessions=[
-                {
-                    "session_label": "Samsung Health recovery walk",
-                    "session_type": "Walk",
-                    "duration_minutes": 28,
-                    "distance_km": 2.1,
-                    "start_date": "2026-07-09T19:00:00Z",
-                    "source": "samsung-health-live",
-                },
-                {
-                    "session_label": "Samsung Health mobility",
-                    "session_type": "Mobility",
-                    "duration_minutes": 22,
-                    "distance_km": 0.0,
-                    "start_date": "2026-07-08T20:00:00Z",
-                    "source": "samsung-health-live",
-                },
-            ],
-            sleep_hours=7.4,
-            resting_hr=52,
-            energy_score=82,
-            stress_level="Low",
-            bridge_source="local-stub",
-        )
-        return IntegrationOperationResult(
-            integration=integration,
-            launch_url=None,
-            local_only_notice=(
-                "Samsung Health remains on a local SDK-consent stub for now. The runtime contract now tracks granted "
-                "consent, device label, supported metric coverage, and richer recovery fields for the packaged app handoff."
-            ),
+        # Same reasoning as HealthConnectIntegrationAdapter.sync() above: Samsung Health only
+        # exists on the phone, so there's nothing for the desktop to pull. Real data arrives via
+        # POST /samsung_health/device-sync from the paired app's "Sync Samsung Health" button.
+        raise ValueError(
+            "Samsung Health data only syncs from the paired phone app, not from the desktop. "
+            "Pair a phone under Settings -> Phone pairing, then tap \"Sync Samsung Health\" there."
         )
 
 

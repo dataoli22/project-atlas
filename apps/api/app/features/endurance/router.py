@@ -21,12 +21,15 @@ router = APIRouter()
 
 class EnduranceStatus(BaseModel):
     feature: str = "endurance"
-    status: str = "placeholder"
+    # Describes the shared metric contract shapes this feature exposes, not a live subsystem
+    # health check - "placeholder" previously implied the endpoint itself was unimplemented, when
+    # it's always returned real, working data. "available" reflects what this actually reports.
+    status: str = "available"
     shared_contracts: dict[str, dict[str, str]]
 
 
 @router.get("", response_model=EnduranceStatus)
-def read_endurance_placeholder() -> EnduranceStatus:
+def read_endurance_status() -> EnduranceStatus:
     return EnduranceStatus(
         shared_contracts={
             "hydration": HydrationMetric(amount=500, unit="ml").model_dump(),

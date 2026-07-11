@@ -486,14 +486,24 @@ export function IntegrationConnectForm({
             >
               {isPending ? "Working..." : selected.ctaLabel}
             </button>
-            <button
-              type="button"
-              className="atlas-button"
-              onClick={syncSelected}
-              disabled={isPending || !selected.connected}
-            >
-              {selected.key === "strava" ? "Run live sync" : "Run stub sync"}
-            </button>
+            {selected.key === "strava" ? (
+              <button
+                type="button"
+                className="atlas-button"
+                onClick={syncSelected}
+                disabled={isPending || !selected.connected}
+              >
+                Run live sync
+              </button>
+            ) : (
+              // Health Connect and Samsung Health only exist on the phone - there's nothing for
+              // the desktop to pull, unlike Strava's cloud API. Real data arrives by pairing a
+              // phone (Settings -> Phone pairing) and tapping "Sync Health Connect"/"Sync Samsung
+              // Health" there (mobile/src/App.tsx). No desktop-side sync button for these two.
+              <p className="atlas-note">
+                Syncs from the paired phone app, not from here - see Phone pairing below.
+              </p>
+            )}
             {selected.key === "strava" ? (
               <button
                 type="button"

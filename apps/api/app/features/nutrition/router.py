@@ -33,12 +33,14 @@ router = APIRouter()
 
 class NutritionStatus(BaseModel):
     feature: str = "nutrition"
-    status: str = "placeholder"
+    # Same reasoning as EnduranceStatus.status - this reports the shared metric contract shapes,
+    # not a live health check, and has always returned real data.
+    status: str = "available"
     shared_contracts: dict[str, dict[str, str]]
 
 
 @router.get("", response_model=NutritionStatus)
-def read_nutrition_placeholder() -> NutritionStatus:
+def read_nutrition_status() -> NutritionStatus:
     return NutritionStatus(
         shared_contracts={
             "hydration": HydrationMetric(amount=2000, unit="ml").model_dump(),

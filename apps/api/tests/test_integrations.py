@@ -521,13 +521,20 @@ def test_integrations_payload_exposes_strava_runtime_summary_after_sync(client, 
 
 
 def test_sync_requires_connected_integration(client):
-    response = client.post("/api/v1/integrations/health_connect/sync")
+    # Strava is the only integration with a real desktop-initiated "pull" sync (it calls out to
+    # Strava's API), so it's the one that still has a real precondition to fail on. Health
+    # Connect/Samsung Health always reject desktop-triggered sync now - see the next test.
+    response = client.post("/api/v1/integrations/strava/sync")
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Connect the integration before running a sync."
+    assert response.json()["detail"] == "Exchange Strava tokens before running a live sync."
 
 
-def test_connect_and_sync_health_connect_tracks_last_sync(client):
+def test_health_connect_sync_endpoint_rejects_desktop_pull(client):
+    # Health Connect only exists on the phone - there is nothing for the desktop to pull, so this
+    # endpoint always rejects regardless of connection state, pointing the user at the real path
+    # (pair a phone, sync from there). Real data arrives via device-sync - see
+    # test_health_connect_device_sync_imports_sdk_records.
     connect_response = client.post(
         "/api/v1/integrations/health_connect/connect",
         json={"account_label": "Pixel 10 Pro"},
@@ -535,21 +542,8 @@ def test_connect_and_sync_health_connect_tracks_last_sync(client):
     assert connect_response.status_code == 200
 
     sync_response = client.post("/api/v1/integrations/health_connect/sync")
-    assert sync_response.status_code == 200
-
-    payload = sync_response.json()
-    assert payload["integration"]["connected"] is True
-    assert payload["integration"]["status"] == "sync-live"
-    assert payload["integration"]["last_sync_at"] is not None
-    assert payload["integration"]["runtime_summary"]["permission_granted"] is True
-    assert payload["integration"]["runtime_summary"]["connected_device_label"] == "Pixel 10 Pro"
-    assert payload["integration"]["runtime_summary"]["last_permission_at"] is not None
-    assert payload["integration"]["runtime_summary"]["synced_session_count"] == 2
-    assert payload["integration"]["runtime_summary"]["hydration_ml"] == 2400
-    assert payload["integration"]["runtime_summary"]["body_weight_kg"] == 69.8
-    assert payload["integration"]["runtime_summary"]["step_count"] == 10840
-    assert payload["integration"]["runtime_summary"]["active_energy_kcal"] == 684
-    assert payload["integration"]["runtime_summary"]["sync_mode"] == "permissions-local-stub"
+    assert sync_response.status_code == 400
+    assert "paired phone app" in sync_response.json()["detail"]
 
 
 def test_health_connect_device_sync_imports_sdk_records(client):
@@ -603,16 +597,12 @@ def test_samsung_health_connect_exposes_local_sdk_runtime_summary(client):
     assert payload["integration"]["runtime_summary"]["last_consent_at"] is not None
     assert payload["integration"]["runtime_summary"]["supported_metric_count"] == 5
 
+    # Same reasoning as health_connect: Samsung Health only exists on the phone, so
+    # desktop-triggered sync always rejects. Real data arrives via device-sync - see
+    # test_samsung_health_device_sync_imports_sdk_records.
     sync_response = client.post("/api/v1/integrations/samsung_health/sync")
-    assert sync_response.status_code == 200
-    sync_payload = sync_response.json()
-    assert sync_payload["integration"]["status"] == "sync-live"
-    assert sync_payload["integration"]["runtime_summary"]["sync_mode"] == "sdk-local-stub"
-    assert sync_payload["integration"]["runtime_summary"]["synced_session_count"] == 2
-    assert sync_payload["integration"]["runtime_summary"]["sleep_hours"] == 7.4
-    assert sync_payload["integration"]["runtime_summary"]["resting_hr"] == 52
-    assert sync_payload["integration"]["runtime_summary"]["energy_score"] == 82
-    assert sync_payload["integration"]["runtime_summary"]["stress_level"] == "Low"
+    assert sync_response.status_code == 400
+    assert "paired phone app" in sync_response.json()["detail"]
 
 
 def test_samsung_health_device_sync_imports_sdk_records(client):
@@ -654,16 +644,33 @@ def test_samsung_health_device_sync_imports_sdk_records(client):
 
 
 def test_integrations_payload_exposes_richer_device_runtime_summaries(client):
+    # Richer device runtime summaries now come from the real device-sync path (what the paired
+    # phone app actually posts), not the desktop-only /sync endpoint, which never populates these
+    # fields for Health Connect/Samsung Health anymore.
     client.post(
-        "/api/v1/integrations/health_connect/connect",
-        json={"account_label": "Pixel 10 Pro"},
+        "/api/v1/integrations/health_connect/device-sync",
+        json={
+            "device_label": "Pixel 10 Pro",
+            "bridge_source": "health-connect-sdk",
+            "recent_sessions": [],
+            "hydration_ml": 2400,
+            "body_weight_kg": 69.8,
+            "step_count": 10840,
+            "active_energy_kcal": 684,
+        },
     )
-    client.post("/api/v1/integrations/health_connect/sync")
     client.post(
-        "/api/v1/integrations/samsung_health/connect",
-        json={"account_label": "Galaxy Watch Ultra"},
+        "/api/v1/integrations/samsung_health/device-sync",
+        json={
+            "device_label": "Galaxy Watch Ultra",
+            "bridge_source": "samsung-health-sdk",
+            "recent_sessions": [],
+            "sleep_hours": 7.4,
+            "resting_hr": 52,
+            "energy_score": 82,
+            "stress_level": "Low",
+        },
     )
-    client.post("/api/v1/integrations/samsung_health/sync")
 
     response = client.get("/api/v1/integrations")
 
@@ -674,24 +681,19 @@ def test_integrations_payload_exposes_richer_device_runtime_summaries(client):
 
     assert health_connect["runtime_summary"]["permission_granted"] is True
     assert health_connect["runtime_summary"]["connected_device_label"] == "Pixel 10 Pro"
-    assert health_connect["runtime_summary"]["last_permission_at"] is not None
     assert health_connect["runtime_summary"]["hydration_ml"] == 2400
     assert health_connect["runtime_summary"]["body_weight_kg"] == 69.8
     assert health_connect["runtime_summary"]["step_count"] == 10840
     assert health_connect["runtime_summary"]["active_energy_kcal"] == 684
-    assert health_connect["runtime_summary"]["synced_session_count"] == 2
-    assert health_connect["runtime_summary"]["sync_mode"] == "permissions-local-stub"
+    assert health_connect["runtime_summary"]["sync_mode"] == "device-sdk-bridge"
 
     assert samsung_health["runtime_summary"]["consent_granted"] is True
     assert samsung_health["runtime_summary"]["connected_device_label"] == "Galaxy Watch Ultra"
-    assert samsung_health["runtime_summary"]["last_consent_at"] is not None
-    assert samsung_health["runtime_summary"]["supported_metric_count"] == 5
     assert samsung_health["runtime_summary"]["sleep_hours"] == 7.4
     assert samsung_health["runtime_summary"]["resting_hr"] == 52
     assert samsung_health["runtime_summary"]["energy_score"] == 82
     assert samsung_health["runtime_summary"]["stress_level"] == "Low"
-    assert samsung_health["runtime_summary"]["synced_session_count"] == 2
-    assert samsung_health["runtime_summary"]["sync_mode"] == "sdk-local-stub"
+    assert samsung_health["runtime_summary"]["sync_mode"] == "device-sdk-bridge"
 
 
 def test_disconnect_resets_integration_state(client):

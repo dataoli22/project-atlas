@@ -54,10 +54,69 @@ def test_endurance_routes_aggregate_all_three_connector_sources(client, monkeypa
         client.post("/api/v1/integrations/strava/callback", json={"code": "temporary-auth-code", "state": state_value})
         client.post("/api/v1/integrations/strava/token-exchange")
         client.post("/api/v1/integrations/strava/sync")
+        # Health Connect/Samsung Health no longer support a desktop-triggered "sync" (they only
+        # exist on the phone) - device-sync is the real path a paired phone app posts through,
+        # so that's what feeds the combined multi-source aggregation now.
         client.post("/api/v1/integrations/health_connect/connect", json={"account_label": "Pixel 10 Pro"})
-        client.post("/api/v1/integrations/health_connect/sync")
+        client.post(
+            "/api/v1/integrations/health_connect/device-sync",
+            json={
+                "device_label": "Pixel 10 Pro",
+                "bridge_source": "health-connect-sdk",
+                "recent_sessions": [
+                    {
+                        "session_label": "Health Connect steady run",
+                        "session_type": "Run",
+                        "duration_minutes": 52,
+                        "distance_km": 8.6,
+                        "start_date": "2026-07-09T06:10:00Z",
+                        "source": "health-connect-live",
+                    },
+                    {
+                        "session_label": "Health Connect walk",
+                        "session_type": "Walk",
+                        "duration_minutes": 34,
+                        "distance_km": 2.8,
+                        "start_date": "2026-07-08T18:25:00Z",
+                        "source": "health-connect-live",
+                    },
+                ],
+                "hydration_ml": 2400,
+                "body_weight_kg": 69.8,
+                "step_count": 10840,
+                "active_energy_kcal": 684,
+            },
+        )
         client.post("/api/v1/integrations/samsung_health/connect", json={"account_label": "Galaxy Watch Ultra"})
-        client.post("/api/v1/integrations/samsung_health/sync")
+        client.post(
+            "/api/v1/integrations/samsung_health/device-sync",
+            json={
+                "device_label": "Galaxy Watch Ultra",
+                "bridge_source": "samsung-health-sdk",
+                "recent_sessions": [
+                    {
+                        "session_label": "Samsung Health recovery walk",
+                        "session_type": "Walk",
+                        "duration_minutes": 28,
+                        "distance_km": 2.1,
+                        "start_date": "2026-07-09T19:00:00Z",
+                        "source": "samsung-health-live",
+                    },
+                    {
+                        "session_label": "Samsung Health mobility",
+                        "session_type": "Mobility",
+                        "duration_minutes": 22,
+                        "distance_km": 0.0,
+                        "start_date": "2026-07-08T20:00:00Z",
+                        "source": "samsung-health-live",
+                    },
+                ],
+                "sleep_hours": 7.4,
+                "resting_hr": 52,
+                "energy_score": 82,
+                "stress_level": "Low",
+            },
+        )
     finally:
         get_settings.cache_clear()
 
