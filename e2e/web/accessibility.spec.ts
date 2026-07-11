@@ -13,7 +13,8 @@ const ROUTES = [
   "/shopping",
   "/planner",
   "/ask",
-  "/settings"
+  "/settings",
+  "/settings/setup"
 ];
 
 test.describe("accessibility smoke", () => {

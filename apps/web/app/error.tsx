@@ -31,7 +31,7 @@ export default function GlobalRouteError({
         <button type="button" className="atlas-chip atlas-chip--active" onClick={reset}>
           Try again
         </button>
-        <a href="/dashboard" className="atlas-chip">
+        <a href="/nutrition" className="atlas-chip">
           Back to dashboard
         </a>
       </div>

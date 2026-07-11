@@ -20,11 +20,10 @@ import {
 // surface (sidebar, mobile nav, feature switcher) stays visually consistent without redefining
 // the mapping three times.
 export const ROUTE_ICONS: Record<string, LucideIcon> = {
-  "/": Home,
   "/dashboard": LayoutDashboard,
   "/ask": MessageCircle,
   "/settings": Settings,
-  "/onboarding": ClipboardList,
+  "/settings/setup": ClipboardList,
   "/planner": CalendarRange,
   "/shopping": ShoppingCart,
   "/cooking": ChefHat,

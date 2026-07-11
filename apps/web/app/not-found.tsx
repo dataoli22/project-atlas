@@ -13,7 +13,7 @@ export default function NotFound() {
         </p>
       </div>
       <div className="atlas-error-panel__actions">
-        <Link href="/dashboard" className="atlas-chip atlas-chip--active">
+        <Link href="/nutrition" className="atlas-chip atlas-chip--active">
           Back to dashboard
         </Link>
       </div>

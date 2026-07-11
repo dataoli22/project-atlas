@@ -1,11 +1,12 @@
 import { PageScaffold } from "@/components/page-scaffold";
 import { PlaceholderPanels } from "@/components/placeholder-panels";
+import { SettingsTabs } from "@/components/settings-tabs";
 
 export default function TrackingSettingsPage() {
   return (
     <PageScaffold
-      eyebrow="Endurance settings"
-      title="Tracking field configuration placeholder"
+      eyebrow="Settings"
+      title="Tracking fields"
       description="The tracking settings route is ready for toggling optional manual log fields and preserving the schema-flexible approach called for in the endurance PRD."
       tags={["Tracking", "Optional fields", "Configurable schema"]}
       metrics={[
@@ -14,6 +15,7 @@ export default function TrackingSettingsPage() {
         { label: "Primary use", value: "Personal tailoring" }
       ]}
     >
+      <SettingsTabs />
       <PlaceholderPanels
         primaryLabel="Field toggles"
         primaryText="Optional inputs like load carriage, terrain, altitude, and mobility work can be enabled here."

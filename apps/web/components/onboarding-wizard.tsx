@@ -64,7 +64,7 @@ export function OnboardingWizard({ initialProfile, initialLocalization, markets 
       // "false" value still in the already-rendered layout. window.location.assign forces a
       // real page load, so the layout's server fetch is guaranteed to run fresh against the
       // now-updated backend state.
-      window.location.assign("/planner");
+      window.location.assign("/nutrition");
     });
   }
 

@@ -38,9 +38,9 @@ export default async function NutritionPage() {
   return (
     <PageScaffold
       eyebrow="Nutrition module"
-      title="Nutrition and cooking snapshot"
-      description="This summary now reads from the same weekly nutrition contract as planner, shopping, and cooking. It keeps budget, targets, prep cadence, and swap logic in one place so the feature behaves like a real module instead of a placeholder."
-      tags={["Nutrition summary", "Cooking cadence", "Budget-aware"]}
+      title="Dashboard"
+      description="A single view of this week's plan: budget, targets, prep cadence, and swap logic, reading from the same weekly nutrition contract as planner, shopping, and cooking."
+      tags={["Dashboard", "Cooking cadence", "Budget-aware"]}
       metrics={[
         { label: "Calories", value: `${planner.nutritionTargets.calories}` },
         { label: "Protein", value: `${planner.nutritionTargets.proteinGrams} g` },

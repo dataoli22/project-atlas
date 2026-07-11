@@ -128,24 +128,25 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
       `AppPreferencesUpdate` - set exactly once via a dedicated
       `POST /api/v1/app/onboarding/complete`, so a routine preference change can never
       accidentally reset it). `<OnboardingGate>` (`components/onboarding-gate.tsx`) wraps the
-      shell layout and redirects to `/onboarding` until the flag is set, exempting `/settings`
-      so a user can detour into Settings → Integrations mid-flow without the gate bouncing them
-      back to step one. `/onboarding` is now a real 4-step wizard
-      (`components/onboarding-wizard.tsx`: Welcome → Profile & plan → Connect providers →
-      Finish) instead of a flat settings page - the "Connect providers" step lists
-      Strava/Health Connect/Samsung Health with a link into Settings and a prominent "Skip for
-      now", matching the product decision that providers stay entirely optional. Nutrition is
-      genuinely live from day one without any connector: the profile/market captured in step 2
-      feeds the same deterministic blueprint generation already used everywhere
-      (`nutrition/service.py`), verified live end-to-end (`GET /nutrition/planner` reflects the
-      onboarding-entered market/cuisine immediately). Endurance still needs a connector for real
-      data (shows illustrative stub content otherwise) - inherent to having no wearable/manual
-      entry, not something onboarding alone can fix, and out of scope for this pass. The finish
-      step uses a hard `window.location.assign` navigation, not `router.push`: the shell
-      layout's `OnboardingGate` reads its flag from a server-fetched prop, and Next.js layouts
-      persist across client-side navigation, so a plain push (even preceded by `router.refresh()`,
-      which races the navigation) could land back on `/onboarding` with the stale value still
-      rendered - found by testing the actual click-through, not just the API call succeeding.
+      shell layout and redirects to `/settings/setup` until the flag is set, exempting
+      `/settings` so a user can detour into Settings → Integrations mid-flow without the gate
+      bouncing them back to step one. The wizard (`components/onboarding-wizard.tsx`: Welcome →
+      Profile & plan → Connect providers → Finish) now lives at `/settings/setup` (moved there
+      during the section-10 IA collapse below, was a standalone `/onboarding` route originally)
+      - the "Connect providers" step lists Strava/Health Connect/Samsung Health with a link into
+      Settings and a prominent "Skip for now", matching the product decision that providers stay
+      entirely optional. Nutrition is genuinely live from day one without any connector: the
+      profile/market captured in step 2 feeds the same deterministic blueprint generation
+      already used everywhere (`nutrition/service.py`), verified live end-to-end
+      (`GET /nutrition/planner` reflects the onboarding-entered market/cuisine immediately).
+      Endurance still needs a connector for real data (shows illustrative stub content
+      otherwise) - inherent to having no wearable/manual entry, not something onboarding alone
+      can fix, and out of scope for this pass. The finish step uses a hard
+      `window.location.assign` navigation, not `router.push`: the shell layout's
+      `OnboardingGate` reads its flag from a server-fetched prop, and Next.js layouts persist
+      across client-side navigation, so a plain push (even preceded by `router.refresh()`, which
+      races the navigation) could land back on the gate with the stale value still rendered -
+      found by testing the actual click-through, not just the API call succeeding.
       3 new tests (`test_onboarding.py`).
 
 ## 4. AI runtime (Ollama + cloud-first) — P0/P1 — MOSTLY DONE
@@ -450,6 +451,26 @@ desktop, and the hard iOS blocker.)
 
 ## 10. Frontend hardening — P1 — PARTIAL
 
+- [x] **IA collapse: each module owns its Dashboard, Settings becomes a single tabbed hub.**
+      "Shared shell" nav previously had 4 items (Overview, Dashboard, Ask Atlas, Settings) plus
+      Nutrition/Endurance each carrying their own settings-adjacent items (Onboarding,
+      Integrations, Tracking fields) - too many top-level destinations for what's conceptually
+      one thing. Collapsed to: **Shared shell = Ask Atlas + Settings only.** Settings is now a
+      tabbed hub (`<SettingsTabs>`, real `Link`-based navigation so each tab stays a real
+      deep-linkable server-rendered page, not client-only tab state) covering Overview
+      (`/settings`), Setup (`/settings/setup` - the onboarding wizard, now also reachable anytime
+      to edit profile/market/providers, not just on first run), Integrations
+      (`/settings/integrations`), and Tracking fields (`/settings/tracking`). Nutrition's old
+      "Nutrition summary" page at `/nutrition` is now labeled **Dashboard** and is the module's
+      default landing page (`featureOptions` href updated); Endurance's `/dashboard` - previously
+      filed under "Shared shell" despite being endurance-specific content - moved into the
+      Endurance nav group where it always semantically belonged. The old placeholder-only `/`
+      route (literal "Desktop shell placeholder" / "Mobile shell placeholder" dashed boxes, never
+      real content) now redirects to `/nutrition`. Updated `error.tsx`/`not-found.tsx`'s "Back to
+      dashboard" links and the onboarding wizard's finish-navigation target accordingly (both
+      pointed at the now-endurance-only `/dashboard` or the removed `/onboarding`/`/planner`
+      routes). 23 e2e tests passing (added `/settings/setup` to the accessibility/responsive
+      smoke suite).
 - [x] **Visual polish pass, dashboard as the reference implementation**: the UI was flat text
       everywhere (dt/dd rows, and a dashed "not implemented yet" placeholder style
       (`.atlas-placeholder`) wrongly wrapping real, already-loaded content on the dashboard and

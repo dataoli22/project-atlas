@@ -3,6 +3,7 @@ import { IntegrationConnectForm } from "@/components/integration-connect-form";
 import { PageScaffold } from "@/components/page-scaffold";
 import { PairingSettingsForm } from "@/components/pairing-settings-form";
 import { SearchSettingsForm } from "@/components/search-settings-form";
+import { SettingsTabs } from "@/components/settings-tabs";
 import { DataSourceBadge } from "@/components/settings-data-list";
 import { getPairedDevices } from "@/lib/pairing-data";
 import { getAISettingsData, getIntegrationSourcesData, getSearchSettingsData } from "@/lib/settings-data";
@@ -17,9 +18,9 @@ export default async function IntegrationsSettingsPage() {
 
   return (
     <PageScaffold
-      eyebrow="Shared integrations"
-      title="On-device AI and connector runtime"
-      description="This route now manages Atlas as a self-contained local app: Ollama stays the default fully local provider, optional Groq remains device-configured only, and you can test local Ollama reachability here before saving runtime changes."
+      eyebrow="Settings"
+      title="Integrations"
+      description="On-device AI runtime and connector settings: Ollama stays the default fully local provider, optional Groq remains device-configured only, and you can test local Ollama reachability here before saving runtime changes."
       tags={["Ollama", "Groq", "Local-first", "Device-only keys"]}
       metrics={[
         { label: "Default provider", value: ai.data.defaultProvider },
@@ -27,6 +28,7 @@ export default async function IntegrationsSettingsPage() {
         { label: "Prompt style", value: ai.data.systemPromptStyle }
       ]}
     >
+      <SettingsTabs />
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Runtime posture</div>

@@ -8,12 +8,12 @@ type OnboardingGateProps = {
   children: ReactNode;
 };
 
-const ONBOARDING_PATH = "/onboarding";
-// Settings is reachable mid-onboarding on purpose: the "connect a health provider" step links
-// here (Strava/Health Connect/Samsung Health OAuth are real flows, not worth re-embedding inside
-// the wizard), and a user should be able to detour into Settings and come back without the gate
-// bouncing them straight back to step one.
-const EXEMPT_PATH_PREFIXES = [ONBOARDING_PATH, "/settings"];
+// The setup wizard now lives inside the Settings hub (Settings -> Setup tab) rather than a
+// standalone /onboarding route, so both the redirect target and the exemption are just
+// "/settings" - a user can detour into any Settings tab (e.g. to connect a health provider via
+// Integrations) mid-onboarding without the gate bouncing them back to step one.
+const ONBOARDING_PATH = "/settings/setup";
+const EXEMPT_PATH_PREFIXES = ["/settings"];
 
 export function OnboardingGate({ hasCompletedOnboarding, children }: OnboardingGateProps) {
   const pathname = usePathname();

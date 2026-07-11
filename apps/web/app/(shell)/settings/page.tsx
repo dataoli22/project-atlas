@@ -1,8 +1,7 @@
-import Link from "next/link";
-
 import { AppLockSettingsForm } from "@/components/app-lock-settings-form";
 import { FeaturePreferencesForm } from "@/components/feature-preferences-form";
 import { PageScaffold } from "@/components/page-scaffold";
+import { SettingsTabs } from "@/components/settings-tabs";
 import { DataSourceBadge, SettingsDataList } from "@/components/settings-data-list";
 import { UpdatesPanel } from "@/components/updates-panel";
 import { getAppLockSettingsData } from "@/lib/app-lock-data";
@@ -20,16 +19,17 @@ export default async function SettingsPage() {
 
   return (
     <PageScaffold
-      eyebrow="Shared settings"
-      title="Global Atlas settings"
-      description="This shared route now reads shared feature state, profile defaults, localization, and market options from the scaffolded API layer, while keeping stub fallbacks isolated in one frontend module."
-      tags={["Shared settings", "Locale", "Feature state"]}
+      eyebrow="Settings"
+      title="Overview"
+      description="Everything Atlas-wide in one place: feature visibility, app lock, updates, and a read-only snapshot of your profile, market, and localization. Edit profile/market/providers under Setup, connectors under Integrations."
+      tags={["Settings", "Locale", "Feature state"]}
       metrics={[
         { label: "Active workspace", value: activeFeature?.label ?? "Atlas shell" },
         { label: "Enabled features", value: settings.appPreferences.data.enabledFeatureFlags.length.toString() },
         { label: "Shared locale", value: settings.localization.data.locale }
       ]}
     >
+      <SettingsTabs />
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Shared preferences preview</div>
@@ -125,21 +125,6 @@ export default async function SettingsPage() {
               }
             ]}
           />
-        </section>
-
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Shared preferences</div>
-          <div className="atlas-list">
-            <Link href="/settings/integrations" className="atlas-nav-link atlas-nav-link--active">
-              Endurance integrations
-            </Link>
-            <Link href="/settings/tracking" className="atlas-nav-link atlas-nav-link--active">
-              Endurance tracking fields
-            </Link>
-            <Link href="/onboarding" className="atlas-nav-link atlas-nav-link--active">
-              Nutrition onboarding and market defaults
-            </Link>
-          </div>
         </section>
 
         <section className="atlas-panel atlas-stack">
