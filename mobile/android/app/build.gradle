@@ -17,10 +17,35 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Release signing reads from env vars (CI: GitHub Actions secrets ANDROID_KEYSTORE_BASE64/
+    // ANDROID_KEYSTORE_PASSWORD/ANDROID_KEY_ALIAS/ANDROID_KEY_PASSWORD, decoded to
+    // app/atlas-release.jks by the release workflow before this runs) rather than being hardcoded,
+    // so the keystore password is never committed. Local debug builds don't need this - only
+    // `assembleRelease`/`bundleRelease` reference this signingConfig. Falls back to no signing
+    // config (an unsigned build) when the env vars aren't set, so `assembleDebug` and plain local
+    // `assembleRelease` runs (e.g. this session's earlier verification builds) keep working
+    // without requiring every contributor to have the release keystore.
+    def releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH") ?: "atlas-release.jks"
+    def hasReleaseSigningEnv = System.getenv("ANDROID_KEYSTORE_BASE64") != null
+
+    if (hasReleaseSigningEnv) {
+        signingConfigs {
+            release {
+                storeFile file(releaseKeystorePath)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigningEnv) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     compileOptions {

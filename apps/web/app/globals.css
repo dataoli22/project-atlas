@@ -242,7 +242,17 @@ textarea {
 }
 
 .atlas-grid--hero {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  /* Full-width, stacked-by-default: narrow auto-fit columns (220px) squeezed every panel into a
+     tall, cramped strip where sentences wrapped every few words. Panels read left-to-right across
+     the full content width instead; multi-column only kicks in on displays wide enough that two
+     full-size panels still have breathing room. */
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1400px) {
+  .atlas-grid--hero {
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  }
 }
 
 .atlas-panel {
