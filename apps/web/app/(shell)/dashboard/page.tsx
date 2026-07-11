@@ -1,5 +1,6 @@
 import type { EnduranceSupportLink, EnduranceSupportResourceType } from "@atlas/shared";
 
+import { CapabilityBarChart } from "@/components/capability-bar-chart";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { EmptyState } from "@/components/empty-state";
 import { MedicalFlagBanner } from "@/components/medical-flag-banner";
@@ -37,12 +38,13 @@ export default async function DashboardPage() {
   return (
     <PageScaffold
       eyebrow="Endurance module"
-      title="Capability dashboard stub"
-      description="This page now pulls typed stub dashboard data through a modular data access layer, so the screen can later switch to real API responses without changing the UI structure."
-      tags={["Endurance", "Stub API", "Replaceable data contract"]}
+      title="Capability dashboard"
+      description="A snapshot of your latest workout, training timeline, and capability trend, grounded in whichever connectors you've synced."
+      tags={["Endurance", "Capability", "Coaching"]}
       metrics={dashboard.cards.map((card) => ({
         label: card.label,
-        value: card.value
+        value: card.value,
+        trend: card.trend
       }))}
     >
       <DataSourceBanner source={source} />
@@ -50,22 +52,28 @@ export default async function DashboardPage() {
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <RefreshButton />
       </div>
-      <div className="atlas-grid atlas-grid--hero">
+      <div className="atlas-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(340px, 100%), 1fr))" }}>
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Latest workout</div>
           <h2 className="atlas-panel__title" style={{ fontSize: "1.25rem" }}>
             {dashboard.latestWorkout.title}
           </h2>
-          <div className="atlas-list">
-            <div className="atlas-placeholder">{dashboard.latestWorkout.duration}</div>
-            <div className="atlas-placeholder">{dashboard.latestWorkout.distance}</div>
+          <div className="atlas-stat-grid">
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Duration</div>
+              <div className="atlas-stat__value">{dashboard.latestWorkout.duration}</div>
+            </div>
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Distance</div>
+              <div className="atlas-stat__value">{dashboard.latestWorkout.distance}</div>
+            </div>
           </div>
         </section>
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Coach summary</div>
-          <div className="atlas-placeholder">{dashboard.coachSummary}</div>
+          <p className="atlas-note">{dashboard.coachSummary}</p>
           <div className="atlas-panel__eyebrow">Recovery note</div>
-          <div className="atlas-placeholder">{dashboard.latestWorkout.recoveryNote}</div>
+          <p className="atlas-note">{dashboard.latestWorkout.recoveryNote}</p>
         </section>
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Training timeline</div>
@@ -75,9 +83,9 @@ export default async function DashboardPage() {
               note="Connect Strava, Health Connect, or Samsung Health in Settings to start seeing training sessions here."
             />
           ) : (
-            <div className="atlas-stack">
+            <div className="atlas-timeline">
               {timeline.entries.map((entry) => (
-                <div key={`${entry.dayLabel}-${entry.sessionLabel}`} className="atlas-list-card">
+                <div key={`${entry.dayLabel}-${entry.sessionLabel}`} className="atlas-timeline__entry">
                   <div className="atlas-list-card__title">
                     {entry.dayLabel} | {entry.sessionLabel}
                   </div>
@@ -92,22 +100,19 @@ export default async function DashboardPage() {
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Capability snapshot</div>
           <p className="atlas-note">{insights.capability.headline}</p>
-          <dl className="atlas-detail-list">
-            {insights.capability.areas.map((area) => (
-              <div key={area.label} className="atlas-detail-list__row">
-                <dt>{area.label}</dt>
-                <dd>
-                  {area.score} | {area.direction}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <CapabilityBarChart areas={insights.capability.areas} />
           <div className="atlas-panel__eyebrow">Insights</div>
           <div className="atlas-stack">
             {insights.insights.map((insight) => (
               <div key={insight.title} className="atlas-list-card">
-                <div className="atlas-list-card__title">
-                  {insight.title} ({insight.priority})
+                <div
+                  className="atlas-list-card__title"
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  {insight.title}
+                  <span className={`atlas-priority-badge atlas-priority-badge--${insight.priority}`}>
+                    {insight.priority}
+                  </span>
                 </div>
                 <div className="atlas-list-card__meta">{insight.detail}</div>
               </div>

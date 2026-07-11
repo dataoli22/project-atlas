@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { TrendBadge } from "@/components/trend-badge";
+
 type PageScaffoldProps = {
   eyebrow: string;
   title: string;
@@ -8,6 +10,7 @@ type PageScaffoldProps = {
   metrics?: Array<{
     label: string;
     value: string;
+    trend?: string;
   }>;
   children?: ReactNode;
 };
@@ -36,11 +39,12 @@ export function PageScaffold({
       </section>
 
       {metrics.length > 0 ? (
-        <section className="atlas-kpis" aria-label="Placeholder metrics">
+        <section className="atlas-kpis" aria-label="Key metrics">
           {metrics.map((metric) => (
             <article key={metric.label} className="atlas-kpi">
               <div className="atlas-kpi__label">{metric.label}</div>
               <div className="atlas-kpi__value">{metric.value}</div>
+              {metric.trend ? <TrendBadge text={metric.trend} /> : null}
             </article>
           ))}
         </section>

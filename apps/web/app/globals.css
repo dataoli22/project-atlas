@@ -9,11 +9,25 @@
   --atlas-accent: #1f6b5c;
   --atlas-accent-soft: rgba(31, 107, 92, 0.12);
   --atlas-warm: #c7693d;
+  --atlas-warm-soft: rgba(199, 105, 61, 0.12);
+  --atlas-danger: #b0452f;
+  --atlas-danger-soft: rgba(176, 69, 47, 0.12);
+  --atlas-amber: #b8873a;
+  --atlas-amber-soft: rgba(184, 135, 58, 0.14);
   --atlas-shadow: 0 24px 60px rgba(46, 55, 51, 0.12);
+  --atlas-shadow-hover: 0 28px 70px rgba(46, 55, 51, 0.18);
   --atlas-radius: 24px;
+  --atlas-radius-sm: 16px;
   --atlas-max: 1280px;
   --atlas-mobile-nav: 86px;
+  --atlas-transition: 180ms cubic-bezier(0.2, 0.7, 0.3, 1);
   font-synthesis-weight: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --atlas-transition: 0ms;
+  }
 }
 
 * {
@@ -149,6 +163,25 @@ textarea {
   border: 1px solid var(--atlas-border);
   border-radius: var(--atlas-radius);
   box-shadow: var(--atlas-shadow);
+  transition: box-shadow var(--atlas-transition), transform var(--atlas-transition);
+}
+
+.atlas-kpi {
+  position: relative;
+  overflow: hidden;
+}
+
+.atlas-kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--atlas-accent), var(--atlas-warm));
+}
+
+.atlas-kpi:hover {
+  box-shadow: var(--atlas-shadow-hover);
+  transform: translateY(-2px);
 }
 
 .atlas-sidebar {
@@ -227,6 +260,11 @@ textarea {
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.4);
   border: 1px solid rgba(31, 36, 33, 0.08);
+  transition: background var(--atlas-transition);
+}
+
+.atlas-detail-list__row:hover {
+  background: rgba(255, 255, 255, 0.65);
 }
 
 .atlas-detail-list__row dt,
@@ -271,6 +309,14 @@ textarea {
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.42);
   border: 1px solid rgba(31, 36, 33, 0.08);
+  transition: box-shadow var(--atlas-transition), transform var(--atlas-transition),
+    border-color var(--atlas-transition);
+}
+
+.atlas-list-card:hover {
+  box-shadow: 0 12px 28px rgba(46, 55, 51, 0.1);
+  transform: translateY(-1px);
+  border-color: rgba(31, 107, 92, 0.22);
 }
 
 .atlas-list-card__title {
@@ -566,4 +612,123 @@ textarea {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+/* Trend badges - color-coded from a leading +/- sign in the backend's free-text trend string
+   (see lib/trend.ts). Green/up = improving, terracotta/down = declining, muted/flat = no change. */
+.atlas-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.atlas-trend--up {
+  color: var(--atlas-accent);
+}
+
+.atlas-trend--down {
+  color: var(--atlas-danger);
+}
+
+.atlas-trend--flat {
+  color: var(--atlas-muted);
+}
+
+/* Priority badges - shared across endurance insights and any future priority-ranked list. */
+.atlas-priority-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.atlas-priority-badge--high {
+  background: var(--atlas-danger-soft);
+  color: var(--atlas-danger);
+}
+
+.atlas-priority-badge--medium {
+  background: var(--atlas-amber-soft);
+  color: var(--atlas-amber);
+}
+
+.atlas-priority-badge--low {
+  background: var(--atlas-accent-soft);
+  color: var(--atlas-accent);
+}
+
+/* Stat card - replaces the misuse of .atlas-placeholder (a dashed "not implemented yet" pattern)
+   for genuine, already-loaded content like a workout's duration/distance. */
+.atlas-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.atlas-stat {
+  padding: 14px 16px;
+  border-radius: var(--atlas-radius-sm);
+  background: var(--atlas-surface-strong);
+  border: 1px solid var(--atlas-border);
+}
+
+.atlas-stat__label {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--atlas-muted);
+}
+
+.atlas-stat__value {
+  margin-top: 6px;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+/* Timeline - a left accent rail replacing plain stacked list-cards for chronological entries. */
+.atlas-timeline {
+  display: grid;
+  gap: 4px;
+}
+
+.atlas-timeline__entry {
+  position: relative;
+  padding: 12px 16px 12px 22px;
+  border-radius: 14px;
+  transition: background var(--atlas-transition);
+}
+
+.atlas-timeline__entry::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 18px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--atlas-accent);
+}
+
+.atlas-timeline__entry::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 28px;
+  bottom: -8px;
+  width: 1px;
+  background: var(--atlas-border);
+}
+
+.atlas-timeline__entry:last-child::after {
+  display: none;
+}
+
+.atlas-timeline__entry:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
