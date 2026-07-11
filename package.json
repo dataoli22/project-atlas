@@ -32,6 +32,8 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
-    "@playwright/test": "^1.61.1"
+    "@playwright/test": "^1.61.1",
+    "png-to-ico": "^3.0.2",
+    "sharp": "^0.35.3"
   }
 }

@@ -7,6 +7,7 @@ export const SUPPORTED_MARKETS = [
   { code: "EU", label: "Europe", currency: "EUR", languages: ["en", "fr", "de"] },
   { code: "CN", label: "China", currency: "CNY", languages: ["zh"] },
   { code: "IN", label: "India", currency: "INR", languages: ["en"] },
+  { code: "JP", label: "Japan", currency: "JPY", languages: ["ja", "en"] },
   { code: "UK", label: "United Kingdom", currency: "GBP", languages: ["en"] },
   { code: "US", label: "United States", currency: "USD", languages: ["en"] }
 ] as const;

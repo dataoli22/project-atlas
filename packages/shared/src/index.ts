@@ -222,6 +222,8 @@ export interface NutritionSwapHistoryEntry {
   summary: string;
 }
 
+export type NutritionCuisine = "indian" | "japanese" | "chinese" | "continental";
+
 export interface NutritionPlannerData {
   generatedAt: string;
   activeFeature: "nutrition";
@@ -229,6 +231,7 @@ export interface NutritionPlannerData {
   marketCode: string;
   marketLabel: string;
   currencyCode: string;
+  cuisine: NutritionCuisine;
   budget: string;
   projectedSpend: string;
   scheduleLabel: string;
@@ -344,15 +347,18 @@ export interface NutritionProductSearchData {
   results: NutritionProductSummaryData[];
 }
 
+// Nutrition listed first: it's the higher-usage module day to day, so it leads the feature
+// switcher, nav groups, and default landing feature (see apps/web/lib/navigation.ts and
+// apps/web/lib/shell-preferences.ts, plus the backend default in apps/api/app/core/config.py).
 export const FEATURE_DEFINITIONS: FeatureDefinition[] = [
-  {
-    key: "endurance",
-    label: "Endurance and Capability",
-    description: "Training, recovery, capability, and adaptation tracking."
-  },
   {
     key: "nutrition",
     label: "Nutrition and Meal Planning",
     description: "Budget-aware nutrition, meal planning, shopping, and cooking."
+  },
+  {
+    key: "endurance",
+    label: "Endurance and Capability",
+    description: "Training, recovery, capability, and adaptation tracking."
   }
 ];

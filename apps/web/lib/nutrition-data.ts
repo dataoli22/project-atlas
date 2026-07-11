@@ -20,6 +20,7 @@ const stubPlanner: NutritionPlannerData = {
   marketCode: "IN",
   marketLabel: "India",
   currencyCode: "INR",
+  cuisine: "indian",
   budget: "INR 1,850",
   projectedSpend: "INR 1,640",
   scheduleLabel: "3 meals daily with 2 leftover lunches",
@@ -452,6 +453,7 @@ type NutritionPlannerApiResponse = {
   market_code: string;
   market_label: string;
   currency_code: string;
+  cuisine: "indian" | "japanese" | "chinese" | "continental";
   budget: string;
   projected_spend: string;
   schedule_label: string;
@@ -620,6 +622,7 @@ function mapPlannerResponse(response: NutritionPlannerApiResponse): NutritionPla
     marketCode: response.market_code,
     marketLabel: response.market_label,
     currencyCode: response.currency_code,
+    cuisine: response.cuisine,
     budget: response.budget,
     projectedSpend: response.projected_spend,
     scheduleLabel: response.schedule_label,
@@ -702,6 +705,7 @@ function plannerFallback(): NutritionPlannerApiResponse {
     market_code: stubPlanner.marketCode,
     market_label: stubPlanner.marketLabel,
     currency_code: stubPlanner.currencyCode,
+    cuisine: stubPlanner.cuisine,
     budget: stubPlanner.budget,
     projected_spend: stubPlanner.projectedSpend,
     schedule_label: stubPlanner.scheduleLabel,

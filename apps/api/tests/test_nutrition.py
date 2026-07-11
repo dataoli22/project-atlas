@@ -126,6 +126,79 @@ def test_nutrition_planner_returns_richer_weekly_contract(client):
     assert payload["meals"][0]["leftover_plan"]
 
 
+def test_nutrition_planner_exposes_cuisine_matching_market(client):
+    expected_by_market = {
+        "IN": ("indian", "INR", "en"),
+        "JP": ("japanese", "JPY", "ja"),
+        "CN": ("chinese", "CNY", "zh"),
+        "US": ("continental", "USD", "en"),
+        "UK": ("continental", "GBP", "en"),
+        "EU": ("continental", "EUR", "en"),
+    }
+
+    for market_code, (expected_cuisine, currency, language) in expected_by_market.items():
+        update_response = client.put(
+            "/api/v1/settings/localization",
+            json={
+                "market": market_code,
+                "currency": currency,
+                "language": language,
+                "locale": f"{language}-{market_code}",
+                "currency_override": False,
+                "language_override": False,
+            },
+        )
+        assert update_response.status_code == 200
+
+        planner_response = client.get("/api/v1/nutrition/planner")
+        assert planner_response.status_code == 200
+        assert planner_response.json()["cuisine"] == expected_cuisine
+
+
+def test_nutrition_japan_market_returns_full_weekly_plan(client):
+    update_response = client.put(
+        "/api/v1/settings/localization",
+        json={
+            "market": "JP",
+            "currency": "JPY",
+            "language": "ja",
+            "locale": "ja-JP",
+            "currency_override": False,
+            "language_override": False,
+        },
+    )
+    assert update_response.status_code == 200
+
+    planner_response = client.get("/api/v1/nutrition/planner")
+    assert planner_response.status_code == 200
+    planner = planner_response.json()
+
+    assert planner["market_code"] == "JP"
+    assert planner["market_label"] == "Japan"
+    assert planner["currency_code"] == "JPY"
+    assert planner["cuisine"] == "japanese"
+    assert planner["budget"].startswith("JPY ")
+    assert len(planner["meals"]) == 7
+    assert all(meal["cook_time_minutes"] > 0 for meal in planner["meals"])
+    assert len(planner["calendar_days"]) == 7
+
+    shopping_response = client.get("/api/v1/nutrition/shopping-list")
+    assert shopping_response.status_code == 200
+    shopping = shopping_response.json()
+    assert shopping["total_items"] > 0
+    assert shopping["estimated_total"].startswith("JPY ")
+
+    substitutions_response = client.get("/api/v1/nutrition/substitutions")
+    assert substitutions_response.status_code == 200
+    assert len(substitutions_response.json()["substitutions"]) > 0
+
+    cooking_response = client.get("/api/v1/nutrition/cooking-plan")
+    assert cooking_response.status_code == 200
+    assert len(cooking_response.json()["steps"]) > 0
+
+    assert any(link["market_scope"] == "JP" for link in planner["video_links"])
+
+
 def test_nutrition_respects_currency_override_in_localization(client):
     update_response = client.put(
         "/api/v1/settings/localization",

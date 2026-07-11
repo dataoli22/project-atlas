@@ -7,9 +7,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 FeatureKey = Literal["endurance", "nutrition"]
-MarketCode = Literal["EU", "CN", "IN", "UK", "US"]
-LanguageCode = Literal["en", "fr", "de", "zh"]
-CurrencyCode = Literal["EUR", "CNY", "INR", "GBP", "USD"]
+MarketCode = Literal["EU", "CN", "IN", "JP", "UK", "US"]
+LanguageCode = Literal["en", "fr", "de", "zh", "ja"]
+CurrencyCode = Literal["EUR", "CNY", "INR", "JPY", "GBP", "USD"]
+CuisineType = Literal["indian", "japanese", "chinese", "continental"]
 
 
 class FeatureDefinition(BaseModel):
@@ -38,7 +39,9 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     environment: str = "development"
     api_v1_prefix: str = "/api/v1"
-    default_active_feature: FeatureKey = "endurance"
+    # Nutrition is the higher-usage module day to day, so it's the default landing feature
+    # (matches the frontend nav/feature-switcher ordering in apps/web/lib/navigation.ts).
+    default_active_feature: FeatureKey = "nutrition"
 
     # The actual bind host/port are set on the uvicorn command line (see
     # desktop/electron/main.js), not read from here directly - these exist so the running
@@ -123,18 +126,20 @@ def validate_startup_config(settings: Settings) -> None:
 
 
 def build_feature_registry(settings: Settings) -> list[FeatureDefinition]:
+    # Nutrition first - it's the higher-usage module day to day (matches the frontend nav
+    # ordering in apps/web/lib/navigation.ts).
     return [
-        FeatureDefinition(
-            key="endurance",
-            label="Endurance and Capability",
-            description="Training, recovery, capability, and performance workflows.",
-            enabled=settings.feature_endurance_enabled,
-        ),
         FeatureDefinition(
             key="nutrition",
             label="Nutrition and Meal Planning",
             description="Nutrition targets, meal planning, shopping, and cooking workflows.",
             enabled=settings.feature_nutrition_enabled,
+        ),
+        FeatureDefinition(
+            key="endurance",
+            label="Endurance and Capability",
+            description="Training, recovery, capability, and performance workflows.",
+            enabled=settings.feature_endurance_enabled,
         ),
     ]
 
@@ -161,6 +166,13 @@ def build_market_registry() -> list[MarketDefinition]:
             default_currency="INR",
             default_language="en",
             supported_languages=["en"],
+        ),
+        MarketDefinition(
+            code="JP",
+            name="Japan",
+            default_currency="JPY",
+            default_language="ja",
+            supported_languages=["ja", "en"],
         ),
         MarketDefinition(
             code="UK",

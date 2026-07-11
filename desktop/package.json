@@ -48,7 +48,8 @@
       }
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -57,11 +58,13 @@
     },
     "mac": {
       "target": "zip",
-      "category": "public.app-category.healthcare-fitness"
+      "category": "public.app-category.healthcare-fitness",
+      "icon": "build/icon.png"
     },
     "linux": {
       "target": "zip",
-      "category": "Utility"
+      "category": "Utility",
+      "icon": "build/icon.png"
     },
     "publish": {
       "provider": "github",

@@ -13,8 +13,8 @@ type ShellFeatureState = {
 };
 
 const defaultState: ShellFeatureState = {
-  activeFeature: "endurance",
-  enabledFeatures: ["endurance", "nutrition"]
+  activeFeature: "nutrition",
+  enabledFeatures: ["nutrition", "endurance"]
 };
 
 function filterNavItems(items: AtlasNavItem[], enabledFeatures: AtlasFeature[]) {
@@ -36,7 +36,7 @@ export function useShellFeatureState() {
         activeFeature:
           enabledFeatures.includes(preferences.activeFeature)
             ? preferences.activeFeature
-            : enabledFeatures[0] ?? "endurance",
+            : enabledFeatures[0] ?? "nutrition",
         enabledFeatures: enabledFeatures.length > 0 ? enabledFeatures : registryEnabled
       };
     }

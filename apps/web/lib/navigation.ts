@@ -22,6 +22,7 @@ export const featureOptions: Array<{
   href: feature.key === "endurance" ? "/dashboard" : "/planner"
 }));
 
+// Nutrition module listed before Endurance module - it's the higher-usage module day to day.
 export const navGroups: Array<{
   label: string;
   items: AtlasNavItem[];
@@ -33,6 +34,16 @@ export const navGroups: Array<{
       { href: "/dashboard", label: "Dashboard", shortLabel: "Dash", feature: "shared" },
       { href: "/ask", label: "Ask Atlas", shortLabel: "Ask", feature: "shared" },
       { href: "/settings", label: "Settings", shortLabel: "Prefs", feature: "shared" }
+    ]
+  },
+  {
+    label: "Nutrition module",
+    items: [
+      { href: "/onboarding", label: "Onboarding", shortLabel: "Start", feature: "nutrition" },
+      { href: "/planner", label: "Planner", shortLabel: "Plan", feature: "nutrition" },
+      { href: "/shopping", label: "Shopping", shortLabel: "Shop", feature: "nutrition" },
+      { href: "/cooking", label: "Cooking", shortLabel: "Cook", feature: "nutrition" },
+      { href: "/nutrition", label: "Nutrition summary", shortLabel: "Macros", feature: "nutrition" }
     ]
   },
   {
@@ -54,23 +65,13 @@ export const navGroups: Array<{
         feature: "endurance"
       }
     ]
-  },
-  {
-    label: "Nutrition module",
-    items: [
-      { href: "/onboarding", label: "Onboarding", shortLabel: "Start", feature: "nutrition" },
-      { href: "/planner", label: "Planner", shortLabel: "Plan", feature: "nutrition" },
-      { href: "/shopping", label: "Shopping", shortLabel: "Shop", feature: "nutrition" },
-      { href: "/cooking", label: "Cooking", shortLabel: "Cook", feature: "nutrition" },
-      { href: "/nutrition", label: "Nutrition summary", shortLabel: "Macros", feature: "nutrition" }
-    ]
   }
 ];
 
 export const mobileNavItems: AtlasNavItem[] = [
   { href: "/dashboard", label: "Dashboard", shortLabel: "Dash", feature: "shared" },
-  { href: "/timeline", label: "Timeline", shortLabel: "Timeline", feature: "endurance" },
   { href: "/planner", label: "Planner", shortLabel: "Planner", feature: "nutrition" },
+  { href: "/timeline", label: "Timeline", shortLabel: "Timeline", feature: "endurance" },
   { href: "/settings", label: "Settings", shortLabel: "Settings", feature: "shared" }
 ];
 
@@ -105,5 +106,5 @@ export function getActiveFeature(pathname: string): AtlasFeature {
     return "endurance";
   }
 
-  return "endurance";
+  return "nutrition";
 }

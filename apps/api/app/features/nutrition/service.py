@@ -72,6 +72,11 @@ _MARKET_VIDEO = {
         "https://www.youtube.com/results?search_query=chinese+home+cooking+meal+prep",
         "Rice- and tofu-led batch cooking that mirrors this plan's rhythm.",
     ),
+    "JP": (
+        "Japanese home cooking meal prep",
+        "https://www.youtube.com/results?search_query=japanese+home+cooking+meal+prep",
+        "Rice, miso, and simple grilled or simmered proteins that mirror this plan's rhythm.",
+    ),
 }
 
 
@@ -90,6 +95,10 @@ class WeeklyMealTemplate:
 class MarketNutritionBlueprint:
     market_code: str
     market_label: str
+    # One cuisine identity per market blueprint - matches the real dish composition of that
+    # market's meals below (Indian/Japanese/Chinese staples, or a Western "continental" mix for
+    # EU/UK/US). Exposed on NutritionPlannerResponse so the frontend can show/filter by cuisine.
+    cuisine: str
     week_label: str
     schedule_label: str
     cooking_cadence: str
@@ -115,6 +124,7 @@ _FX_RATES_TO_USD = {
     "GBP": 1.28,
     "INR": 0.012,
     "CNY": 0.14,
+    "JPY": 0.0067,
 }
 
 
@@ -128,6 +138,7 @@ def get_nutrition_planner() -> NutritionPlannerResponse:
         market_code=blueprint.market_code,
         market_label=blueprint.market_label,
         currency_code=currency_code,
+        cuisine=blueprint.cuisine,
         budget=_format_money(blueprint.budget_amount, currency_code),
         projected_spend=_format_money(blueprint.projected_spend_amount, currency_code),
         schedule_label=blueprint.schedule_label,
@@ -640,6 +651,7 @@ def _market_blueprints() -> dict[str, MarketNutritionBlueprint]:
         "IN": MarketNutritionBlueprint(
             market_code="IN",
             market_label=market_names["IN"],
+            cuisine="indian",
             week_label="Week of July 13, 2026",
             schedule_label="3 meals daily with 2 leftover lunches",
             cooking_cadence="Cook 4 times across the week",
@@ -707,6 +719,7 @@ def _market_blueprints() -> dict[str, MarketNutritionBlueprint]:
         "US": MarketNutritionBlueprint(
             market_code="US",
             market_label=market_names["US"],
+            cuisine="continental",
             week_label="Week of July 13, 2026",
             schedule_label="3 meals daily with 3 prep-heavy dinners",
             cooking_cadence="Cook 4 times across the week",
@@ -757,6 +770,7 @@ def _market_blueprints() -> dict[str, MarketNutritionBlueprint]:
         "UK": MarketNutritionBlueprint(
             market_code="UK",
             market_label=market_names["UK"],
+            cuisine="continental",
             week_label="Week of July 13, 2026",
             schedule_label="3 meals daily with simple lunch repeats",
             cooking_cadence="Cook 4 times across the week",
@@ -807,6 +821,7 @@ def _market_blueprints() -> dict[str, MarketNutritionBlueprint]:
         "EU": MarketNutritionBlueprint(
             market_code="EU",
             market_label=market_names["EU"],
+            cuisine="continental",
             week_label="Week of July 13, 2026",
             schedule_label="3 meals daily with 2 planned batch dinners",
             cooking_cadence="Cook 4 times across the week",
@@ -856,6 +871,7 @@ def _market_blueprints() -> dict[str, MarketNutritionBlueprint]:
         "CN": MarketNutritionBlueprint(
             market_code="CN",
             market_label=market_names["CN"],
+            cuisine="chinese",
             week_label="Week of July 13, 2026",
             schedule_label="3 meals daily with rice-led batch cooking",
             cooking_cadence="Cook 4 times across the week",
@@ -900,6 +916,62 @@ def _market_blueprints() -> dict[str, MarketNutritionBlueprint]:
                 {"title": "Cook the rice base first", "detail": "Use one large rice batch to support bowls, fried rice, and congee.", "meal_days": ["Mon", "Thu", "Sun"], "effort": "low", "equipment": ["pot", "rice cooker"]},
                 {"title": "Rotate tofu before chicken", "detail": "Hold tofu as the default weekday protein lane and add chicken only twice.", "meal_days": ["Mon", "Wed", "Fri"], "effort": "low", "equipment": ["wok", "pan"]},
                 {"title": "Keep one wok clean lane", "detail": "Most dinners should stay within one wok plus one rice or noodle base.", "meal_days": ["Tue", "Thu", "Sat"], "effort": "low", "equipment": ["wok"]},
+            ],
+        ),
+        "JP": MarketNutritionBlueprint(
+            market_code="JP",
+            market_label=market_names["JP"],
+            cuisine="japanese",
+            week_label="Week of July 13, 2026",
+            schedule_label="3 meals daily with rice- and miso-anchored batch cooking",
+            cooking_cadence="Cook 4 times across the week",
+            batch_day="Sunday",
+            days_to_cook=4,
+            budget_amount=13500,
+            projected_spend_amount=11800,
+            target_summary=NutritionTargetSummary(calories=2200, protein_grams=125, fiber_grams=28, hydration_ml=2400),
+            planner_summary=(
+                "The Japan blueprint keeps the week anchored on rice, miso, tofu, egg, and grilled or simmered "
+                "fish and chicken, with simple one-pot simmered dishes carrying most of the leftover lunches."
+            ),
+            leftover_strategy="Use Sunday's simmered dish and Wednesday's donburi as the main leftover anchors for the following lunches.",
+            market_note="This setup assumes a standard Japan supermarket basket - rice, miso, tofu, eggs, and seasonal vegetables.",
+            strategy_summary="Keep rice and miso soup as the fixed daily base, then rotate a single protein lane to control cost.",
+            cost_focus=[
+                NutritionCostFocusItem(label="Rice and miso base", detail="A shared rice batch and one miso stock cover breakfast and most lunches."),
+                NutritionCostFocusItem(label="Protein rotation", detail="Tofu and eggs anchor most days; fish and chicken appear only twice each to control cost."),
+                NutritionCostFocusItem(label="One-pot simmering", detail="Nimono-style simmered dishes reheat well, so dinner effort stays low midweek."),
+            ],
+            meals=[
+                WeeklyMealTemplate("Mon", "Rice, miso soup, and natto", "Onigiri with pickled vegetables", "Teriyaki chicken with steamed cabbage", "Cook the weekly rice batch and prep teriyaki sauce.", 30, "Extra chicken becomes Tuesday lunch."),
+                WeeklyMealTemplate("Tue", "Tamagoyaki and rice", "Leftover teriyaki chicken rice bowl", "Miso-glazed salmon with rice", "Keep dinner to a single grill pan for the salmon.", 20, "No planned leftovers."),
+                WeeklyMealTemplate("Wed", "Rice, miso soup, and grilled fish", "Salmon and vegetable donburi", "Simmered tofu and vegetable nimono", "Use the simmered nimono as the main batch anchor.", 25, "Nimono carries into Thursday lunch."),
+                WeeklyMealTemplate("Thu", "Natto rice and miso soup", "Leftover tofu nimono bowl", "Yakitori-style chicken skewers with rice", "Skewer and grill chicken in one batch for speed.", 22, "No planned leftovers."),
+                WeeklyMealTemplate("Fri", "Rice, miso soup, and tamagoyaki", "Yakitori chicken rice bowl", "Udon noodle soup with tofu and greens", "Keep dinner to a single pot of udon broth.", 18, "Udon broth can stretch into Saturday lunch."),
+                WeeklyMealTemplate("Sat", "Rice porridge with pickles", "Leftover udon noodle soup", "Chicken and vegetable curry rice", "Cook a larger curry batch for the weekend and Sunday lunch.", 32, "Extra curry becomes Sunday lunch."),
+                WeeklyMealTemplate("Sun", "Rice, miso soup, and grilled fish", "Leftover chicken curry rice", "Simmered pork and daikon nimono", "Run the main weekly prep block: rice batch, miso stock, and Sunday's simmered dish.", 40, "Sunday's nimono becomes the next Monday backup."),
+            ],
+            shopping_items=[
+                {"name": "Rice", "quantity": "3.5 kg", "estimated_cost_amount": 1800, "category": "Grains", "priority": "high", "used_in_days": ["All week"]},
+                {"name": "Miso paste and dashi stock", "quantity": "weekly basket", "estimated_cost_amount": 900, "category": "Pantry", "priority": "high", "used_in_days": ["All week"]},
+                {"name": "Eggs", "quantity": "12", "estimated_cost_amount": 380, "category": "Protein", "priority": "high", "used_in_days": ["Mon", "Tue", "Fri"]},
+                {"name": "Tofu and natto", "quantity": "6 blocks + 3 packs", "estimated_cost_amount": 750, "category": "Protein", "priority": "high", "used_in_days": ["Mon", "Thu", "Wed"]},
+                {"name": "Chicken thigh", "quantity": "1.2 kg", "estimated_cost_amount": 960, "category": "Protein", "priority": "medium", "used_in_days": ["Mon", "Thu", "Fri", "Sat"]},
+                {"name": "Salmon fillets", "quantity": "4", "estimated_cost_amount": 1400, "category": "Protein", "priority": "medium", "used_in_days": ["Tue", "Wed"]},
+                {"name": "Pork slices", "quantity": "500 g", "estimated_cost_amount": 850, "category": "Protein", "priority": "low", "used_in_days": ["Sun"]},
+                {"name": "Udon noodles", "quantity": "4 servings", "estimated_cost_amount": 480, "category": "Grains", "priority": "medium", "used_in_days": ["Fri"]},
+                {"name": "Vegetables (cabbage, daikon, greens)", "quantity": "weekly basket", "estimated_cost_amount": 2200, "category": "Produce", "priority": "high", "used_in_days": ["All week"]},
+                {"name": "Pickles and seasonings", "quantity": "weekly basket", "estimated_cost_amount": 1400, "category": "Pantry", "priority": "medium", "used_in_days": ["All week"]},
+            ],
+            substitutions=[
+                {"ingredient": "Salmon", "substitute": "Mackerel or tofu", "reason": "Keeps the weekly spend more stable while preserving the grilled-fish structure.", "budget_impact_usd": "3-6", "swap_category": "protein"},
+                {"ingredient": "Pork slices", "substitute": "Extra chicken thigh", "reason": "Simplifies the protein shopping list to one main lane.", "budget_impact_usd": "1-3", "swap_category": "protein"},
+                {"ingredient": "Fresh udon", "substitute": "Dried udon or soba", "reason": "Longer pantry life and lower waste risk.", "budget_impact_usd": "1-2", "swap_category": "grains"},
+            ],
+            cooking_steps=[
+                {"title": "Cook the rice and miso stock base first", "detail": "One rice batch and one dashi/miso stock cover breakfast and most lunches all week.", "meal_days": ["Mon", "Wed", "Sun"], "effort": "low", "equipment": ["rice cooker", "pot"]},
+                {"title": "Batch the Sunday simmered dish", "detail": "Nimono-style simmered tofu or pork keeps well and anchors two lunches.", "meal_days": ["Wed", "Sun"], "effort": "medium", "equipment": ["pot"]},
+                {"title": "Grill proteins in one pass", "detail": "Salmon, teriyaki chicken, and yakitori skewers all use the same grill pan across the week.", "meal_days": ["Mon", "Tue", "Thu"], "effort": "low", "equipment": ["grill pan", "skewers"]},
             ],
         ),
     }

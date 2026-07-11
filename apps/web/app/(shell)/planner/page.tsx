@@ -1,5 +1,7 @@
 import { revalidatePath } from "next/cache";
 
+import { CalendarTimeFilter } from "@/components/calendar-time-filter";
+import { CuisineSwitcher } from "@/components/cuisine-switcher";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { EmptyState } from "@/components/empty-state";
 import { PageScaffold } from "@/components/page-scaffold";
@@ -11,7 +13,8 @@ import {
   getNutritionSubstitutionsDataWithSource,
   refreshNutritionPlan
 } from "@/lib/nutrition-data";
-import type { NutritionCalendarDay, NutritionPlanStatus } from "@atlas/shared";
+import { getLocalizationSettingsData, getMarketOptionsData } from "@/lib/settings-data";
+import type { NutritionPlanStatus } from "@atlas/shared";
 
 const STATUS_LABEL: Record<NutritionPlanStatus, string> = {
   current: "Current",
@@ -43,47 +46,19 @@ async function refreshPlanAction(formData: FormData) {
   revalidatePath("/planner");
 }
 
-function CalendarDayCard({ day }: { day: NutritionCalendarDay }) {
-  return (
-    <div
-      className="atlas-list-card"
-      style={{
-        borderColor: day.isBatchDay ? "var(--atlas-accent)" : undefined,
-        minWidth: "180px"
-      }}
-    >
-      <div className="atlas-list-card__title">
-        {day.dayLabel} | {formatDate(day.date)}
-        {day.isBatchDay ? " | Batch day" : ""}
-      </div>
-      <div className="atlas-stack" style={{ gap: "4px", marginTop: "6px" }}>
-        {day.meals.map((meal) => (
-          <div key={meal.slot} className="atlas-list-card__meta">
-            <strong style={{ textTransform: "capitalize" }}>{meal.slot}:</strong> {meal.title}
-            {meal.isLeftover ? ` (leftover${meal.carryoverFrom ? ` from ${meal.carryoverFrom}` : ""})` : ""}
-          </div>
-        ))}
-      </div>
-      <div className="atlas-list-card__meta" style={{ marginTop: "6px" }}>
-        {day.cookTimeMinutes} min cook
-        {day.leftoverInto ? ` -> carries into ${day.leftoverInto}` : ""}
-      </div>
-      {day.prepWindow ? (
-        <div className="atlas-list-card__meta">Prep window: {day.prepWindow}</div>
-      ) : null}
-    </div>
-  );
-}
-
 export default async function PlannerPage() {
   const [
     { data: planner, source: plannerSource },
     { data: shoppingList, source: shoppingListSource },
-    { data: substitutions, source: substitutionsSource }
+    { data: substitutions, source: substitutionsSource },
+    { data: localization },
+    { data: markets }
   ] = await Promise.all([
     getNutritionPlannerDataWithSource(),
     getNutritionShoppingListDataWithSource(),
-    getNutritionSubstitutionsDataWithSource()
+    getNutritionSubstitutionsDataWithSource(),
+    getLocalizationSettingsData(),
+    getMarketOptionsData()
   ]);
   const source = combineDataSources(plannerSource, shoppingListSource, substitutionsSource);
 
@@ -103,7 +78,8 @@ export default async function PlannerPage() {
       ]}
     >
       <DataSourceBanner source={source} />
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
+        <CuisineSwitcher localization={localization} markets={markets} />
         <RefreshButton />
       </div>
       <div className="atlas-grid">
@@ -183,10 +159,21 @@ export default async function PlannerPage() {
 
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Planner summary</div>
-          <div className="atlas-placeholder">{planner.plannerSummary}</div>
+          <p className="atlas-note">{planner.plannerSummary}</p>
           <div className="atlas-panel__eyebrow">Execution lane</div>
-          <div className="atlas-placeholder">
-            {planner.scheduleLabel} | {planner.cookingCadence} | Batch day: {planner.batchDay}
+          <div className="atlas-stat-grid">
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Schedule</div>
+              <div className="atlas-stat__value">{planner.scheduleLabel}</div>
+            </div>
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Cooking cadence</div>
+              <div className="atlas-stat__value">{planner.cookingCadence}</div>
+            </div>
+            <div className="atlas-stat">
+              <div className="atlas-stat__label">Batch day</div>
+              <div className="atlas-stat__value">{planner.batchDay}</div>
+            </div>
           </div>
           <div className="atlas-panel__eyebrow">Swap history</div>
           {planner.swapHistory.length > 0 ? (
@@ -212,21 +199,10 @@ export default async function PlannerPage() {
       <section className="atlas-panel atlas-stack" style={{ marginTop: "20px" }}>
         <div className="atlas-panel__eyebrow">Seven-day calendar</div>
         <p className="atlas-note">
-          Batch days are outlined; leftover meals show where they carried over from. Scroll on mobile,
-          full week grid on desktop.
+          Batch days are outlined; leftover meals show where they carried over from. Filter by how long a
+          day&apos;s cook time runs, or scroll for the full week.
         </p>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: "12px",
-            overflowX: "auto"
-          }}
-        >
-          {planner.calendarDays.map((day) => (
-            <CalendarDayCard key={day.date} day={day} />
-          ))}
-        </div>
+        <CalendarTimeFilter calendarDays={planner.calendarDays} />
       </section>
 
       <div className="atlas-grid" style={{ marginTop: "20px" }}>

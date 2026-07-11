@@ -84,6 +84,7 @@ class NutritionPlannerResponse(BaseModel):
     market_code: str
     market_label: str
     currency_code: str
+    cuisine: str
     budget: str
     projected_spend: str
     schedule_label: str

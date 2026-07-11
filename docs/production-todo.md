@@ -199,6 +199,24 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
       Recipe source system with a real "why did the plan change" explanation, and the full
       optimizer/recipe-library replacement, remain open — explicitly deferred, not silently
       dropped.
+- [x] **6c — cuisine + cook-time filters, nutrition promoted to the primary module**: nutrition
+      is now the higher-usage module day to day, so it leads the feature switcher, nav groups,
+      mobile nav, and default landing feature on both frontend (`lib/navigation.ts`,
+      `lib/shell-preferences.ts`) and backend (`default_active_feature`, `build_feature_registry`
+      in `core/config.py`). Added a real **cuisine** dimension to the weekly plan
+      (`MarketNutritionBlueprint.cuisine`, exposed as `NutritionPlannerResponse.cuisine`):
+      Indian/Chinese/Continental were tagged from the existing real dish content per market
+      (IN/CN/US·UK·EU); **Japan was added as a full 6th market** (JPY currency, `ja` language,
+      market registry entry) with a genuinely authored 7-day Japanese weekly plan in the same
+      depth/format as the other five (meals, shopping list, substitutions, cooking steps) rather
+      than placeholder dishes. `<CuisineSwitcher>` on the planner page lets a user switch cuisine
+      directly (maps to the representative market and calls the existing localization update
+      endpoint). Added a **cook-time filter** (`lib/cook-time.ts`, `<CalendarTimeFilter>`) over
+      the seven-day calendar using the cook-time-minutes data that already existed per day - no
+      backend change needed, purely a client-side filter over real data. 11 new backend tests
+      (cuisine-per-market, full JP weekly plan contract). Considered and rejected integrating
+      NotebookLM as a nutrition data source - it has no public API and isn't a nutrition
+      database, so there was nothing to actually integrate.
 
 ## 7. Endurance — P1
 
@@ -346,11 +364,37 @@ desktop, and the hard iOS blocker.)
 - [ ] Signed installers — **blocked on a real code-signing certificate** (business decision, not
       engineering; `CSC_LINK`/`CSC_KEY_PASSWORD` env vars are all `electron-builder` needs once a
       cert exists).
-- [ ] App icon / branding assets (default Electron icon in use).
+- [x] **App icon / branding assets**: real original artwork (`assets/brand/atlas-mark.svg`,
+      matching the in-app teal→terracotta gradient mark) replaces the default Electron icon.
+      `scripts/generate-app-icons.mjs` (sharp + png-to-ico) generates `desktop/build/icon.ico`
+      (Windows) and `icon.png` (Linux/macOS fallback, 512x512) plus the web favicon
+      (`apps/web/app/icon.png`/`apple-icon.png`, auto-served by Next.js). Wired into
+      `desktop/package.json`'s `build.win.icon`/`build.mac.icon`/`build.linux.icon`. Still
+      missing: a real `.icns` for macOS (needs `iconutil`, unavailable on this Windows machine) -
+      `icon.png` is set as the mac icon in the meantime, which electron-builder accepts but isn't
+      a proper multi-resolution bundle icon.
 - [~] Packaged smoke test — done manually twice; not yet automated into CI.
 
 ## 10. Frontend hardening — P1 — PARTIAL
 
+- [x] **Visual polish pass, dashboard as the reference implementation**: the UI was flat text
+      everywhere (dt/dd rows, and a dashed "not implemented yet" placeholder style
+      (`.atlas-placeholder`) wrongly wrapping real, already-loaded content on the dashboard and
+      planner pages). Added `recharts`; `<CapabilityBarChart>` renders the capability snapshot as
+      a real color-coded bar chart. New `<TrendBadge>` infers up/down/flat from the backend's
+      free-text trend strings and color-codes them, wired into `PageScaffold`'s KPI cards. New
+      `.atlas-priority-badge`, `.atlas-stat`/`.atlas-stat-grid` (replaces the placeholder misuse),
+      and `.atlas-timeline` (accent rail replacing plain stacked cards for chronological entries).
+      Hover elevation/transitions on panels and cards, respecting `prefers-reduced-motion`. Caught
+      and fixed two real bugs this surfaced: a fixed `minmax(340px, 1fr)` grid column overflowing
+      on mobile (didn't shrink below 340px even when the viewport's content area was narrower),
+      and the e2e harness's standalone Next.js server never getting `.next/static` copied next to
+      it - every e2e-tested page had been rendering with **zero CSS applied** for the project's
+      entire history, invisible until the new accessibility/responsive smoke suite caught it
+      (confirmed the real packaged Electron app was never affected - electron-builder's
+      `extraResources` already copies static assets correctly at package time). Rolling the same
+      pattern out to the remaining pages (capability, timeline, nutrition, cooking, shopping) is
+      explicit follow-up, not done here.
 - [x] Error boundaries + route-level recovery: `app/error.tsx` (catches errors anywhere below
       root layout, including `(shell)/layout.tsx`'s own fetch) and `app/not-found.tsx`, both with
       a friendly panel and a "Try again"/"Back to dashboard" action, replacing Next's default
