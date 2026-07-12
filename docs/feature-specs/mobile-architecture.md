@@ -290,12 +290,25 @@ abstracts `Preferences` across platforms), so no web-layer changes are needed fo
 6. Re-run from Xcode every 7 days to refresh the provisioning profile (or move to the paid
    Developer Program if that friction becomes unacceptable).
 
-**Still needed before this is a real companion app** (not blocked on tooling, just not written
-yet — see `mobile/src/healthkit-plugin.ts` for the documented-but-unimplemented interface):
-implement `HealthKitPlugin.swift` using `HKHealthStore`, matching the same shape as
-`health-connect-plugin.ts`/`HealthConnectPlugin.kt` on Android (same `SyncPayload` fields, so
-`desktop-api.ts` and the sync screen need no changes). This has to be written and tested on an
-actual Mac + iPhone, which is outside this environment.
+**HealthKit — implemented, unbuilt-on-device.** `mobile/ios/App/App/HealthKitPlugin.swift`
+implements the same JS interface as Android's `HealthConnectPlugin.kt` (workouts, dietary water,
+body mass, step count), registered via Capacitor's pure-Swift `CAPBridgedPlugin` conformance (no
+Objective-C bridge file needed). `Info.plist` has `NSHealthShareUsageDescription` set.
+`App.tsx`'s sync screen has a real "Sync HealthKit" button, posting to the same
+`/health_connect/device-sync` endpoint Android's Health Connect uses (same `SyncPayload` shape)
+with `bridge_source: "healthkit-sdk"` so data is labeled by its real source rather than folded
+into Health Connect's label.
+
+**Not yet done, and can't be done without a Mac**: this was written from an environment with no
+Mac/Xcode/physical iPhone, so it is genuinely unbuilt and untested. Before relying on it:
+1. Add the HealthKit capability in Xcode (Signing & Capabilities → + Capability → HealthKit).
+2. Add `HealthKitPlugin.swift` to the Xcode project via File → Add Files to "App" (not by
+   hand-editing `project.pbxproj` — Xcode needs to register it in the build phases correctly).
+3. Build to a real device — most HealthKit sample types don't work in the iOS Simulator.
+4. Test permission grant/deny. HealthKit deliberately never reveals which specific permissions
+   were granted vs denied (a privacy design choice, not a bug) — only that the authorization
+   sheet completed without error; the plugin's read methods honestly return `null` per-field
+   rather than assuming success.
 
 ---
 
@@ -318,7 +331,10 @@ actual Mac + iPhone, which is outside this environment.
 - [x] Mobile sync retry/backoff on transient network failures — done, see section 2
 - [x] iOS: `cap add ios` scaffold committed (`mobile/ios/`); self-compile/sideload build flow
       documented in section 4 — no App Store distribution planned
-- [ ] iOS: `HealthKitPlugin.swift` implementation (needs a Mac + Xcode + iPhone to write and test)
+- [x] iOS: `HealthKitPlugin.swift` implementation — written against Apple's documented HealthKit
+      API, registered via Capacitor's pure-Swift `CAPBridgedPlugin`, `App.tsx` has a real "Sync
+      HealthKit" button. **Unbuilt and untested** (no Mac/Xcode/physical iPhone in this
+      environment) — build and exercise permission flows on a real device before relying on it.
 - [ ] App icon / branding for the mobile app (Capacitor's default template icons are in place)
 - [ ] Play Store listing and release process (Android only — iOS ships self-compiled, not via
       App Store, see section 4)

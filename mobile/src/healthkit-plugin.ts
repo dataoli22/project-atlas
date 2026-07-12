@@ -3,23 +3,21 @@ import { registerPlugin } from "@capacitor/core";
 import type { HealthConnectSession } from "./desktop-api";
 
 /**
- * NOT IMPLEMENTED. JS-side interface for a native Capacitor plugin wrapping iOS's HealthKit
- * (`HKHealthStore`) - the iOS equivalent of `health-connect-plugin.ts`/`HealthConnectPlugin.kt`
- * on Android. Deliberately the same shape as the Health Connect interface (reusing
- * `HealthConnectSession` for session records) so `desktop-api.ts`'s `SyncPayload` and the sync
- * screen work unmodified regardless of platform.
+ * JS-side interface for the native Capacitor plugin wrapping iOS's HealthKit (`HKHealthStore`) -
+ * the iOS equivalent of `health-connect-plugin.ts`/`HealthConnectPlugin.kt` on Android. Same
+ * shape as the Health Connect interface (reusing `HealthConnectSession` for session records) so
+ * `desktop-api.ts`'s `SyncPayload` and the sync screen work unmodified regardless of platform.
  *
- * Real implementation work still needed, in order (requires a Mac + Xcode + a physical iPhone -
- * see docs/feature-specs/mobile-architecture.md section 4 for the self-compile build flow):
- * 1. Add HealthKit capability + `NSHealthShareUsageDescription` to `mobile/ios/App/App/Info.plist`.
- * 2. Implement `HealthKitPlugin.swift`: request read authorization via
- *    `HKHealthStore.requestAuthorization`, then query `HKSampleQuery`/`HKStatisticsQuery` for
- *    workouts, dietary water, body mass, step count, and active energy burned.
- * 3. Map HealthKit's sample types (`HKWorkoutType`, `HKQuantityTypeIdentifierDietaryWater`,
- *    `HKQuantityTypeIdentifierBodyMass`, `HKQuantityTypeIdentifierStepCount`,
- *    `HKQuantityTypeIdentifierActiveEnergyBurned`) onto the same fields this interface returns.
- * 4. Register the plugin in `AppDelegate.swift` and test permission grant/denial on a real
- *    device (HealthKit is unavailable in the iOS Simulator for most sample types).
+ * Implemented in `mobile/ios/App/App/HealthKitPlugin.swift` against Apple's documented HealthKit
+ * API (workouts, dietary water, body mass, step count), but NOT build-verified or runtime-tested
+ * - written from an environment with no Mac/Xcode/physical iPhone. Before relying on it:
+ * 1. Add the HealthKit capability in Xcode (Signing & Capabilities -> + Capability -> HealthKit).
+ * 2. Confirm `NSHealthShareUsageDescription` is set in `Info.plist` (already added).
+ * 3. Add `HealthKitPlugin.swift` to the Xcode project via File -> Add Files to "App" (not by
+ *    hand-editing `project.pbxproj`).
+ * 4. Build to a real device (HealthKit is unavailable in the iOS Simulator for most sample
+ *    types) and test permission grant/deny - HealthKit deliberately never reveals which specific
+ *    permissions were granted vs denied, only that the authorization sheet completed.
  */
 export interface HealthKitPlugin {
   isAvailable(): Promise<{ available: boolean }>;
@@ -30,8 +28,4 @@ export interface HealthKitPlugin {
   readStepCount(options: { sinceIso: string }): Promise<{ stepCount: number | null }>;
 }
 
-/**
- * Will throw at call time until the native plugin above is implemented and registered. Left
- * registered so call sites can be written now against the real interface.
- */
 export const HealthKit = registerPlugin<HealthKitPlugin>("HealthKit");

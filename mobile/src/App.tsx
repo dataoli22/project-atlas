@@ -11,6 +11,7 @@ import {
 } from "./desktop-api";
 import { clearPairing, loadPairing, savePairing, type StoredPairing } from "./pairing-store";
 import { HealthConnect } from "./health-connect-plugin";
+import { HealthKit } from "./healthkit-plugin";
 import { SamsungHealth } from "./samsung-health-plugin";
 
 const SYNC_WINDOW_HOURS = 24;
@@ -213,8 +214,10 @@ function SyncScreen({ pairing, onUnpair }: { pairing: StoredPairing; onUnpair: (
   const [isError, setIsError] = useState(false);
   const [isSyncingHealthConnect, setIsSyncingHealthConnect] = useState(false);
   const [isSyncingSamsungHealth, setIsSyncingSamsungHealth] = useState(false);
+  const [isSyncingHealthKit, setIsSyncingHealthKit] = useState(false);
   const [healthConnectAvailable, setHealthConnectAvailable] = useState<boolean | null>(null);
   const [samsungHealthAvailable, setSamsungHealthAvailable] = useState<boolean | null>(null);
+  const [healthKitAvailable, setHealthKitAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
     HealthConnect.isAvailable()
@@ -223,6 +226,12 @@ function SyncScreen({ pairing, onUnpair }: { pairing: StoredPairing; onUnpair: (
     SamsungHealth.isAvailable()
       .then((result) => setSamsungHealthAvailable(result.available))
       .catch(() => setSamsungHealthAvailable(false));
+    // Rejects on Android (no native HealthKit plugin registered there) - caught the same way the
+    // other two platform-specific plugins are, so only the button for whichever platform this
+    // device actually is ever becomes enabled.
+    HealthKit.isAvailable()
+      .then((result) => setHealthKitAvailable(result.available))
+      .catch(() => setHealthKitAvailable(false));
   }, []);
 
   async function runHealthConnectSync() {
@@ -304,6 +313,49 @@ function SyncScreen({ pairing, onUnpair }: { pairing: StoredPairing; onUnpair: (
     }
   }
 
+  async function runHealthKitSync() {
+    setIsSyncingHealthKit(true);
+    setIsError(false);
+    try {
+      const permission = await HealthKit.requestPermissions();
+      if (!permission.granted) {
+        setStatus("HealthKit permissions were not granted.");
+        setIsError(true);
+        return;
+      }
+
+      const since = sinceIso();
+      const [sessions, hydration, weight, steps] = await Promise.all([
+        HealthKit.readRecentSessions({ sinceIso: since }),
+        HealthKit.readHydrationMl({ sinceIso: since }),
+        HealthKit.readBodyWeightKg(),
+        HealthKit.readStepCount({ sinceIso: since })
+      ]);
+
+      // Reuses the Health Connect device-sync endpoint/payload shape (healthkit-plugin.ts's doc
+      // comment explains why: same SyncPayload contract on both platforms) rather than a
+      // separate HealthKit-specific backend endpoint - but labeled honestly as its real source,
+      // not folded into "health-connect-sdk".
+      const payload: SyncPayload = {
+        device_label: pairing.deviceName,
+        bridge_source: "healthkit-sdk",
+        recent_sessions: sessions.sessions,
+        ...(hydration.hydrationMl !== null ? { hydration_ml: hydration.hydrationMl } : {}),
+        ...(weight.bodyWeightKg !== null ? { body_weight_kg: weight.bodyWeightKg } : {}),
+        ...(steps.stepCount !== null ? { step_count: steps.stepCount } : {})
+      };
+
+      const result = await syncHealthConnectData(pairing, payload);
+      setStatus(result.ok ? "HealthKit sync succeeded." : result.message);
+      setIsError(!result.ok);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "HealthKit sync failed.");
+      setIsError(true);
+    } finally {
+      setIsSyncingHealthKit(false);
+    }
+  }
+
   return (
     <div className="atlas-mobile-card">
       <div className="atlas-mobile-list-item">
@@ -324,6 +376,10 @@ function SyncScreen({ pairing, onUnpair }: { pairing: StoredPairing; onUnpair: (
           {samsungHealthAvailable === null ? "Checking..." : samsungHealthAvailable ? "Available" : "App not installed"}
         </strong>
       </div>
+      <div className="atlas-mobile-list-item">
+        <span>HealthKit</span>
+        <strong>{healthKitAvailable === null ? "Checking..." : healthKitAvailable ? "Available" : "Not available"}</strong>
+      </div>
 
       <button
         className="atlas-mobile-button"
@@ -339,6 +395,14 @@ function SyncScreen({ pairing, onUnpair }: { pairing: StoredPairing; onUnpair: (
         disabled={isSyncingSamsungHealth || samsungHealthAvailable === false}
       >
         {isSyncingSamsungHealth ? "Syncing..." : "Sync Samsung Health"}
+      </button>
+
+      <button
+        className="atlas-mobile-button"
+        onClick={runHealthKitSync}
+        disabled={isSyncingHealthKit || healthKitAvailable === false}
+      >
+        {isSyncingHealthKit ? "Syncing..." : "Sync HealthKit"}
       </button>
 
       <button className="atlas-mobile-button atlas-mobile-button--secondary" onClick={onUnpair}>

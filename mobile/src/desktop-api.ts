@@ -11,7 +11,7 @@ export interface HealthConnectSession {
 
 export interface SyncPayload {
   device_label?: string;
-  bridge_source?: "health-connect-sdk" | "google-fit-health-connect" | "manual-import";
+  bridge_source?: "health-connect-sdk" | "google-fit-health-connect" | "healthkit-sdk" | "manual-import";
   recent_sessions: HealthConnectSession[];
   hydration_ml?: number;
   body_weight_kg?: number;

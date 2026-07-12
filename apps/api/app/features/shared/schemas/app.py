@@ -319,7 +319,13 @@ class DeviceSessionRecord(BaseModel):
 
 class HealthConnectDeviceSyncRequest(BaseModel):
     device_label: str | None = Field(default=None, max_length=120)
-    bridge_source: Literal["health-connect-sdk", "google-fit-health-connect", "manual-import"] = "health-connect-sdk"
+    # "healthkit-sdk" - iOS's HealthKitPlugin.swift reuses this endpoint/payload shape rather
+    # than a separate iOS-specific one (see mobile/src/healthkit-plugin.ts's doc comment); this
+    # literal exists so that data is labeled honestly by its real source instead of being folded
+    # into "health-connect-sdk", which would misrepresent where it actually came from.
+    bridge_source: Literal[
+        "health-connect-sdk", "google-fit-health-connect", "healthkit-sdk", "manual-import"
+    ] = "health-connect-sdk"
     recent_sessions: list[DeviceSessionRecord] = Field(default_factory=list, max_length=50)
     hydration_ml: float | None = Field(default=None, ge=0)
     body_weight_kg: float | None = Field(default=None, ge=0)

@@ -498,9 +498,15 @@ desktop, and the hard iOS blocker.)
 - [x] iOS: Capacitor scaffold committed (`mobile/ios/`, via `npx cap add ios`); ships as a
       self-compiled build (free Apple ID / Personal Team, 7-day resign) rather than through the
       App Store — see `docs/feature-specs/mobile-architecture.md` section 4 for the full build/sideload flow.
-- [ ] iOS: `HealthKitPlugin.swift` implementation (`mobile/src/healthkit-plugin.ts` documents the
-      interface; needs a Mac + Xcode + physical iPhone to write and test — HealthKit mostly
-      doesn't work in the Simulator).
+- [x] iOS: `HealthKitPlugin.swift` implementation — written against Apple's documented HealthKit
+      API (workouts, dietary water, body mass, step count), registered via Capacitor's
+      pure-Swift `CAPBridgedPlugin` (no Objective-C bridge file needed), `NSHealthShareUsageDescription`
+      added to `Info.plist`, `App.tsx` has a real "Sync HealthKit" button reusing the Health
+      Connect device-sync endpoint/payload shape but labeled `bridge_source: "healthkit-sdk"` (a
+      new literal added to `HealthConnectDeviceSyncRequest`) so data isn't misattributed to
+      Health Connect. **Unbuilt and untested** — no Mac/Xcode/physical iPhone in this
+      environment, and HealthKit mostly doesn't work in the Simulator even with one. Build and
+      exercise permission grant/deny on a real device before relying on it.
 - [x] Permission revocation: disconnecting Strava now calls Strava's real
       `/oauth/deauthorize` endpoint (`StravaOAuthClient.deauthorize`) with the stored access
       token before clearing local state — previously "disconnect" only cleared Atlas's local
