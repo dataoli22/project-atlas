@@ -35,6 +35,33 @@ class AgentExecutionPlan:
     connector_freshness: str
 
 
+def _health_query_grounding(question: str) -> list[ChatGroundingItem]:
+    """Real retrieved records (health_sessions/health_metric_readings - see
+    endurance/health_query.py) for a specific question like "what was my resting heart rate last
+    week", layered on top of the fixed scalar summaries above. Only injects items when the
+    question actually matched a metric/date range/session keyword - most questions won't, and
+    those get no extra grounding rather than noise."""
+    if not question:
+        return []
+
+    from app.features.endurance.health_query import query_health_data
+
+    result = query_health_data(question)
+    items: list[ChatGroundingItem] = []
+    if result.metric_readings:
+        readings_text = "; ".join(
+            f"{reading['recorded_at'][:10]}: {reading['value']}" for reading in result.metric_readings[:5]
+        )
+        items.append(ChatGroundingItem(label=f"Recent {result.matched_metric} readings", value=readings_text))
+    if result.sessions:
+        sessions_text = "; ".join(
+            f"{session['start_date'][:10]} {session['session_label']} ({session['source']})"
+            for session in result.sessions[:5]
+        )
+        items.append(ChatGroundingItem(label="Matching synced sessions", value=sessions_text))
+    return items
+
+
 def find_prompt_profile(ai_settings: AISettings, feature: FeatureScope):
     if feature == "shared":
         return next(profile for profile in ai_settings.prompt_profiles if profile.module == "shared")
@@ -42,7 +69,7 @@ def find_prompt_profile(ai_settings: AISettings, feature: FeatureScope):
     return next(profile for profile in ai_settings.prompt_profiles if profile.module == feature)
 
 
-def grounding_for_feature(feature: FeatureScope) -> list[ChatGroundingItem]:
+def grounding_for_feature(feature: FeatureScope, *, question: str = "") -> list[ChatGroundingItem]:
     integrations = shared_state.get_integrations()
     runtime = shared_state.get_integration_runtime_snapshot()
     connected_titles = [item.title for item in integrations if item.connected]
@@ -115,6 +142,7 @@ def grounding_for_feature(feature: FeatureScope) -> list[ChatGroundingItem]:
                     f"energy {samsung_runtime.get('energy_score') or 'n/a'}"
                 ),
             ),
+            *_health_query_grounding(question),
         ]
 
     if feature == "nutrition":
@@ -210,7 +238,7 @@ def build_execution_plan(
     ai_settings: AISettings,
 ) -> AgentExecutionPlan:
     prompt_profile = find_prompt_profile(ai_settings, feature)
-    grounding = grounding_for_feature(feature)
+    grounding = grounding_for_feature(feature, question=question)
     confidence, confidence_reason, connector_freshness = _connector_status(feature)
     provider: Literal["ollama", "groq"] = ai_settings.default_provider
     model = ai_settings.ollama_model if provider == "ollama" else ai_settings.groq_model

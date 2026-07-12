@@ -442,6 +442,34 @@ class SharedStateStore:
             self._integration_runtime["strava"]["recent_activities"] = [
                 {"source": "strava-live", **item} for item in recent_activities
             ]
+            # Append to permanent history (not the lock-reentrant self.record_health_sessions -
+            # already holding self._lock here, which is non-reentrant). Strava's raw activity
+            # fields (name/sport_type/moving_time_seconds/distance_meters) are normalized to the
+            # common session_label/session_type/duration_minutes/distance_km shape health_sessions
+            # uses for all sources, matching how endurance/service.py already reads either shape
+            # via .get(x) or .get(y) fallbacks - persisting normalized keeps queries source-agnostic.
+            if self._db is not None:
+                self._db.record_health_sessions(
+                    source="strava",
+                    sessions=[
+                        {
+                            "session_label": item.get("name"),
+                            "session_type": item.get("sport_type"),
+                            "duration_minutes": (
+                                item["moving_time_seconds"] / 60
+                                if item.get("moving_time_seconds") is not None
+                                else None
+                            ),
+                            "distance_km": (
+                                item["distance_meters"] / 1000
+                                if item.get("distance_meters") is not None
+                                else None
+                            ),
+                            "start_date": item.get("start_date"),
+                        }
+                        for item in recent_activities
+                    ],
+                )
 
             current = self._integrations["strava"]
             self._integrations["strava"] = current.model_copy(
@@ -477,6 +505,20 @@ class SharedStateStore:
             self._integration_runtime["health_connect"]["step_count"] = step_count
             self._integration_runtime["health_connect"]["active_energy_kcal"] = active_energy_kcal
             self._integration_runtime["health_connect"]["bridge_source"] = bridge_source
+            # Append to permanent history (already-locked, see store_strava_sync's comment on why
+            # this isn't the lock-reentrant self.record_health_sessions/self.record_health_metric_readings).
+            if self._db is not None:
+                self._db.record_health_sessions(source="health_connect", sessions=list(recent_sessions))
+                self._db.record_health_metric_readings(
+                    source="health_connect",
+                    recorded_at=synced_at,
+                    readings={
+                        "hydration_ml": hydration_ml,
+                        "body_weight_kg": body_weight_kg,
+                        "step_count": step_count,
+                        "active_energy_kcal": active_energy_kcal,
+                    },
+                )
             self._integration_runtime["health_connect"]["sync_mode"] = (
                 "permissions-local-stub"
                 if bridge_source == "local-stub"
@@ -520,6 +562,18 @@ class SharedStateStore:
             self._integration_runtime["samsung_health"]["energy_score"] = energy_score
             self._integration_runtime["samsung_health"]["stress_level"] = stress_level
             self._integration_runtime["samsung_health"]["bridge_source"] = bridge_source
+            if self._db is not None:
+                self._db.record_health_sessions(source="samsung_health", sessions=list(recent_sessions))
+                self._db.record_health_metric_readings(
+                    source="samsung_health",
+                    recorded_at=synced_at,
+                    readings={
+                        "sleep_hours": sleep_hours,
+                        "resting_hr": resting_hr,
+                        "energy_score": energy_score,
+                        "stress_level": stress_level,
+                    },
+                )
             self._integration_runtime["samsung_health"]["sync_mode"] = (
                 "sdk-local-stub"
                 if bridge_source == "local-stub"
@@ -586,6 +640,49 @@ class SharedStateStore:
             ]
             self._persist_state_unlocked()
             return list(self._nutrition_runtime["pantry_items"])
+
+    def record_health_sessions(self, *, source: str, sessions: list[dict]) -> None:
+        with self._lock:
+            if self._db is None:
+                return
+            self._db.record_health_sessions(source=source, sessions=sessions)
+
+    def query_health_sessions(
+        self,
+        *,
+        source: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        with self._lock:
+            if self._db is None:
+                return []
+            return self._db.query_health_sessions(source=source, since=since, until=until, limit=limit)
+
+    def record_health_metric_readings(
+        self, *, source: str, recorded_at: str, readings: dict[str, object]
+    ) -> None:
+        with self._lock:
+            if self._db is None:
+                return
+            self._db.record_health_metric_readings(source=source, recorded_at=recorded_at, readings=readings)
+
+    def query_health_metric_history(
+        self,
+        *,
+        metric_name: str,
+        source: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        with self._lock:
+            if self._db is None:
+                return []
+            return self._db.query_health_metric_history(
+                metric_name=metric_name, source=source, since=since, until=until, limit=limit
+            )
 
     def list_meal_plan_entries(self, *, market_code: str) -> list[dict]:
         """Real per-meal rows for a market, or empty if persistence is disabled (test/in-memory

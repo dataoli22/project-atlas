@@ -270,6 +270,157 @@ class LocalStateDatabase:
             for row in rows
         ]
 
+    def record_health_sessions(self, *, source: str, sessions: list[dict]) -> None:
+        """Appends real synced sessions (Strava activities, Health Connect/Samsung Health device
+        sessions) to permanent history. Previously each sync call *overwrote* the in-memory
+        "recent sessions" snapshot in shared_state, silently discarding everything from prior
+        syncs - this is the fix, storing every session ever synced. UNIQUE(source, start_date,
+        session_label) both dedupes a session re-synced verbatim (idempotent re-sync) and keeps
+        genuinely distinct same-timestamp sessions if they have different labels."""
+        if not sessions:
+            return
+        with self._transaction() as connection:
+            for session in sessions:
+                connection.execute(
+                    """
+                    INSERT INTO health_sessions (
+                        source, session_label, session_type, duration_minutes, distance_km,
+                        start_date, synced_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+                    ON CONFLICT(source, start_date, session_label) DO UPDATE SET
+                        session_type = excluded.session_type,
+                        duration_minutes = excluded.duration_minutes,
+                        distance_km = excluded.distance_km,
+                        synced_at = excluded.synced_at
+                    """,
+                    (
+                        source,
+                        str(session.get("session_label", "")),
+                        str(session.get("session_type", "")),
+                        session.get("duration_minutes"),
+                        session.get("distance_km"),
+                        str(session.get("start_date", "")),
+                    ),
+                )
+
+    def query_health_sessions(
+        self,
+        *,
+        source: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        clauses = []
+        params: list[object] = []
+        if source is not None:
+            clauses.append("source = ?")
+            params.append(source)
+        if since is not None:
+            clauses.append("start_date >= ?")
+            params.append(since)
+        if until is not None:
+            clauses.append("start_date <= ?")
+            params.append(until)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.append(limit)
+        rows = self._connection.execute(
+            f"""
+            SELECT source, session_label, session_type, duration_minutes, distance_km,
+                   start_date, synced_at
+            FROM health_sessions
+            {where}
+            ORDER BY start_date DESC
+            LIMIT ?
+            """,
+            params,
+        ).fetchall()
+        return [
+            {
+                "source": row[0],
+                "session_label": row[1],
+                "session_type": row[2],
+                "duration_minutes": row[3],
+                "distance_km": row[4],
+                "start_date": row[5],
+                "synced_at": row[6],
+            }
+            for row in rows
+        ]
+
+    def record_health_metric_readings(
+        self, *, source: str, recorded_at: str, readings: dict[str, float | int | str | None]
+    ) -> None:
+        """One row per (source, metric_name, recorded_at) per sync, rather than the previous
+        overwrite-the-single-latest-scalar approach - lets `query_health_metric_history` answer
+        "what was my resting HR on <date>", not just "what is it right now"."""
+        entries = [(name, value) for name, value in readings.items() if value is not None]
+        if not entries:
+            return
+        with self._transaction() as connection:
+            for metric_name, value in entries:
+                is_numeric = isinstance(value, (int, float)) and not isinstance(value, bool)
+                connection.execute(
+                    """
+                    INSERT INTO health_metric_readings (
+                        source, metric_name, value_numeric, value_text, recorded_at
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(source, metric_name, recorded_at) DO UPDATE SET
+                        value_numeric = excluded.value_numeric,
+                        value_text = excluded.value_text
+                    """,
+                    (
+                        source,
+                        metric_name,
+                        float(value) if is_numeric else None,
+                        None if is_numeric else str(value),
+                        recorded_at,
+                    ),
+                )
+
+    def query_health_metric_history(
+        self,
+        *,
+        metric_name: str,
+        source: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        clauses = ["metric_name = ?"]
+        params: list[object] = [metric_name]
+        if source is not None:
+            clauses.append("source = ?")
+            params.append(source)
+        if since is not None:
+            clauses.append("recorded_at >= ?")
+            params.append(since)
+        if until is not None:
+            clauses.append("recorded_at <= ?")
+            params.append(until)
+        params.append(limit)
+        rows = self._connection.execute(
+            f"""
+            SELECT source, metric_name, value_numeric, value_text, recorded_at
+            FROM health_metric_readings
+            WHERE {' AND '.join(clauses)}
+            ORDER BY recorded_at DESC
+            LIMIT ?
+            """,
+            params,
+        ).fetchall()
+        return [
+            {
+                "source": row[0],
+                "metric_name": row[1],
+                "value": row[2] if row[2] is not None else row[3],
+                "recorded_at": row[4],
+            }
+            for row in rows
+        ]
+
     def is_empty(self) -> bool:
         row = self._connection.execute("SELECT COUNT(*) FROM app_state").fetchone()
         return row is None or row[0] == 0
@@ -390,10 +541,58 @@ def _migration_003_meal_plan_entries(connection: sqlite3.Connection) -> None:
     )
 
 
+def _migration_004_health_history(connection: sqlite3.Connection) -> None:
+    # Real accumulating history for synced health/fitness data. Previously each
+    # store_{strava,health_connect,samsung_health}_sync call OVERWROTE the in-memory
+    # "recent_sessions" list and metric scalars in shared_state on every sync, discarding
+    # everything from prior syncs - there was no way to answer "what did I do last month" because
+    # last month's data was gone the moment a new sync ran. This table is the fix: every synced
+    # session/metric reading is appended (not replaced), so a real query layer (endurance's
+    # health_query.py) has actual history to search. UNIQUE(source, start_date, session_label)
+    # makes a verbatim re-sync of the same session idempotent rather than a duplicate row.
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS health_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            session_label TEXT NOT NULL,
+            session_type TEXT NOT NULL,
+            duration_minutes INTEGER,
+            distance_km REAL,
+            start_date TEXT NOT NULL,
+            synced_at TEXT NOT NULL,
+            UNIQUE(source, start_date, session_label)
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_health_sessions_start_date "
+        "ON health_sessions (start_date DESC)"
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS health_metric_readings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            metric_name TEXT NOT NULL,
+            value_numeric REAL,
+            value_text TEXT,
+            recorded_at TEXT NOT NULL,
+            UNIQUE(source, metric_name, recorded_at)
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_health_metric_readings_lookup "
+        "ON health_metric_readings (metric_name, recorded_at DESC)"
+    )
+
+
 _MIGRATIONS = [
     _migration_001_initial_schema,
     _migration_002_history_tables,
     _migration_003_meal_plan_entries,
+    _migration_004_health_history,
 ]
 
 _SYNC_HISTORY_LIMIT_PER_SOURCE = 50

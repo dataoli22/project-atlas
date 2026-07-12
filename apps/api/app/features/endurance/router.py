@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
+from app.features.endurance.health_query import query_health_data
 from app.features.endurance.schemas import (
     EnduranceDashboardResponse,
     EnduranceInsightsResponse,
@@ -51,3 +52,24 @@ def read_endurance_timeline() -> EnduranceTimelineResponse:
 @router.get("/insights", response_model=EnduranceInsightsResponse)
 def read_endurance_insights() -> EnduranceInsightsResponse:
     return get_endurance_insights()
+
+
+class EnduranceHealthQueryResponse(BaseModel):
+    matched_metric: str | None
+    sessions: list[dict]
+    metric_readings: list[dict]
+
+
+@router.get("/query", response_model=EnduranceHealthQueryResponse)
+def query_endurance_health_data(
+    question: str = Query(min_length=1, max_length=200),
+) -> EnduranceHealthQueryResponse:
+    """A real query layer over synced health/fitness history for the dashboard - the same
+    retrieval Ask Atlas chat uses (agent_runtime.py's grounding), exposed directly so a dashboard
+    widget can ask e.g. "what was my sleep last week" without going through chat."""
+    result = query_health_data(question)
+    return EnduranceHealthQueryResponse(
+        matched_metric=result.matched_metric,
+        sessions=result.sessions,
+        metric_readings=result.metric_readings,
+    )

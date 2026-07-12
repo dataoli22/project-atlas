@@ -338,6 +338,30 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
 
 (Details: `docs/feature-specs/nutrition-endurance-feature-spec.md` Part B.)
 
+- [x] **7a2 — real health-data history + query layer (RAG pipeline #2, matching 6d's pattern)**:
+      found and fixed a real, previously-undiscovered data-loss bug while scoping this: every
+      `store_strava_sync`/`store_health_connect_sync`/`store_samsung_health_sync` call
+      **overwrote** the in-memory `recent_sessions` list and metric scalars wholesale
+      (`state.py`) - a new sync silently discarded everything from prior syncs, so no real
+      history ever accumulated regardless of how many times a user synced over time. New
+      `health_sessions`/`health_metric_readings` tables (`db.py` migration 004, unbounded
+      retention per user decision) now accumulate every synced session/metric reading instead,
+      normalizing Strava's raw activity field names to the same `session_label`/`session_type`
+      shape Health Connect/Samsung Health already use. New `endurance/health_query.py`: real
+      structured retrieval (date-range + metric/session keyword matching against the persisted
+      tables - not embeddings; these are small, well-structured numeric/dated records where exact
+      filtering beats semantic search) - the RAG pattern applied to health data, same shape as
+      6d's ingredient grounding but for sessions/metrics. Wired into two places: `GET
+      /endurance/query?question=...` (a real query layer over the dashboard, independent of chat)
+      and `agent_runtime.py`'s Ask Atlas grounding for the endurance feature (question-aware -
+      "what was my resting heart rate last week" now injects actual retrieved readings, not just
+      the fixed scalar summaries that were there before). 4 new tests.
+      **Not yet done**: `_combined_recent_sessions()` (the function backing the dashboard/timeline
+      pages) still reads only the current in-memory snapshot, not the new persisted history table
+      - the dashboard pages themselves don't yet show full accumulated history, only the query
+      endpoint and chat grounding do. Nutrition's Ask Atlas grounding (6d) hasn't received the
+      equivalent per-record retrieval upgrade either - it still injects only fixed scalar
+      summaries, not specific meal/ingredient records matched to the question.
 - [x] **7a done**: non-medical coach support links (recovery, strength, base training,
       contextual connector setup) on dashboard + capability pages.
 - [~] **7b started**: cross-source dedup landed (`_dedupe_cross_source_sessions` in
