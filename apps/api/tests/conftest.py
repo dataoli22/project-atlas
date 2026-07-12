@@ -1,3 +1,5 @@
+import os
+import tempfile
 from pathlib import Path
 import sys
 
@@ -8,6 +10,20 @@ from fastapi.testclient import TestClient
 API_ROOT = Path(__file__).resolve().parents[1]
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
+
+# Must run before `from app.main import app` below - the shared_state singleton is constructed at
+# import time, and SharedStateStore._persistence_disabled() (state.py) checks PYTEST_CURRENT_TEST,
+# which pytest only sets once a specific test starts running - too late for a module-level import.
+# Without this, the singleton picks up a real LocalStateDatabase pointed at the real dev-machine
+# apps/api/.local/atlas.db, so DB-backed state (AI settings, paired devices, meal plans, etc.)
+# genuinely persists across separate `pytest` invocations on a dev machine, causing tests whose
+# assertions depend on fresh/default state to fail nondeterministically depending on what a
+# previous manual run or `pytest` session happened to leave behind. Confirmed: this was the exact
+# cause of 4 previously-flaky tests (test_ai_settings.py, test_pairing.py) - they pass reliably
+# once each pytest session gets its own throwaway DB/state file.
+_TEST_STATE_DIR = tempfile.mkdtemp(prefix="atlas-pytest-state-")
+os.environ.setdefault("ATLAS_LOCAL_DB_PATH", str(Path(_TEST_STATE_DIR) / "atlas.db"))
+os.environ.setdefault("ATLAS_LOCAL_STATE_PATH", str(Path(_TEST_STATE_DIR) / "shared-state.json"))
 
 from app.main import app
 from app.features.shared.services.state import shared_state

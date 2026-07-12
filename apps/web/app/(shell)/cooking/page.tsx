@@ -144,10 +144,16 @@ export default async function CookingPage() {
               <div key={hack.title} className="atlas-list-card">
                 <div className="atlas-list-card__title">{hack.title}</div>
                 <div className="atlas-list-card__meta">{hack.detail}</div>
-                <div className="atlas-list-card__meta">
-                  Days: {hack.appliesToDays.join(", ") || "Any"} | Saves ~
-                  {hack.estimatedTimeSavedMinutes} min | {hack.difficulty}
-                </div>
+                <dl className="atlas-detail-list">
+                  <div className="atlas-detail-list__row">
+                    <dt>Days</dt>
+                    <dd>{hack.appliesToDays.join(", ") || "Any"}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Saves</dt>
+                    <dd>~{hack.estimatedTimeSavedMinutes} min ({hack.difficulty})</dd>
+                  </div>
+                </dl>
               </div>
             ))}
           </div>
@@ -196,9 +202,17 @@ export default async function CookingPage() {
                 <div className="atlas-list-card__title">
                   {item.ingredient} {"->"} {item.substitute}
                 </div>
-                <div className="atlas-list-card__meta">
-                  {item.reason} | {item.budgetImpact} | {item.swapCategory}
-                </div>
+                <div className="atlas-list-card__meta">{item.reason}</div>
+                <dl className="atlas-detail-list">
+                  <div className="atlas-detail-list__row">
+                    <dt>Budget impact</dt>
+                    <dd>{item.budgetImpact}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Swap category</dt>
+                    <dd>{item.swapCategory}</dd>
+                  </div>
+                </dl>
                 {item.nutrientComparison ? (
                   <div className="atlas-list-card__meta">{item.nutrientComparison}</div>
                 ) : null}

@@ -106,9 +106,13 @@ function PairScreen({
     }
     setDesktopBaseUrl(deepLink.desktopBaseUrl);
     setCode(deepLink.code);
-    // QR scan already proved the user has the pairing code and chose to pair - auto-submit
-    // rather than making them re-tap "Pair with desktop" after the fields fill themselves.
-    void pair(deepLink.desktopBaseUrl, deepLink.code);
+    // Deliberately NOT auto-submitting here. A deep link only proves someone scanned a QR code or
+    // fired the atlas://pair intent - not that the user verified which server it points to. A
+    // malicious QR code (or another app firing the same intent) could pre-fill an attacker's
+    // host/port and, if auto-submitted, silently pair this device's Health Connect/Samsung Health
+    // data to an attacker-controlled "desktop". Pre-filling the fields and still requiring an
+    // explicit tap on "Pair with desktop" below keeps the user in the loop on what they're
+    // confirming, while still saving them from typing the address/code by hand.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLink]);
 
@@ -148,6 +152,13 @@ function PairScreen({
         code shown there. Both devices must be on the same local network - nothing is sent anywhere
         else.
       </p>
+
+      {deepLink ? (
+        <p className="atlas-mobile-status">
+          Filled in from the QR code you scanned. Check the address below matches your own
+          desktop before tapping &quot;Pair with desktop&quot;.
+        </p>
+      ) : null}
 
       <label>
         <span className="atlas-mobile-note">Desktop address (IP:port)</span>

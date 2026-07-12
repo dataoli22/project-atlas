@@ -1268,8 +1268,8 @@ def _build_default_integrations() -> dict[IntegrationSourceKey, IntegrationSourc
             cta_label="Connect Strava account",
             doc_url="https://developers.strava.com/docs/authentication/",
             notes=[
-                "Real implementation will launch Strava OAuth from the packaged desktop or phone runtime.",
-                "This stub keeps the UI and API contract ready for later token exchange work.",
+                "Connecting launches real Strava OAuth from the packaged desktop runtime.",
+                "Token exchange, activity sync, and revocation are fully implemented - see integrations.py's StravaIntegrationAdapter.",
             ],
         ),
         "health_connect": _integration_status(

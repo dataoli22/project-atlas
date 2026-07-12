@@ -87,10 +87,10 @@ export default async function DashboardPage() {
               {timeline.entries.map((entry) => (
                 <div key={`${entry.dayLabel}-${entry.sessionLabel}`} className="atlas-timeline__entry">
                   <div className="atlas-list-card__title">
-                    {entry.dayLabel} | {entry.sessionLabel}
+                    {entry.dayLabel}: {entry.sessionLabel}
                   </div>
                   <div className="atlas-list-card__meta">
-                    {entry.duration} | {entry.load} | {entry.source}
+                    {entry.duration} of {entry.load.toLowerCase()} work &middot; captured via {entry.source}
                   </div>
                 </div>
               ))}

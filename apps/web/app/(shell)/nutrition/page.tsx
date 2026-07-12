@@ -93,7 +93,7 @@ export default async function NutritionPage() {
             </div>
             <div className="atlas-detail-list__row">
               <dt>Categories</dt>
-              <dd>{shoppingList.categories.join(" | ")}</dd>
+              <dd>{shoppingList.categories.join(", ")}</dd>
             </div>
           </dl>
           <p className="atlas-note">
@@ -140,9 +140,17 @@ export default async function NutritionPage() {
                 <div className="atlas-list-card__title">
                   Step {index + 1}: {step.title}
                 </div>
-                <div className="atlas-list-card__meta">
-                  {step.detail} | Days: {step.mealDays.join(", ")} | Effort: {step.effort}
-                </div>
+                <div className="atlas-list-card__meta">{step.detail}</div>
+                <dl className="atlas-detail-list">
+                  <div className="atlas-detail-list__row">
+                    <dt>Days</dt>
+                    <dd>{step.mealDays.join(", ")}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Effort</dt>
+                    <dd>{step.effort}</dd>
+                  </div>
+                </dl>
               </div>
             ))}
           </div>
@@ -154,14 +162,30 @@ export default async function NutritionPage() {
             {topMeals.map((meal) => (
               <div key={meal.day} className="atlas-list-card">
                 <div className="atlas-list-card__title">
-                  {meal.day} | {meal.cookTimeMinutes} min dinner
+                  {meal.day} ({meal.cookTimeMinutes} min dinner)
                 </div>
-                <div className="atlas-list-card__meta">
-                  Breakfast: {meal.breakfast} | Lunch: {meal.lunch} | Dinner: {meal.dinner}
-                </div>
-                <div className="atlas-list-card__meta">
-                  Prep: {meal.prepFocus} | Leftovers: {meal.leftoverPlan}
-                </div>
+                <dl className="atlas-detail-list">
+                  <div className="atlas-detail-list__row">
+                    <dt>Breakfast</dt>
+                    <dd>{meal.breakfast}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Lunch</dt>
+                    <dd>{meal.lunch}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Dinner</dt>
+                    <dd>{meal.dinner}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Prep</dt>
+                    <dd>{meal.prepFocus}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Leftovers</dt>
+                    <dd>{meal.leftoverPlan}</dd>
+                  </div>
+                </dl>
               </div>
             ))}
           </div>
@@ -176,9 +200,8 @@ export default async function NutritionPage() {
                 <div className="atlas-list-card__title">
                   {item.ingredient} {"->"} {item.substitute}
                 </div>
-                <div className="atlas-list-card__meta">
-                  {item.reason} | {item.budgetImpact}
-                </div>
+                <div className="atlas-list-card__meta">{item.reason}</div>
+                <div className="atlas-list-card__meta">Budget impact: {item.budgetImpact}</div>
                 {item.nutrientComparison ? (
                   <div className="atlas-list-card__meta">{item.nutrientComparison}</div>
                 ) : null}
@@ -202,15 +225,36 @@ export default async function NutritionPage() {
               <div key={`${product.source}-${product.sourceId}`} className="atlas-list-card">
                 <div className="atlas-list-card__title">
                   {product.name}
-                  {product.brand ? ` | ${product.brand}` : ""}
+                  {product.brand ? ` (${product.brand})` : ""}
                 </div>
-                <div className="atlas-list-card__meta">
-                  {product.source} | Confidence {Math.round(product.confidence * 100)}%
-                  {product.servingSize ? ` | Serving ${product.servingSize}` : ""}
-                </div>
-                <div className="atlas-list-card__meta">
-                  Protein {product.nutriments.proteinGramsPer100g ?? "n/a"} g | Fiber {product.nutriments.fiberGramsPer100g ?? "n/a"} g | Calories {product.nutriments.caloriesKcalPer100g ?? "n/a"} kcal / 100 g
-                </div>
+                <dl className="atlas-detail-list">
+                  <div className="atlas-detail-list__row">
+                    <dt>Source</dt>
+                    <dd>{product.source}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Confidence</dt>
+                    <dd>{Math.round(product.confidence * 100)}%</dd>
+                  </div>
+                  {product.servingSize ? (
+                    <div className="atlas-detail-list__row">
+                      <dt>Serving</dt>
+                      <dd>{product.servingSize}</dd>
+                    </div>
+                  ) : null}
+                  <div className="atlas-detail-list__row">
+                    <dt>Protein</dt>
+                    <dd>{product.nutriments.proteinGramsPer100g ?? "n/a"} g / 100 g</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Fiber</dt>
+                    <dd>{product.nutriments.fiberGramsPer100g ?? "n/a"} g / 100 g</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Calories</dt>
+                    <dd>{product.nutriments.caloriesKcalPer100g ?? "n/a"} kcal / 100 g</dd>
+                  </div>
+                </dl>
                 {product.externalUrl ? (
                   <div className="atlas-list-card__meta">
                     <a href={product.externalUrl} target="_blank" rel="noreferrer">
