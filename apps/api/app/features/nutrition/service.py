@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
 from app.core.config import build_market_registry
 from app.features.nutrition.data_sources import (
     NutritionDataSourceError,
+    NutritionDataSourceService,
     NutritionProduct,
     OpenFoodFactsDataSource,
 )
+from app.features.nutrition.ingredient_rag import generate_meal_ingredients
 from app.features.nutrition.schemas import (
     NutritionCalendarDay,
     NutritionCalendarMeal,
@@ -27,6 +30,7 @@ from app.features.nutrition.schemas import (
     NutritionTargetSummary,
     NutritionVideoLink,
 )
+from app.features.shared.schemas.app import AISettings
 from app.features.shared.services.state import shared_state
 
 _GENERATED_AT = "2026-07-09T10:30:00Z"
@@ -619,11 +623,157 @@ def get_nutrition_cooking_plan() -> NutritionCookingPlanResponse:
     )
 
 
+_MEAL_SLOTS = ("breakfast", "lunch", "dinner")
+
+
 def _resolve_blueprint() -> tuple[MarketNutritionBlueprint, str]:
     localization = shared_state.get_localization()
     market_code = localization.market
     currency_code = localization.currency
-    return _market_blueprints()[market_code], currency_code
+    static_blueprint = _market_blueprints()[market_code]
+
+    persisted_meals = _persisted_meals_for_market(market_code, static_blueprint)
+    return dataclasses.replace(static_blueprint, meals=persisted_meals), currency_code
+
+
+def _persisted_meals_for_market(
+    market_code: str, static_blueprint: MarketNutritionBlueprint
+) -> list[WeeklyMealTemplate]:
+    """Real per-meal rows (nutrition/db.py's meal_plan_entries), seeded from the static blueprint
+    the first time a market is read. Once seeded, this - not the static blueprint - is the live
+    source `get_nutrition_planner()`/calendar/meal-prep-hack generation reads from, so a swap via
+    `swap_meal()` is immediately reflected everywhere the plan is displayed."""
+    entries = shared_state.list_meal_plan_entries(market_code=market_code)
+    if not entries:
+        _seed_meal_plan_from_blueprint(market_code, static_blueprint)
+        entries = shared_state.list_meal_plan_entries(market_code=market_code)
+        if not entries:
+            # Persistence disabled (test/in-memory mode) - fall back to the static blueprint
+            # meals directly rather than an empty plan.
+            return list(static_blueprint.meals)
+
+    by_day: dict[str, dict[str, dict]] = {}
+    for entry in entries:
+        by_day.setdefault(entry["day"], {})[entry["slot"]] = entry
+
+    ordered_days = [meal.day for meal in static_blueprint.meals]
+    meals: list[WeeklyMealTemplate] = []
+    for day in ordered_days:
+        slots = by_day.get(day)
+        if not slots or not all(slot in slots for slot in _MEAL_SLOTS):
+            # A day missing a slot (shouldn't happen post-seed, but don't crash the planner over
+            # a partial write) falls back to the static value for that day.
+            static_meal = next(meal for meal in static_blueprint.meals if meal.day == day)
+            meals.append(static_meal)
+            continue
+        dinner_entry = slots["dinner"]
+        meals.append(
+            WeeklyMealTemplate(
+                day=day,
+                breakfast=slots["breakfast"]["dish_name"],
+                lunch=slots["lunch"]["dish_name"],
+                dinner=slots["dinner"]["dish_name"],
+                # prep_focus/cook_time/leftover_plan are day-level values in this model (not
+                # per-slot) - stored redundantly on all 3 slot rows for a day so any one of them
+                # (dinner, arbitrarily) reflects the current day-level value after an edit.
+                prep_focus=dinner_entry["prep_focus"],
+                cook_time_minutes=dinner_entry["cook_time_minutes"],
+                leftover_plan=dinner_entry["leftover_plan"],
+            )
+        )
+    return meals
+
+
+def _seed_meal_plan_from_blueprint(
+    market_code: str, static_blueprint: MarketNutritionBlueprint
+) -> None:
+    for meal in static_blueprint.meals:
+        for slot in _MEAL_SLOTS:
+            shared_state.upsert_meal_plan_entry(
+                market_code=market_code,
+                day=meal.day,
+                slot=slot,
+                dish_name=getattr(meal, slot),
+                prep_focus=meal.prep_focus,
+                cook_time_minutes=meal.cook_time_minutes,
+                leftover_plan=meal.leftover_plan,
+                # Ingredients are generated lazily on first swap, not at seed time - seeding
+                # touches all 6 markets x 7 days x 3 slots (126 rows); generating grounded
+                # ingredient breakdows for all of them upfront would mean over a hundred AI calls
+                # on first app read, which is not an acceptable startup cost. A never-swapped
+                # blueprint meal simply has no ingredient breakdown yet.
+                ingredients=[],
+                source="blueprint-default",
+            )
+
+
+def swap_meal(
+    *,
+    day: str,
+    slot: str,
+    new_dish_name: str,
+    reason: str,
+    changed_by: str,
+    ai_settings: AISettings,
+    ollama_api_key: str,
+    groq_api_key: str,
+    data_source_service: NutritionDataSourceService,
+) -> NutritionPlannerResponse:
+    """Swaps one meal slot for a real, persisted dish, regenerating its ingredient breakdown via
+    the Open-Food-Facts-grounded RAG pipeline (ingredient_rag.py) so shopping-list/cooking-plan
+    derivation (a follow-up increment - see docs/production-todo.md) has real data to work from."""
+    dish_name = new_dish_name.strip()
+    if not dish_name:
+        raise ValueError("New dish name cannot be empty.")
+    if slot not in _MEAL_SLOTS:
+        raise ValueError(f"Meal slot must be one of {_MEAL_SLOTS}, got {slot!r}.")
+
+    blueprint, _currency_code = _resolve_blueprint()
+    if day not in {meal.day for meal in blueprint.meals}:
+        raise ValueError(f"Unknown day {day!r} for the current plan.")
+
+    current_entries = {
+        entry["slot"]: entry
+        for entry in shared_state.list_meal_plan_entries(market_code=blueprint.market_code)
+        if entry["day"] == day
+    }
+    current_entry = current_entries.get(slot)
+    previous_dish_name = current_entry["dish_name"] if current_entry else None
+    # prep_focus/cook_time/leftover_plan are day-level, so carry over the current day's values
+    # rather than resetting them - swapping just the dinner dish shouldn't blank out the day's
+    # batch-cook notes.
+    day_meal = next(meal for meal in blueprint.meals if meal.day == day)
+
+    ingredients = generate_meal_ingredients(
+        dish_name=dish_name,
+        market_code=blueprint.market_code,
+        ai_settings=ai_settings,
+        ollama_api_key=ollama_api_key,
+        groq_api_key=groq_api_key,
+        data_source_service=data_source_service,
+    )
+
+    shared_state.upsert_meal_plan_entry(
+        market_code=blueprint.market_code,
+        day=day,
+        slot=slot,
+        dish_name=dish_name,
+        prep_focus=day_meal.prep_focus,
+        cook_time_minutes=day_meal.cook_time_minutes,
+        leftover_plan=day_meal.leftover_plan,
+        ingredients=ingredients,
+        source=changed_by,
+    )
+    shared_state.record_meal_swap(
+        market_code=blueprint.market_code,
+        day=day,
+        slot=slot,
+        previous_dish_name=previous_dish_name,
+        new_dish_name=dish_name,
+        reason=reason.strip() or "Meal swapped",
+        changed_by=changed_by,
+    )
+    return get_nutrition_planner()
 
 
 def _format_money(amount: float, currency_code: str) -> str:

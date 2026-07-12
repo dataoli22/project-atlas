@@ -297,6 +297,43 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
       NotebookLM as a nutrition data source - it has no public API and isn't a nutrition
       database, so there was nothing to actually integrate.
 
+- [x] **6d — persisted, editable meal plan + Open-Food-Facts-grounded ingredient RAG (step 1 of
+      3 toward chat-driven meal editing)**: meals were previously computed live from a static
+      per-market blueprint (`_market_blueprints()`) with no per-user edit path and no ingredient
+      data at all - swapping a meal, or having it auto-sync to shopping/cooking, was structurally
+      impossible. New `meal_plan_entries`/`meal_plan_swap_history` tables
+      (`shared/services/db.py`'s migration 003, following the existing `LocalStateDatabase`
+      raw-SQL versioned-migration pattern rather than wiring in the separately-scaffolded-but-inert
+      Alembic setup - lower risk, same mechanism already proven in production for
+      `connector_sync_history`). `nutrition/service.py`'s `_resolve_blueprint()` now seeds these
+      rows from the static blueprint on first read per market, then reads live entries back
+      afterward - a swap is immediately reflected in calendar days, meal-prep hacks, and the
+      planner response. New `POST /nutrition/planner/swap-meal` endpoint + `swap_meal()`.
+      Each swap regenerates its ingredient breakdown via `nutrition/ingredient_rag.py`: the AI
+      proposes plausible ingredient names for the dish, then **each name is grounded against a
+      real Open Food Facts product** via the existing `NutritionDataSourceService`
+      (retrieve-then-generate, not trusting the AI's raw output as fact) - this is the RAG
+      pipeline requested, reusing the existing product-search infrastructure rather than standing
+      up a new vector store. Degrades honestly: if every AI provider is unavailable, stores a
+      single ungrounded entry with `confidence=0.0` rather than fabricating an ingredient list.
+      Seeding stores empty ingredients (generating breakdowns for all ~126 blueprint meal-slots
+      upfront would mean 126+ AI calls on first read) - only swapped meals get a real breakdown.
+      **Not yet done** (tracked here, not silently skipped): shopping-list/cooking-plan generation
+      still derive from the old hand-authored per-market `shopping_items`/`cooking_steps`, not
+      from `meal_plan_entries.ingredients` - the actual "auto-sync to cooking and pantry" the user
+      asked for needs that derivation rewritten next. After that: tool-calling support (neither
+      Groq nor Ollama client code supports function/tool calls today) so Ask Atlas chat can
+      actually invoke a swap, not just discuss the plan.
+      **Testing gap found, not fixed**: `SharedStateStore`'s `_persistence_disabled()` checks
+      `PYTEST_CURRENT_TEST`, but the module-level `shared_state` singleton is constructed at
+      import time (test collection), before that env var is set for any specific test - so
+      `self._db` ends up as a real `LocalStateDatabase` for the whole pytest session, meaning
+      DB-backed state genuinely persists across separate `pytest` invocations on a dev machine
+      (confirmed: a local `apps/api/.local/atlas.db` accumulates real rows run to run). Not a new
+      bug (pre-existing for `connector_sync_history`/pantry/swap-history too), but this feature
+      is the first with tests sensitive enough to surface it. Worth a real fix later (e.g. an
+      explicit test-mode DB path override wired before the singleton is constructed).
+
 ## 7. Endurance — P1
 
 (Details: `docs/feature-specs/nutrition-endurance-feature-spec.md` Part B.)

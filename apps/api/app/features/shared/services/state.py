@@ -587,6 +587,73 @@ class SharedStateStore:
             self._persist_state_unlocked()
             return list(self._nutrition_runtime["pantry_items"])
 
+    def list_meal_plan_entries(self, *, market_code: str) -> list[dict]:
+        """Real per-meal rows for a market, or empty if persistence is disabled (test/in-memory
+        mode) or nothing has been seeded yet - callers (nutrition/service.py's
+        _resolve_blueprint()) treat empty as "seed from the static blueprint"."""
+        with self._lock:
+            if self._db is None:
+                return []
+            return self._db.list_meal_plan_entries(market_code=market_code)
+
+    def upsert_meal_plan_entry(
+        self,
+        *,
+        market_code: str,
+        day: str,
+        slot: str,
+        dish_name: str,
+        prep_focus: str,
+        cook_time_minutes: int,
+        leftover_plan: str,
+        ingredients: list[dict],
+        source: str,
+    ) -> None:
+        with self._lock:
+            if self._db is None:
+                return
+            self._db.upsert_meal_plan_entry(
+                market_code=market_code,
+                day=day,
+                slot=slot,
+                dish_name=dish_name,
+                prep_focus=prep_focus,
+                cook_time_minutes=cook_time_minutes,
+                leftover_plan=leftover_plan,
+                ingredients=ingredients,
+                source=source,
+            )
+
+    def record_meal_swap(
+        self,
+        *,
+        market_code: str,
+        day: str,
+        slot: str,
+        previous_dish_name: str | None,
+        new_dish_name: str,
+        reason: str,
+        changed_by: str,
+    ) -> None:
+        with self._lock:
+            if self._db is None:
+                return
+            self._db.record_meal_swap(
+                market_code=market_code,
+                day=day,
+                slot=slot,
+                previous_dish_name=previous_dish_name,
+                new_dish_name=new_dish_name,
+                reason=reason,
+                changed_by=changed_by,
+            )
+
+    def list_meal_swap_history(self, *, market_code: str, limit: int = 20) -> list[dict]:
+        with self._lock:
+            if self._db is None:
+                return []
+            return self._db.list_meal_swap_history(market_code=market_code, limit=limit)
+
     def record_nutrition_refresh(
         self,
         *,

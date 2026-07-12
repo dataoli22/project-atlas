@@ -115,6 +115,17 @@ def _build_provider_attempts(
     return attempts
 
 
+# Public aliases so other features (e.g. nutrition/ingredient_rag.py's meal-ingredient
+# generation) can reuse the same provider-resilience chain without duplicating it. Deliberately
+# NOT imported at module load time by callers outside this file - importing chat.py from
+# nutrition/service.py (even indirectly) would create an import cycle, since agent_runtime.py
+# (which chat.py imports) itself imports nutrition/service.py. Callers should do
+# `from app.features.shared.services.chat import build_provider_attempts` inside the function
+# body that needs it, not at their module's top level.
+ProviderAttempt = _ProviderAttempt
+build_provider_attempts = _build_provider_attempts
+
+
 def build_chat_response(
     chat: ChatRequest,
     ai_settings: AISettings,

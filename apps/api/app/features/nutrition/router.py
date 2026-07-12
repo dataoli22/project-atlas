@@ -24,6 +24,7 @@ from app.features.nutrition.service import (
     get_nutrition_shopping_list,
     get_nutrition_substitutions,
     refresh_nutrition_planner,
+    swap_meal,
 )
 from app.features.shared.schemas.health import BodyWeightMetric, HydrationMetric
 from app.features.shared.services.state import shared_state
@@ -53,9 +54,40 @@ class NutritionPlannerRefreshRequest(BaseModel):
     reason: str | None = Field(default=None, max_length=200)
 
 
+class NutritionMealSwapRequest(BaseModel):
+    day: str = Field(min_length=1, max_length=20)
+    slot: str = Field(min_length=1, max_length=20)
+    dish_name: str = Field(min_length=1, max_length=160)
+    reason: str = Field(default="", max_length=200)
+
+
 @router.get("/planner", response_model=NutritionPlannerResponse)
 def read_nutrition_planner() -> NutritionPlannerResponse:
     return get_nutrition_planner()
+
+
+@router.post("/planner/swap-meal", response_model=NutritionPlannerResponse)
+def swap_nutrition_meal(payload: NutritionMealSwapRequest) -> NutritionPlannerResponse:
+    """Swaps one meal slot for a real, persisted dish (nutrition/service.py's meal_plan_entries
+    table), regenerating its ingredient breakdown via the Open-Food-Facts-grounded RAG pipeline.
+    `changed_by="user"` here - the same function is reusable for a future chat-driven swap with
+    `changed_by="chat"` once tool-calling is wired up (see docs/production-todo.md)."""
+    try:
+        return swap_meal(
+            day=payload.day,
+            slot=payload.slot,
+            new_dish_name=payload.dish_name,
+            reason=payload.reason,
+            changed_by="user",
+            ai_settings=shared_state.get_ai_settings(),
+            ollama_api_key=shared_state.get_ollama_api_key(),
+            groq_api_key=shared_state.get_groq_api_key(),
+            data_source_service=get_default_nutrition_data_source_service(
+                brave_api_key=shared_state.get_brave_api_key()
+            ),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/planner/refresh", response_model=NutritionPlannerResponse)

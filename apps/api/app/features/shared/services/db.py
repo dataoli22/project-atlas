@@ -145,6 +145,131 @@ class LocalStateDatabase:
             for row in rows
         ]
 
+    def upsert_meal_plan_entry(
+        self,
+        *,
+        market_code: str,
+        day: str,
+        slot: str,
+        dish_name: str,
+        prep_focus: str,
+        cook_time_minutes: int,
+        leftover_plan: str,
+        ingredients: list[dict],
+        source: str,
+    ) -> None:
+        with self._transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO meal_plan_entries (
+                    market_code, day, slot, dish_name, prep_focus, cook_time_minutes,
+                    leftover_plan, ingredients, source, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(market_code, day, slot) DO UPDATE SET
+                    dish_name = excluded.dish_name,
+                    prep_focus = excluded.prep_focus,
+                    cook_time_minutes = excluded.cook_time_minutes,
+                    leftover_plan = excluded.leftover_plan,
+                    ingredients = excluded.ingredients,
+                    source = excluded.source,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    market_code,
+                    day,
+                    slot,
+                    dish_name,
+                    prep_focus,
+                    cook_time_minutes,
+                    leftover_plan,
+                    json.dumps(ingredients),
+                    source,
+                ),
+            )
+
+    def list_meal_plan_entries(self, *, market_code: str) -> list[dict]:
+        rows = self._connection.execute(
+            """
+            SELECT day, slot, dish_name, prep_focus, cook_time_minutes, leftover_plan,
+                   ingredients, source, updated_at
+            FROM meal_plan_entries
+            WHERE market_code = ?
+            ORDER BY id ASC
+            """,
+            (market_code,),
+        ).fetchall()
+        return [
+            {
+                "day": row[0],
+                "slot": row[1],
+                "dish_name": row[2],
+                "prep_focus": row[3],
+                "cook_time_minutes": row[4],
+                "leftover_plan": row[5],
+                "ingredients": json.loads(row[6]),
+                "source": row[7],
+                "updated_at": row[8],
+            }
+            for row in rows
+        ]
+
+    def record_meal_swap(
+        self,
+        *,
+        market_code: str,
+        day: str,
+        slot: str,
+        previous_dish_name: str | None,
+        new_dish_name: str,
+        reason: str,
+        changed_by: str,
+    ) -> None:
+        with self._transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO meal_plan_swap_history (
+                    market_code, day, slot, previous_dish_name, new_dish_name, reason,
+                    changed_by, changed_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                """,
+                (market_code, day, slot, previous_dish_name, new_dish_name, reason, changed_by),
+            )
+            connection.execute(
+                """
+                DELETE FROM meal_plan_swap_history
+                WHERE market_code = ? AND id NOT IN (
+                    SELECT id FROM meal_plan_swap_history
+                    WHERE market_code = ? ORDER BY id DESC LIMIT ?
+                )
+                """,
+                (market_code, market_code, _MEAL_SWAP_HISTORY_LIMIT_PER_MARKET),
+            )
+
+    def list_meal_swap_history(self, *, market_code: str, limit: int = 20) -> list[dict]:
+        rows = self._connection.execute(
+            """
+            SELECT day, slot, previous_dish_name, new_dish_name, reason, changed_by, changed_at
+            FROM meal_plan_swap_history
+            WHERE market_code = ?
+            ORDER BY id DESC LIMIT ?
+            """,
+            (market_code, limit),
+        ).fetchall()
+        return [
+            {
+                "day": row[0],
+                "slot": row[1],
+                "previous_dish_name": row[2],
+                "new_dish_name": row[3],
+                "reason": row[4],
+                "changed_by": row[5],
+                "changed_at": row[6],
+            }
+            for row in rows
+        ]
+
     def is_empty(self) -> bool:
         row = self._connection.execute("SELECT COUNT(*) FROM app_state").fetchone()
         return row is None or row[0] == 0
@@ -216,10 +341,61 @@ def _migration_002_history_tables(connection: sqlite3.Connection) -> None:
     )
 
 
+def _migration_003_meal_plan_entries(connection: sqlite3.Connection) -> None:
+    # Real per-meal rows, replacing the static per-market blueprint as the live source of truth.
+    # The blueprint now only seeds these rows on first read (nutrition/service.py) - once a row
+    # exists here, it's what the shopping list and cooking plan actually derive from, and what a
+    # user/chat "swap this meal" edit mutates. UNIQUE(market_code, day, slot) makes seeding and
+    # swapping both simple upserts - one current entry per day+slot per market, ever.
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS meal_plan_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            market_code TEXT NOT NULL,
+            day TEXT NOT NULL,
+            slot TEXT NOT NULL,
+            dish_name TEXT NOT NULL,
+            prep_focus TEXT NOT NULL,
+            cook_time_minutes INTEGER NOT NULL,
+            leftover_plan TEXT NOT NULL,
+            ingredients TEXT NOT NULL,
+            source TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(market_code, day, slot)
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_meal_plan_entries_market "
+        "ON meal_plan_entries (market_code)"
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS meal_plan_swap_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            market_code TEXT NOT NULL,
+            day TEXT NOT NULL,
+            slot TEXT NOT NULL,
+            previous_dish_name TEXT,
+            new_dish_name TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            changed_by TEXT NOT NULL,
+            changed_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_meal_plan_swap_history_market "
+        "ON meal_plan_swap_history (market_code, id DESC)"
+    )
+
+
 _MIGRATIONS = [
     _migration_001_initial_schema,
     _migration_002_history_tables,
+    _migration_003_meal_plan_entries,
 ]
 
 _SYNC_HISTORY_LIMIT_PER_SOURCE = 50
 _PLANNER_HISTORY_LIMIT = 20
+_MEAL_SWAP_HISTORY_LIMIT_PER_MARKET = 50

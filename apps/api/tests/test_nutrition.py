@@ -243,3 +243,57 @@ def test_nutrition_cooking_plan_endpoint_returns_structured_steps(client):
     assert len(payload["steps"]) >= 3
     assert payload["steps"][0]["meal_days"]
     assert payload["steps"][0]["equipment"]
+
+
+def test_swap_meal_persists_and_is_reflected_in_planner(client):
+    # meal_plan_entries is real, on-disk, cross-test-run persistence (nutrition/service.py's
+    # seed-from-blueprint-once model) - unlike most other state this test suite resets per test
+    # (see conftest.py's restore_shared_state, which snapshots in-memory shared_state but does not
+    # touch the underlying SQLite file). Establish a known baseline via the endpoint itself first,
+    # rather than assuming the day's dinner starts at any particular blueprint default.
+    baseline = client.post(
+        "/api/v1/nutrition/planner/swap-meal",
+        json={"day": "Mon", "slot": "dinner", "dish_name": "Baseline Placeholder Dish", "reason": "test setup"},
+    )
+    assert baseline.status_code == 200
+    before = baseline.json()
+    monday = next(meal for meal in before["meals"] if meal["day"] == "Mon")
+    assert monday["dinner"] == "Baseline Placeholder Dish"
+
+    response = client.post(
+        "/api/v1/nutrition/planner/swap-meal",
+        json={"day": "Mon", "slot": "dinner", "dish_name": "Grilled tofu stir-fry", "reason": "Trying something new"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    swapped_monday = next(meal for meal in payload["meals"] if meal["day"] == "Mon")
+    assert swapped_monday["dinner"] == "Grilled tofu stir-fry"
+    # Other slots on the same day are untouched by a single-slot swap.
+    assert swapped_monday["breakfast"] == monday["breakfast"]
+    assert swapped_monday["lunch"] == monday["lunch"]
+
+    # Swapping again confirms the edit persisted (this isn't a one-shot in-memory mutation).
+    again = client.get("/api/v1/nutrition/planner").json()
+    monday_again = next(meal for meal in again["meals"] if meal["day"] == "Mon")
+    assert monday_again["dinner"] == "Grilled tofu stir-fry"
+
+
+def test_swap_meal_rejects_unknown_slot(client):
+    response = client.post(
+        "/api/v1/nutrition/planner/swap-meal",
+        json={"day": "Mon", "slot": "brunch", "dish_name": "Something", "reason": ""},
+    )
+
+    assert response.status_code == 400
+    assert "slot" in response.json()["detail"].lower()
+
+
+def test_swap_meal_rejects_unknown_day(client):
+    response = client.post(
+        "/api/v1/nutrition/planner/swap-meal",
+        json={"day": "Someday", "slot": "dinner", "dish_name": "Something", "reason": ""},
+    )
+
+    assert response.status_code == 400
+    assert "day" in response.json()["detail"].lower()
