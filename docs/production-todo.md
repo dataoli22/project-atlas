@@ -333,6 +333,24 @@ full original text remains in git history at `git log -- docs/prod-readiness-aud
       bug (pre-existing for `connector_sync_history`/pantry/swap-history too), but this feature
       is the first with tests sensitive enough to surface it. Worth a real fix later (e.g. an
       explicit test-mode DB path override wired before the singleton is constructed).
+- [x] **6e — recipe search on the cooking page, capped at 5/day**: users can now search for a
+      recipe they actually want (not just what the plan already has) via `GET
+      /nutrition/recipes/search`, backed by Brave Search (the only real external search API wired
+      into this codebase - `BraveSearchProvider`, already used as nutrition's product-search
+      fallback and gated on a user-supplied key under Settings -> Search). Capped at
+      `RECIPE_SEARCH_DAILY_LIMIT = 5`/day via a new persisted `daily_rate_limits` table (`db.py`
+      migration 005, generic key/day/count schema reusable for any future quota-limited call, not
+      recipe-search-specific) - unlike the pairing endpoint's in-memory sliding-window limiter,
+      this needed to survive an app restart within the same day. A search result's title becomes
+      the dish name passed straight to the existing `swap_meal()`/`POST /planner/swap-meal`
+      (6d) when the user clicks "Sync to plan" - no separate recipe-page scraper was built (the
+      `NutritionProductScraper` protocol is still unimplemented) since the existing
+      Open-Food-Facts-grounded ingredient pipeline already handles turning a dish name into real
+      ingredients. New `<RecipeSearchForm>` on the cooking page (`apps/web/components/recipe-search-form.tsx`)
+      deliberately bypasses `requestJson`/`fetchJson` (both silently swallow non-2xx responses
+      into a stub fallback, which would hide the real 429/400 messages this endpoint returns) in
+      favor of a raw `fetch()`, same reasoning as the mobile app's pairing screen. 4 new backend
+      tests.
 
 ## 7. Endurance — P1
 

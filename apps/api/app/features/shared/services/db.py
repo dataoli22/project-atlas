@@ -421,6 +421,36 @@ class LocalStateDatabase:
             for row in rows
         ]
 
+    def get_daily_limit_count(self, *, limit_key: str, day: str) -> int:
+        row = self._connection.execute(
+            "SELECT call_count FROM daily_rate_limits WHERE limit_key = ? AND day = ?",
+            (limit_key, day),
+        ).fetchone()
+        return row[0] if row else 0
+
+    def check_and_increment_daily_limit(self, *, limit_key: str, max_per_day: int, day: str) -> bool:
+        """Atomically checks the current UTC-day count for `limit_key` against `max_per_day` and,
+        if under the cap, increments and returns True. Returns False without incrementing once
+        the cap is hit for the day - callers should surface that as a clear "try again tomorrow"
+        message, not silently degrade or fabricate a result."""
+        with self._transaction() as connection:
+            row = connection.execute(
+                "SELECT call_count FROM daily_rate_limits WHERE limit_key = ? AND day = ?",
+                (limit_key, day),
+            ).fetchone()
+            current_count = row[0] if row else 0
+            if current_count >= max_per_day:
+                return False
+            connection.execute(
+                """
+                INSERT INTO daily_rate_limits (limit_key, day, call_count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(limit_key, day) DO UPDATE SET call_count = call_count + 1
+                """,
+                (limit_key, day),
+            )
+            return True
+
     def is_empty(self) -> bool:
         row = self._connection.execute("SELECT COUNT(*) FROM app_state").fetchone()
         return row is None or row[0] == 0
@@ -588,11 +618,30 @@ def _migration_004_health_history(connection: sqlite3.Connection) -> None:
     )
 
 
+def _migration_005_daily_rate_limits(connection: sqlite3.Connection) -> None:
+    # A persisted (survives app restart), per-UTC-day counter - generic enough to reuse for any
+    # future quota-limited external call, not just recipe search. The in-memory sliding-window
+    # pattern pairing.py uses (a plain list of call timestamps) doesn't fit here: a 5/day cap
+    # needs to survive the app being closed and reopened within the same day, which an in-memory
+    # list can't do.
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS daily_rate_limits (
+            limit_key TEXT NOT NULL,
+            day TEXT NOT NULL,
+            call_count INTEGER NOT NULL,
+            PRIMARY KEY (limit_key, day)
+        )
+        """
+    )
+
+
 _MIGRATIONS = [
     _migration_001_initial_schema,
     _migration_002_history_tables,
     _migration_003_meal_plan_entries,
     _migration_004_health_history,
+    _migration_005_daily_rate_limits,
 ]
 
 _SYNC_HISTORY_LIMIT_PER_SOURCE = 50

@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from app.core.config import build_market_registry
 from app.features.nutrition.data_sources import (
+    BraveSearchProvider,
     NutritionDataSourceError,
     NutritionDataSourceService,
     NutritionProduct,
@@ -774,6 +775,58 @@ def swap_meal(
         changed_by=changed_by,
     )
     return get_nutrition_planner()
+
+
+RECIPE_SEARCH_DAILY_LIMIT = 5
+RECIPE_SEARCH_RATE_LIMIT_KEY = "nutrition_recipe_search"
+
+
+@dataclass(frozen=True)
+class RecipeSearchHit:
+    title: str
+    url: str
+    snippet: str
+
+
+class RecipeSearchRateLimitedError(RuntimeError):
+    """Raised once the day's recipe-search quota (RECIPE_SEARCH_DAILY_LIMIT) is used up."""
+
+
+def search_recipes(query: str, *, brave_api_key: str) -> list[RecipeSearchHit]:
+    """Real recipe search so a user can find and cook whatever they actually want, not just what
+    the blueprint/meal plan already has - backed by Brave Search (the only real external search
+    API wired into this codebase; see data_sources.py's SearchSettings/BraveSearchProvider), the
+    same provider already used as nutrition's product-search fallback. Capped at
+    RECIPE_SEARCH_DAILY_LIMIT/day (persisted, survives app restart - shared_state.py's
+    check_and_increment_daily_limit) since it burns a real, quota-limited external API call, not
+    a free local operation. A result's title becomes the dish_name passed to swap_meal() when the
+    user picks "sync to plan" - reuses the existing Open-Food-Facts-grounded ingredient pipeline
+    rather than needing a separate recipe-page scraper to extract ingredients.
+    """
+    normalized_query = query.strip()
+    if not normalized_query:
+        raise ValueError("Enter a recipe search query.")
+    if not brave_api_key:
+        raise ValueError(
+            "Recipe search needs a Brave Search API key - add one under Settings -> Search."
+        )
+
+    if not shared_state.check_and_increment_daily_limit(
+        limit_key=RECIPE_SEARCH_RATE_LIMIT_KEY, max_per_day=RECIPE_SEARCH_DAILY_LIMIT
+    ):
+        raise RecipeSearchRateLimitedError(
+            f"Recipe search is limited to {RECIPE_SEARCH_DAILY_LIMIT} searches a day to protect "
+            "the Brave Search quota. Try again tomorrow."
+        )
+
+    localization = shared_state.get_localization()
+    provider = BraveSearchProvider(api_key=brave_api_key)
+    try:
+        hits = provider.search(f"{normalized_query} recipe", market_code=localization.market, limit=8)
+    except NutritionDataSourceError as exc:
+        raise ValueError(f"Recipe search failed: {exc}") from exc
+
+    return [RecipeSearchHit(title=hit.title, url=hit.url, snippet=hit.snippet) for hit in hits]
 
 
 def _format_money(amount: float, currency_code: str) -> str:

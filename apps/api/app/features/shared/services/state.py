@@ -641,6 +641,24 @@ class SharedStateStore:
             self._persist_state_unlocked()
             return list(self._nutrition_runtime["pantry_items"])
 
+    def get_daily_limit_count(self, *, limit_key: str) -> int:
+        with self._lock:
+            if self._db is None:
+                return 0
+            day = datetime.now(timezone.utc).date().isoformat()
+            return self._db.get_daily_limit_count(limit_key=limit_key, day=day)
+
+    def check_and_increment_daily_limit(self, *, limit_key: str, max_per_day: int) -> bool:
+        """Returns True (and counts the call) if under the day's cap, False if the day's calls
+        are exhausted. Persistence-disabled (test/in-memory) mode always allows - there's no
+        durable counter to check against, and tests shouldn't fail over a quota that isn't real
+        in that mode."""
+        with self._lock:
+            if self._db is None:
+                return True
+            day = datetime.now(timezone.utc).date().isoformat()
+            return self._db.check_and_increment_daily_limit(limit_key=limit_key, max_per_day=max_per_day, day=day)
+
     def record_health_sessions(self, *, source: str, sessions: list[dict]) -> None:
         with self._lock:
             if self._db is None:

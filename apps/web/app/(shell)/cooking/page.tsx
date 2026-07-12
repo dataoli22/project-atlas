@@ -6,6 +6,7 @@ import {
 } from "@/lib/nutrition-data";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { PageScaffold } from "@/components/page-scaffold";
+import { RecipeSearchForm } from "@/components/recipe-search-form";
 import { RefreshButton } from "@/components/refresh-button";
 import { combineDataSources } from "@/lib/data-source";
 
@@ -67,6 +68,8 @@ export default async function CookingPage() {
         <RefreshButton />
       </div>
       <div className="atlas-grid atlas-grid--hero">
+        <RecipeSearchForm />
+
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">Prep sequence</div>
           <p className="atlas-note">

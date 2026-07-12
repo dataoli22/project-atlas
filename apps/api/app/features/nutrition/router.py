@@ -19,11 +19,15 @@ from app.features.nutrition.schemas import (
     NutritionSubstitutionsResponse,
 )
 from app.features.nutrition.service import (
+    RECIPE_SEARCH_DAILY_LIMIT,
+    RECIPE_SEARCH_RATE_LIMIT_KEY,
+    RecipeSearchRateLimitedError,
     get_nutrition_cooking_plan,
     get_nutrition_planner,
     get_nutrition_shopping_list,
     get_nutrition_substitutions,
     refresh_nutrition_planner,
+    search_recipes,
     swap_meal,
 )
 from app.features.shared.schemas.health import BodyWeightMetric, HydrationMetric
@@ -88,6 +92,40 @@ def swap_nutrition_meal(payload: NutritionMealSwapRequest) -> NutritionPlannerRe
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+class NutritionRecipeSearchHit(BaseModel):
+    title: str
+    url: str
+    snippet: str
+
+
+class NutritionRecipeSearchResponse(BaseModel):
+    query: str
+    results: list[NutritionRecipeSearchHit]
+    searches_remaining_today: int
+
+
+@router.get("/recipes/search", response_model=NutritionRecipeSearchResponse)
+def search_nutrition_recipes(
+    query: str = Query(min_length=1, max_length=120),
+) -> NutritionRecipeSearchResponse:
+    """Real recipe search (Brave Search - see search_recipes()'s docstring), capped at
+    RECIPE_SEARCH_DAILY_LIMIT/day. A result becomes a real meal via POST /planner/swap-meal using
+    its title as the dish name - the frontend's "sync to plan" button on a search result."""
+    try:
+        hits = search_recipes(query, brave_api_key=shared_state.get_brave_api_key())
+    except RecipeSearchRateLimitedError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    used_today = shared_state.get_daily_limit_count(limit_key=RECIPE_SEARCH_RATE_LIMIT_KEY)
+    return NutritionRecipeSearchResponse(
+        query=query,
+        results=[NutritionRecipeSearchHit(title=hit.title, url=hit.url, snippet=hit.snippet) for hit in hits],
+        searches_remaining_today=max(0, RECIPE_SEARCH_DAILY_LIMIT - used_today),
+    )
 
 
 @router.post("/planner/refresh", response_model=NutritionPlannerResponse)

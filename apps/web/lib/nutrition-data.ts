@@ -11,7 +11,7 @@ import type {
 } from "@atlas/shared";
 
 import type { ApiDataSource } from "@/lib/api";
-import { fetchJson, requestJson } from "@/lib/api";
+import { fetchJson, requestJson, resolveApiBaseUrl } from "@/lib/api";
 
 const stubPlanner: NutritionPlannerData = {
   generatedAt: "2026-07-09T10:30:00Z",
@@ -1110,4 +1110,69 @@ export async function searchNutritionProducts(query = "oats", limit = 4): Promis
   );
 
   return mapProductSearchResponse(response);
+}
+
+export type RecipeSearchHit = {
+  title: string;
+  url: string;
+  snippet: string;
+};
+
+export type RecipeSearchResult =
+  | { ok: true; results: RecipeSearchHit[]; searchesRemainingToday: number }
+  | { ok: false; message: string };
+
+/**
+ * Deliberately NOT using requestJson/fetchJson here - both silently swallow non-2xx responses
+ * into a generic stub fallback (api.ts's requestJson catches everything and returns
+ * source: "stub"), which would hide the real, useful error messages this endpoint returns (429
+ * "limited to 5 searches a day...", 400 "add a Brave Search API key..."). A raw fetch surfaces
+ * those to the user instead of a silent no-op, matching the pattern in mobile/src/App.tsx and
+ * pairing-settings-form.tsx for the same reason.
+ */
+export async function searchRecipes(query: string): Promise<RecipeSearchResult> {
+  const baseUrl = resolveApiBaseUrl();
+  const params = new URLSearchParams({ query });
+  try {
+    const response = await fetch(`${baseUrl}/api/v1/nutrition/recipes/search?${params.toString()}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+      return { ok: false, message: detail?.detail ?? `Recipe search failed with status ${response.status}` };
+    }
+    const payload = (await response.json()) as {
+      results: RecipeSearchHit[];
+      searches_remaining_today: number;
+    };
+    return { ok: true, results: payload.results, searchesRemainingToday: payload.searches_remaining_today };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Could not reach the desktop backend." };
+  }
+}
+
+export type SwapMealResult = { ok: true } | { ok: false; message: string };
+
+export async function swapNutritionMeal(
+  day: string,
+  slot: string,
+  dishName: string,
+  reason: string
+): Promise<SwapMealResult> {
+  const baseUrl = resolveApiBaseUrl();
+  try {
+    const response = await fetch(`${baseUrl}/api/v1/nutrition/planner/swap-meal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ day, slot, dish_name: dishName, reason })
+    });
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+      return { ok: false, message: detail?.detail ?? `Sync failed with status ${response.status}` };
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Could not reach the desktop backend." };
+  }
 }
