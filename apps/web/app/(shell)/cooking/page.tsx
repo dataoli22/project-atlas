@@ -64,7 +64,7 @@ export default async function CookingPage() {
       ]}
     >
       <DataSourceBanner source={source} />
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div className="atlas-toolbar">
         <RefreshButton />
       </div>
       <div className="atlas-grid atlas-grid--hero">
@@ -81,10 +81,21 @@ export default async function CookingPage() {
                 <div className="atlas-list-card__title">
                   Step {index + 1}: {step.title}
                 </div>
-                <div className="atlas-list-card__meta">
-                  {step.detail} | Days: {step.mealDays.join(", ")} | Effort: {step.effort}
-                </div>
-                <div className="atlas-list-card__meta">Equipment: {step.equipment.join(", ")}</div>
+                <div className="atlas-list-card__meta">{step.detail}</div>
+                <dl className="atlas-detail-list">
+                  <div className="atlas-detail-list__row">
+                    <dt>Days</dt>
+                    <dd>{step.mealDays.join(", ")}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Effort</dt>
+                    <dd>{step.effort}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Equipment</dt>
+                    <dd>{step.equipment.join(", ")}</dd>
+                  </div>
+                </dl>
               </div>
             ))}
           </div>
@@ -99,12 +110,24 @@ export default async function CookingPage() {
                 <div className="atlas-list-card__title">
                   {meal.day}: {meal.dinner} ({meal.cookTimeMinutes} min)
                 </div>
-                <div className="atlas-list-card__meta">
-                  Breakfast: {meal.breakfast} | Lunch: {meal.lunch}
-                </div>
-                <div className="atlas-list-card__meta">
-                  Prep: {meal.prepFocus} | Leftovers: {meal.leftoverPlan}
-                </div>
+                <dl className="atlas-detail-list">
+                  <div className="atlas-detail-list__row">
+                    <dt>Breakfast</dt>
+                    <dd>{meal.breakfast}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Lunch</dt>
+                    <dd>{meal.lunch}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Prep</dt>
+                    <dd>{meal.prepFocus}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Leftovers</dt>
+                    <dd>{meal.leftoverPlan}</dd>
+                  </div>
+                </dl>
                 <div className="atlas-list-card__meta">{getCarryoverNote(meal.lunch, meal.dinner)}</div>
               </div>
             ))}

@@ -49,7 +49,7 @@ export default async function DashboardPage() {
     >
       <DataSourceBanner source={source} />
       <MedicalFlagBanner flags={insights.medicalFlags} />
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div className="atlas-toolbar">
         <RefreshButton />
       </div>
       <div className="atlas-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(340px, 100%), 1fr))" }}>

@@ -69,7 +69,7 @@ export default async function CapabilityPage() {
     >
       <DataSourceBanner source={source} />
       <MedicalFlagBanner flags={insights.medicalFlags} />
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div className="atlas-toolbar">
         <RefreshButton />
       </div>
       <div className="atlas-grid atlas-grid--hero">

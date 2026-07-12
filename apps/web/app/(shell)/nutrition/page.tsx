@@ -48,7 +48,7 @@ export default async function NutritionPage() {
       ]}
     >
       <DataSourceBanner source={source} />
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div className="atlas-toolbar">
         <RefreshButton />
       </div>
       <div className="atlas-grid atlas-grid--hero">

@@ -78,7 +78,7 @@ export default async function PlannerPage() {
       ]}
     >
       <DataSourceBanner source={source} />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
+      <div className="atlas-toolbar" style={{ justifyContent: "space-between" }}>
         <CuisineSwitcher localization={localization} markets={markets} />
         <RefreshButton />
       </div>
@@ -121,34 +121,12 @@ export default async function PlannerPage() {
             </div>
           </dl>
           <p className="atlas-note">{refresh.dataFreshness}</p>
-          <form action={refreshPlanAction} className="atlas-stack" style={{ gap: "8px" }}>
-            <label className="atlas-panel__eyebrow" htmlFor="refresh-reason">
-              Refresh this plan now
+          <form action={refreshPlanAction} className="atlas-stack">
+            <label className="atlas-form-field">
+              <span>Refresh this plan now</span>
+              <input id="refresh-reason" name="reason" placeholder="Why refresh? e.g. ran out of paneer" />
             </label>
-            <input
-              id="refresh-reason"
-              name="reason"
-              placeholder="Why refresh? e.g. ran out of paneer"
-              style={{
-                padding: "10px 12px",
-                borderRadius: "12px",
-                border: "1px solid var(--atlas-border)",
-                background: "var(--atlas-surface-strong)",
-                color: "var(--atlas-ink)"
-              }}
-            />
-            <button
-              type="submit"
-              style={{
-                padding: "10px 16px",
-                borderRadius: "12px",
-                border: "none",
-                background: "var(--atlas-accent)",
-                color: "#fffdf7",
-                fontWeight: 600,
-                cursor: "pointer"
-              }}
-            >
+            <button type="submit" className="atlas-button atlas-button--primary">
               Refresh plan
             </button>
             <span className="atlas-note">
@@ -257,12 +235,26 @@ export default async function PlannerPage() {
             {shoppingList.items.map((item) => (
               <div key={`${item.name}-${item.quantity}`} className="atlas-list-card">
                 <div className="atlas-list-card__title">
-                  {item.name} | {item.quantity}
+                  {item.name} ({item.quantity})
                 </div>
-                <div className="atlas-list-card__meta">
-                  {item.category} | {item.estimatedCost} | {item.priority} priority
-                </div>
-                <div className="atlas-list-card__meta">Used in: {item.usedInDays.join(", ")}</div>
+                <dl className="atlas-detail-list">
+                  <div className="atlas-detail-list__row">
+                    <dt>Category</dt>
+                    <dd>{item.category}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Cost</dt>
+                    <dd>{item.estimatedCost}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Priority</dt>
+                    <dd>{item.priority}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Used in</dt>
+                    <dd>{item.usedInDays.join(", ")}</dd>
+                  </div>
+                </dl>
               </div>
             ))}
           </div>
@@ -276,9 +268,17 @@ export default async function PlannerPage() {
                 <div className="atlas-list-card__title">
                   {item.ingredient} {"->"} {item.substitute}
                 </div>
-                <div className="atlas-list-card__meta">
-                  {item.reason} | {item.budgetImpact} | {item.swapCategory}
-                </div>
+                <div className="atlas-list-card__meta">{item.reason}</div>
+                <dl className="atlas-detail-list">
+                  <div className="atlas-detail-list__row">
+                    <dt>Budget impact</dt>
+                    <dd>{item.budgetImpact}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Swap category</dt>
+                    <dd>{item.swapCategory}</dd>
+                  </div>
+                </dl>
                 {item.nutrientComparison ? (
                   <div className="atlas-list-card__meta">{item.nutrientComparison}</div>
                 ) : null}

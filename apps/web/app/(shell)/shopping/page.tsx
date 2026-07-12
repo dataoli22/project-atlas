@@ -100,7 +100,7 @@ export default async function ShoppingPage() {
       ]}
     >
       <DataSourceBanner source={source} />
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div className="atlas-toolbar">
         <RefreshButton />
       </div>
       <div className="atlas-grid atlas-grid--hero">
@@ -144,16 +144,14 @@ export default async function ShoppingPage() {
             {categorySummaries.map((group) => (
               <div key={group.category} className="atlas-list-card">
                 <div className="atlas-list-card__title">{group.category}</div>
-                <div className="atlas-list-card__meta">
-                  {group.items
-                    .map(
-                      (item) =>
-                        `${item.name} (${item.quantity}, ${item.priority})${
-                          item.alreadyInPantry ? " - already have this" : ""
-                        }`
-                    )
-                    .join(" | ")}
-                </div>
+                <ul className="atlas-inline-list">
+                  {group.items.map((item) => (
+                    <li key={item.name}>
+                      {item.name} ({item.quantity}, {item.priority})
+                      {item.alreadyInPantry ? " - already have this" : ""}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
@@ -170,12 +168,28 @@ export default async function ShoppingPage() {
                 <div className="atlas-list-card__title">
                   {meal.day} meals
                 </div>
-                <div className="atlas-list-card__meta">
-                  Breakfast: {meal.breakfast} | Lunch: {meal.lunch} | Dinner: {meal.dinner}
-                </div>
-                <div className="atlas-list-card__meta">
-                  Prep: {meal.prepFocus} | Leftovers: {meal.leftoverPlan}
-                </div>
+                <dl className="atlas-detail-list">
+                  <div className="atlas-detail-list__row">
+                    <dt>Breakfast</dt>
+                    <dd>{meal.breakfast}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Lunch</dt>
+                    <dd>{meal.lunch}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Dinner</dt>
+                    <dd>{meal.dinner}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Prep</dt>
+                    <dd>{meal.prepFocus}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Leftovers</dt>
+                    <dd>{meal.leftoverPlan}</dd>
+                  </div>
+                </dl>
               </div>
             ))}
           </div>
@@ -211,9 +225,17 @@ export default async function ShoppingPage() {
                 <div className="atlas-list-card__title">
                   {item.ingredient} {"->"} {item.substitute}
                 </div>
-                <div className="atlas-list-card__meta">
-                  {item.reason} | {item.budgetImpact} | {item.swapCategory}
-                </div>
+                <div className="atlas-list-card__meta">{item.reason}</div>
+                <dl className="atlas-detail-list">
+                  <div className="atlas-detail-list__row">
+                    <dt>Budget impact</dt>
+                    <dd>{item.budgetImpact}</dd>
+                  </div>
+                  <div className="atlas-detail-list__row">
+                    <dt>Swap category</dt>
+                    <dd>{item.swapCategory}</dd>
+                  </div>
+                </dl>
                 {item.nutrientComparison ? (
                   <div className="atlas-list-card__meta">{item.nutrientComparison}</div>
                 ) : null}

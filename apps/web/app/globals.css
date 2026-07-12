@@ -342,11 +342,40 @@ textarea {
 
 .atlas-list-card__title {
   font-weight: 600;
+  overflow-wrap: break-word;
 }
 
 .atlas-list-card__meta {
   color: var(--atlas-muted);
-  line-height: 1.4;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+/* Shared toolbar row - was duplicated as an inline style={{display:"flex",justifyContent:"flex-end"}}
+   across cooking/capability/dashboard/nutrition/shopping/timeline pages, meaning a spacing tweak
+   needed 6 separate edits and could silently drift (planner/page.tsx already had). */
+.atlas-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* One entry per line instead of cramming a whole category's items into a single " | "-joined
+   .atlas-list-card__meta string, which read as a run-on paragraph with no visual separation
+   between distinct items (shopping list categories, in particular, can have many items). */
+.atlas-inline-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  color: var(--atlas-muted);
+  line-height: 1.5;
+}
+
+.atlas-inline-list li {
+  overflow-wrap: break-word;
 }
 
 .atlas-control-card {
