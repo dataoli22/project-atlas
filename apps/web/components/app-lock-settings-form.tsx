@@ -81,89 +81,55 @@ export function AppLockSettingsForm({ initialSettings, initialSource }: AppLockS
       </div>
 
       {settings.enabled ? (
-        <div className="atlas-stack" style={{ gap: "8px" }}>
-          <label className="atlas-panel__eyebrow" htmlFor="app-lock-current-pin">
-            Current PIN (required to change or disable)
+        <div className="atlas-stack">
+          <label className="atlas-form-field">
+            <span>Current PIN (required to change or disable)</span>
+            <input
+              id="app-lock-current-pin"
+              type="password"
+              inputMode="numeric"
+              value={currentPin}
+              onChange={(event) => setCurrentPin(event.target.value)}
+            />
           </label>
-          <input
-            id="app-lock-current-pin"
-            type="password"
-            inputMode="numeric"
-            value={currentPin}
-            onChange={(event) => setCurrentPin(event.target.value)}
-            style={{
-              padding: "10px 12px",
-              borderRadius: "12px",
-              border: "1px solid var(--atlas-border)",
-              background: "var(--atlas-surface-strong)",
-              color: "var(--atlas-ink)"
-            }}
-          />
           <button
             type="button"
+            className="atlas-button atlas-button--secondary"
             disabled={isSaving || currentPin.length === 0}
             onClick={disableLock}
-            style={{
-              padding: "10px 16px",
-              borderRadius: "12px",
-              border: "1px solid var(--atlas-border)",
-              background: "var(--atlas-surface-strong)",
-              color: "var(--atlas-ink)",
-              cursor: "pointer"
-            }}
           >
             Disable app lock
           </button>
         </div>
       ) : null}
 
-      <div className="atlas-stack" style={{ gap: "8px" }}>
-        <label className="atlas-panel__eyebrow" htmlFor="app-lock-new-pin">
-          {settings.enabled ? "New PIN" : "Set a PIN"}
+      <div className="atlas-stack">
+        <label className="atlas-form-field">
+          <span>{settings.enabled ? "New PIN" : "Set a PIN"}</span>
+          <input
+            id="app-lock-new-pin"
+            type="password"
+            inputMode="numeric"
+            value={pin}
+            onChange={(event) => setPin(event.target.value)}
+            placeholder="At least 4 characters"
+          />
         </label>
-        <input
-          id="app-lock-new-pin"
-          type="password"
-          inputMode="numeric"
-          value={pin}
-          onChange={(event) => setPin(event.target.value)}
-          placeholder="At least 4 characters"
-          style={{
-            padding: "10px 12px",
-            borderRadius: "12px",
-            border: "1px solid var(--atlas-border)",
-            background: "var(--atlas-surface-strong)",
-            color: "var(--atlas-ink)"
-          }}
-        />
-        <input
-          type="password"
-          inputMode="numeric"
-          value={confirmPin}
-          onChange={(event) => setConfirmPin(event.target.value)}
-          placeholder="Confirm PIN"
-          style={{
-            padding: "10px 12px",
-            borderRadius: "12px",
-            border: "1px solid var(--atlas-border)",
-            background: "var(--atlas-surface-strong)",
-            color: "var(--atlas-ink)"
-          }}
-        />
+        <label className="atlas-form-field">
+          <span>Confirm PIN</span>
+          <input
+            type="password"
+            inputMode="numeric"
+            value={confirmPin}
+            onChange={(event) => setConfirmPin(event.target.value)}
+            placeholder="Confirm PIN"
+          />
+        </label>
         <button
           type="button"
+          className="atlas-button atlas-button--primary"
           disabled={isSaving || pin.length === 0}
           onClick={enableLock}
-          style={{
-            padding: "10px 16px",
-            borderRadius: "12px",
-            border: "none",
-            background: "var(--atlas-accent)",
-            color: "#fffdf7",
-            fontWeight: 600,
-            cursor: isSaving ? "wait" : "pointer",
-            opacity: isSaving || pin.length === 0 ? 0.7 : 1
-          }}
         >
           {settings.enabled ? "Change PIN" : "Enable app lock"}
         </button>

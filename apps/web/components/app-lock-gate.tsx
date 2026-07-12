@@ -75,35 +75,22 @@ export function AppLockGate({ initialLockSettings, children }: AppLockGateProps)
           This device has a local app lock enabled. Enter the PIN to continue. The PIN is checked
           on this device only and never leaves it.
         </p>
-        <input
-          type="password"
-          inputMode="numeric"
-          autoFocus
-          value={pin}
-          onChange={(event) => setPin(event.target.value)}
-          placeholder="Enter PIN"
-          style={{
-            padding: "10px 12px",
-            borderRadius: "12px",
-            border: "1px solid var(--atlas-border)",
-            background: "var(--atlas-surface-strong)",
-            color: "var(--atlas-ink)"
-          }}
-        />
+        <label className="atlas-form-field">
+          <span>PIN</span>
+          <input
+            type="password"
+            inputMode="numeric"
+            autoFocus
+            value={pin}
+            onChange={(event) => setPin(event.target.value)}
+            placeholder="Enter PIN"
+          />
+        </label>
         {error ? <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>{error}</p> : null}
         <button
           type="submit"
+          className="atlas-button atlas-button--primary"
           disabled={isSubmitting || pin.length === 0}
-          style={{
-            padding: "10px 16px",
-            borderRadius: "12px",
-            border: "none",
-            background: "var(--atlas-accent)",
-            color: "#fffdf7",
-            fontWeight: 600,
-            cursor: isSubmitting ? "wait" : "pointer",
-            opacity: isSubmitting || pin.length === 0 ? 0.7 : 1
-          }}
         >
           {isSubmitting ? "Checking..." : "Unlock"}
         </button>

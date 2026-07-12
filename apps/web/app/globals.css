@@ -488,6 +488,16 @@ textarea {
   border-color: rgba(31, 107, 92, 0.24);
 }
 
+/* Was applied across 5 components (pairing-settings-form, onboarding-wizard, updates-panel,
+   refresh-button, recipe-search-form) with no matching rule anywhere - a harmless no-op (falls
+   back to base .atlas-button, which happens to look right), but a silently dead class name.
+   Explicit alias removes the dead-code smell without changing current rendering. */
+.atlas-button--secondary {
+  background: var(--atlas-surface-strong);
+  border-color: var(--atlas-border);
+  color: var(--atlas-ink);
+}
+
 .atlas-kpis {
   display: grid;
   gap: 16px;
