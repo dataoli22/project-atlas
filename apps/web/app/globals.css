@@ -191,6 +191,14 @@ textarea {
 
 .atlas-content {
   padding: 18px;
+  /* .atlas-layout is a CSS grid with no explicit column track below the sidebar breakpoint
+     (it only gets one at 900px+), so this is sized by an implicit auto track. Without this, an
+     auto track sizes to its item's max-content width - not its wrapped/rendered width - so any
+     unwrapped-length content inside (e.g. a button label) can silently inflate this element,
+     and the whole page, wider than the viewport on mobile. min-width: 0 is the standard fix:
+     it lets the grid track (and this item) shrink to the space actually available instead of
+     the content's natural maximum. */
+  min-width: 0;
 }
 
 .atlas-section-nav {
@@ -261,6 +269,11 @@ textarea {
 
 .atlas-panel {
   padding: 18px;
+  /* Same grid-blowout fix as .atlas-content above: this is almost always a direct grid item of
+     .atlas-grid/.atlas-grid--hero, so without min-width: 0 its own content's max-content width
+     (e.g. a button label that could wrap but hasn't yet) can inflate its track past the
+     viewport on mobile. */
+  min-width: 0;
 }
 
 .atlas-panel__body,
@@ -1198,10 +1211,18 @@ textarea {
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
-  width: 240px;
-  padding: 10px 12px;
+  /* Collapsed to zero footprint by default (max-width/padding/border all zeroed), not just
+     hidden via opacity/visibility. An absolutely positioned box still counts toward its scroll
+     container's scrollable area even while invisible - near a viewport edge on mobile that
+     silently made document.documentElement.scrollWidth wider than the viewport (real horizontal
+     scroll on every page with a tooltip, not just a paint issue). Collapsing the box itself,
+     not just hiding it, means there is no box to overflow with until it's actually shown. */
+  width: max-content;
+  max-width: 0;
+  padding: 0;
+  border: 0 solid var(--atlas-border);
+  overflow: hidden;
   border-radius: 12px;
-  border: 1px solid var(--atlas-border);
   background: var(--atlas-surface-strong);
   box-shadow: var(--atlas-shadow);
   color: var(--atlas-ink);
@@ -1215,6 +1236,9 @@ textarea {
 
 .atlas-hint__trigger:hover + .atlas-hint__bubble,
 .atlas-hint__trigger:focus-visible + .atlas-hint__bubble {
+  max-width: min(240px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border-width: 1px;
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(0);

@@ -179,7 +179,12 @@ export default async function ShoppingPage() {
           ) : null}
           {swappedItemCount > 0 ? <span>{swappedItemCount} from meal swaps</span> : null}
         </div>
-        <div className={shoppingList.items.length > 8 ? "atlas-scroll-list atlas-scroll-list--fade" : undefined}>
+        <div
+          className={shoppingList.items.length > 8 ? "atlas-scroll-list atlas-scroll-list--fade" : undefined}
+          {...(shoppingList.items.length > 8
+            ? { tabIndex: 0, role: "region", "aria-label": "Shopping list items" }
+            : {})}
+        >
           <dl className="atlas-detail-list">
             {shoppingList.items.map((item) => (
               <div key={`${item.name}-${item.quantity}`} className="atlas-detail-list__row">

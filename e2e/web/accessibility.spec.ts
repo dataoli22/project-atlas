@@ -8,7 +8,9 @@ const ROUTES = [
   "/dashboard",
   "/capability",
   "/timeline",
-  "/nutrition",
+  // /nutrition is a redirect-only stub (kept for old bookmarks) that immediately forwards to
+  // /planner - auditing it races the redirect and just re-tests /planner under a different URL,
+  // which is already covered below.
   "/cooking",
   "/shopping",
   "/planner",

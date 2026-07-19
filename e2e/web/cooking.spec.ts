@@ -6,9 +6,9 @@ test.describe("cooking page", () => {
 
     await expect(page.getByRole("heading", { name: "Cooking flow" })).toBeVisible();
     await expect(page.getByText("Prep sequence", { exact: true })).toBeVisible();
-    await expect(page.getByText("Daily cook cadence", { exact: true })).toBeVisible();
-    await expect(page.getByText("Ingredient reuse", { exact: true })).toBeVisible();
-    await expect(page.getByText("Leftover handoff", { exact: true })).toBeVisible();
-    await expect(page.getByText("Substitution fallback", { exact: true })).toBeVisible();
+    await expect(page.getByText("Daily cooking rhythm", { exact: true })).toBeVisible();
+    await expect(page.getByText("Ingredient reuse", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Leftover handoff", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Swaps if an ingredient falls through", { exact: true })).toBeVisible();
   });
 });

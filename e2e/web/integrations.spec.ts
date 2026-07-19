@@ -5,12 +5,11 @@ test.describe("integrations page", () => {
     await page.goto("/settings/integrations");
 
     await expect(page.getByRole("heading", { name: "Integrations" })).toBeVisible();
-    await expect(page.getByText("Runtime posture", { exact: true })).toBeVisible();
-    await expect(page.getByText("On-device AI runtime", { exact: true })).toBeVisible();
-    await expect(page.getByText("Health account wiring", { exact: true })).toBeVisible();
+    await expect(page.getByText("Health apps", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("How your AI assistant runs", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Strava", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Health Connect", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Samsung Health", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Run first-run check" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Check connection" })).toBeVisible();
   });
 });
