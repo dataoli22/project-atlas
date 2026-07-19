@@ -212,7 +212,14 @@ def _normalize_ollama_base_url(raw_url: str) -> tuple[str, str, bool]:
     if not parsed.netloc:
         raise ValueError("Enter a valid Ollama base URL, such as http://localhost:11434.")
 
-    sanitized = urlunparse((parsed.scheme or "http", parsed.netloc, "", "", "", "")).rstrip("/")
+    # Reject anything other than http(s) - urlopen() also understands file:// and ftp://, and
+    # without this check a base URL like "file:///C:/some/secret" would pass netloc validation
+    # and urlopen() would happily read a local file instead of talking to Ollama.
+    scheme = (parsed.scheme or "http").lower()
+    if scheme not in ("http", "https"):
+        raise ValueError("Ollama base URL must use http:// or https://.")
+
+    sanitized = urlunparse((scheme, parsed.netloc, "", "", "", "")).rstrip("/")
     hostname = (parsed.hostname or "").lower()
     local_target = hostname in {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
 
