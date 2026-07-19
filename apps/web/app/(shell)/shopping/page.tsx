@@ -110,7 +110,7 @@ export default async function ShoppingPage() {
           Budget snapshot
           <HintTooltip label="These four numbers">
             Planner budget: what you set as your target. Projected spend: what the meal plan was
-            expected to cost when generated. Shopping estimate: the current list's cost, including
+            expected to cost when generated. Shopping estimate: the current list&apos;s cost, including
             any swaps since. Budget remaining: planner budget minus projected spend.
           </HintTooltip>
         </div>

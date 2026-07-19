@@ -334,7 +334,7 @@ export default async function CookingPage() {
         <section id="substitutions" className="atlas-panel atlas-section atlas-stack">
           <div className="atlas-section__header">
             <div>
-              <div className="atlas-panel__eyebrow">If you can't find an ingredient</div>
+              <div className="atlas-panel__eyebrow">If you can&apos;t find an ingredient</div>
               <h2 className="atlas-section__title">Swaps if an ingredient falls through</h2>
             </div>
             <span className="atlas-section__count">{substitutions.substitutions.length} swaps</span>

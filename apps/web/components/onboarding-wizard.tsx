@@ -339,7 +339,7 @@ export function OnboardingWizard({
           </h2>
           <p className="atlas-note">
             Atlas needs one of these set up before it can give real answers - pick whichever fits
-            you, then Continue unlocks once it's confirmed. You can add the others, or change your
+            you, then Continue unlocks once it&apos;s confirmed. You can add the others, or change your
             mind, anytime from Settings.
           </p>
           <p className="atlas-note">
@@ -369,7 +369,7 @@ export function OnboardingWizard({
                     </a>
                   </HintTooltip>
                 </div>
-                <div className="atlas-list-card__meta">Faster than most local hardware, and doesn't need anything installed.</div>
+                <div className="atlas-list-card__meta">Faster than most local hardware, and doesn&apos;t need anything installed.</div>
                 <div className="atlas-form-field" style={{ marginTop: "10px" }}>
                   <input
                     type="password"
@@ -417,7 +417,7 @@ export function OnboardingWizard({
                 >
                   Option B: Ollama Cloud (hosted, free tier)
                   <HintTooltip label="How to get an Ollama Cloud key">
-                    Sign in at ollama.com, then generate an API key for Ollama's hosted models - no
+                    Sign in at ollama.com, then generate an API key for Ollama&apos;s hosted models - no
                     local install needed.{" "}
                     <a href={OLLAMA_CLOUD_KEYS_URL} target="_blank" rel="noreferrer">
                       Get a key
@@ -425,7 +425,7 @@ export function OnboardingWizard({
                   </HintTooltip>
                 </div>
                 <div className="atlas-list-card__meta">
-                  Runs on Ollama's servers instead of this device - no local install needed.
+                  Runs on Ollama&apos;s servers instead of this device - no local install needed.
                 </div>
                 <div className="atlas-form-field" style={{ marginTop: "10px" }}>
                   <input
@@ -535,7 +535,7 @@ export function OnboardingWizard({
             Set up web search
           </h2>
           <p className="atlas-note">
-            Not every food is in Atlas's product database yet. A Brave Search key lets Atlas fall
+            Not every food is in Atlas&apos;s product database yet. A Brave Search key lets Atlas fall
             back to the web so a lookup never comes up empty - this step is required to finish
             setup.
           </p>
