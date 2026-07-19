@@ -297,3 +297,194 @@ def test_swap_meal_rejects_unknown_day(client):
 
     assert response.status_code == 400
     assert "day" in response.json()["detail"].lower()
+
+
+def test_nutrition_preferences_default_before_any_save(client):
+    response = client.get("/api/v1/nutrition/preferences")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["updated_at"] is None
+    assert set(payload["meal_types"]) == {"breakfast", "lunch", "dinner"}
+    assert payload["shop_frequency_per_week"] >= 1
+    assert payload["avg_cook_time_minutes"] > 0
+    assert payload["has_real_effect"] == ["meal_types", "allergens"]
+
+
+def test_nutrition_preferences_post_then_get_round_trip(client):
+    post_response = client.post(
+        "/api/v1/nutrition/preferences",
+        json={
+            "cuisines": ["indian", "japanese"],
+            "shop_frequency_per_week": 2,
+            "meal_types": ["breakfast", "dinner"],
+            "avg_cook_time_minutes": 45,
+        },
+    )
+    assert post_response.status_code == 200
+    posted = post_response.json()
+    assert posted["cuisines"] == ["indian", "japanese"]
+    assert posted["shop_frequency_per_week"] == 2
+    assert posted["meal_types"] == ["breakfast", "dinner"]
+    assert posted["avg_cook_time_minutes"] == 45
+    assert posted["updated_at"]
+
+    get_response = client.get("/api/v1/nutrition/preferences")
+    assert get_response.status_code == 200
+    fetched = get_response.json()
+    assert fetched["cuisines"] == ["indian", "japanese"]
+    assert fetched["shop_frequency_per_week"] == 2
+    assert fetched["meal_types"] == ["breakfast", "dinner"]
+    assert fetched["avg_cook_time_minutes"] == 45
+
+
+def test_nutrition_preferences_health_conditions_and_allergens_round_trip(client):
+    post_response = client.post(
+        "/api/v1/nutrition/preferences",
+        json={
+            "cuisines": [],
+            "shop_frequency_per_week": 1,
+            "meal_types": ["breakfast", "lunch", "dinner"],
+            "avg_cook_time_minutes": 30,
+            "health_conditions": ["diabetes", "hypertension"],
+            "allergens": ["peanuts", "dairy"],
+            "planning_note": 'I want Japanese cuisine this week',
+        },
+    )
+    assert post_response.status_code == 200
+    posted = post_response.json()
+    assert posted["health_conditions"] == ["diabetes", "hypertension"]
+    assert posted["allergens"] == ["peanuts", "dairy"]
+    assert posted["planning_note"] == 'I want Japanese cuisine this week'
+    assert "allergens" in posted["has_real_effect"]
+    assert "health_conditions" in posted["persisted_only"]
+
+    get_response = client.get("/api/v1/nutrition/preferences")
+    assert get_response.status_code == 200
+    fetched = get_response.json()
+    assert fetched["health_conditions"] == ["diabetes", "hypertension"]
+    assert fetched["allergens"] == ["peanuts", "dairy"]
+
+
+def test_nutrition_preferences_rejects_unknown_allergen(client):
+    response = client.post(
+        "/api/v1/nutrition/preferences",
+        json={
+            "cuisines": [],
+            "shop_frequency_per_week": 1,
+            "meal_types": ["breakfast", "lunch", "dinner"],
+            "avg_cook_time_minutes": 30,
+            "allergens": ["not-a-real-allergen"],
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_nutrition_allergen_preference_excludes_matching_shopping_items(client):
+    # Reset any allergen preference a previous test in this session may have saved (preferences
+    # persist across requests within a test client's shared state) so "before" reflects no filter.
+    client.post(
+        "/api/v1/nutrition/preferences",
+        json={
+            "cuisines": [],
+            "shop_frequency_per_week": 1,
+            "meal_types": ["breakfast", "lunch", "dinner"],
+            "avg_cook_time_minutes": 30,
+            "allergens": [],
+        },
+    )
+    dairy_keywords = ("milk", "cheese", "paneer", "yogurt", "yoghurt", "butter", "cream", "ghee")
+    before = client.get("/api/v1/nutrition/shopping-list").json()
+    matching_before = [
+        item["name"] for item in before["items"] if any(keyword in item["name"].lower() for keyword in dairy_keywords)
+    ]
+    assert matching_before, "expected at least one dairy-named item in the default market's shopping list"
+
+    post_response = client.post(
+        "/api/v1/nutrition/preferences",
+        json={
+            "cuisines": [],
+            "shop_frequency_per_week": 1,
+            "meal_types": ["breakfast", "lunch", "dinner"],
+            "avg_cook_time_minutes": 30,
+            "allergens": ["dairy"],
+        },
+    )
+    assert post_response.status_code == 200
+
+    after = client.get("/api/v1/nutrition/shopping-list").json()
+    matching_after = [
+        item["name"] for item in after["items"] if any(keyword in item["name"].lower() for keyword in dairy_keywords)
+    ]
+    assert matching_after == []
+    assert after["total_items"] < before["total_items"]
+
+
+def test_nutrition_preferences_rejects_unknown_cuisine(client):
+    response = client.post(
+        "/api/v1/nutrition/preferences",
+        json={
+            "cuisines": ["not-a-real-cuisine"],
+            "shop_frequency_per_week": 1,
+            "meal_types": ["breakfast"],
+            "avg_cook_time_minutes": 30,
+        },
+    )
+    assert response.status_code == 400
+    assert "cuisine" in response.json()["detail"].lower()
+
+
+def test_nutrition_preferences_meal_type_filter_has_real_effect_on_planner(client):
+    save_response = client.post(
+        "/api/v1/nutrition/preferences",
+        json={
+            "cuisines": [],
+            "shop_frequency_per_week": 1,
+            "meal_types": ["dinner"],
+            "avg_cook_time_minutes": 30,
+        },
+    )
+    assert save_response.status_code == 200
+
+    planner_response = client.get("/api/v1/nutrition/planner")
+    assert planner_response.status_code == 200
+    payload = planner_response.json()
+
+    for day in payload["calendar_days"]:
+        assert [meal["slot"] for meal in day["meals"]] == ["dinner"]
+
+    # Reset to all meal types so this test doesn't leak state into other tests.
+    reset_response = client.post(
+        "/api/v1/nutrition/preferences",
+        json={
+            "cuisines": [],
+            "shop_frequency_per_week": 1,
+            "meal_types": ["breakfast", "lunch", "dinner"],
+            "avg_cook_time_minutes": 30,
+        },
+    )
+    assert reset_response.status_code == 200
+    reset_planner = client.get("/api/v1/nutrition/planner").json()
+    for day in reset_planner["calendar_days"]:
+        assert len(day["meals"]) == 3
+
+
+def test_swapped_meal_ingredients_appear_in_shopping_list(client):
+    # No AI provider is configured in tests, so generate_meal_ingredients() falls back to a
+    # single ungrounded entry named after the dish itself (confidence=0.0) - that's still a real,
+    # honest ingredient row that should show up in the shopping list once swapped.
+    dish_name = "Zzz Unique Test Casserole"
+    swap_response = client.post(
+        "/api/v1/nutrition/planner/swap-meal",
+        json={"day": "Tue", "slot": "lunch", "dish_name": dish_name, "reason": "test"},
+    )
+    assert swap_response.status_code == 200
+
+    shopping_response = client.get("/api/v1/nutrition/shopping-list")
+    assert shopping_response.status_code == 200
+    payload = shopping_response.json()
+
+    matching = [item for item in payload["items"] if item["name"] == dish_name]
+    assert len(matching) == 1
+    assert matching[0]["quantity"] == "As needed"
+    assert matching[0]["estimated_cost"] == "Not estimated"
+    assert "Tue" in matching[0]["used_in_days"]

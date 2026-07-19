@@ -102,7 +102,7 @@ export function AIRuntimeSettingsForm({
 
   return (
     <section className="atlas-panel atlas-stack">
-      <div className="atlas-panel__eyebrow">On-device AI runtime</div>
+      <div className="atlas-panel__eyebrow">AI engine</div>
       <p className="atlas-note">{settings.deviceNotice}</p>
 
       <div className="atlas-form-grid">
@@ -124,7 +124,7 @@ export function AIRuntimeSettingsForm({
         </label>
 
         <label className="atlas-form-field">
-          <span>Prompt profile</span>
+          <span>Answer style</span>
           <select
             value={settings.systemPromptStyle}
             onChange={(event) =>
@@ -134,13 +134,13 @@ export function AIRuntimeSettingsForm({
               }))
             }
           >
-            <option value="token-lean">Token lean</option>
-            <option value="comprehensive-guarded">Comprehensive guarded</option>
+            <option value="token-lean">Short and to the point</option>
+            <option value="comprehensive-guarded">Detailed and cautious</option>
           </select>
         </label>
 
         <label className="atlas-form-field">
-          <span>Guardrail level</span>
+          <span>Safety level</span>
           <select
             value={settings.guardrailLevel}
             onChange={(event) =>
@@ -154,57 +154,64 @@ export function AIRuntimeSettingsForm({
             <option value="maximum">Maximum</option>
           </select>
         </label>
-
-        <label className="atlas-form-field">
-          <span>Max context items</span>
-          <input
-            type="number"
-            min="1"
-            max="24"
-            value={settings.maxContextItems}
-            onChange={(event) =>
-              setSettings((current) => ({
-                ...current,
-                maxContextItems: Number(event.target.value)
-              }))
-            }
-          />
-        </label>
-
-        <label className="atlas-form-field">
-          <span>Max context tokens</span>
-          <input
-            type="number"
-            min="256"
-            max="8192"
-            step="64"
-            value={settings.maxContextTokens}
-            onChange={(event) =>
-              setSettings((current) => ({
-                ...current,
-                maxContextTokens: Number(event.target.value)
-              }))
-            }
-          />
-        </label>
-
-        <label className="atlas-form-field">
-          <span>Response token budget</span>
-          <input
-            type="number"
-            min="64"
-            max="2048"
-            step="32"
-            value={settings.responseTokenBudget}
-            onChange={(event) =>
-              setSettings((current) => ({
-                ...current,
-                responseTokenBudget: Number(event.target.value)
-              }))
-            }
-          />
-        </label>
       </div>
+
+      <details>
+        <summary className="atlas-note" style={{ cursor: "pointer" }}>
+          Advanced: response length limits
+        </summary>
+        <div className="atlas-form-grid" style={{ marginTop: "10px" }}>
+          <label className="atlas-form-field">
+            <span>Items considered per answer</span>
+            <input
+              type="number"
+              min="1"
+              max="24"
+              value={settings.maxContextItems}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  maxContextItems: Number(event.target.value)
+                }))
+              }
+            />
+          </label>
+
+          <label className="atlas-form-field">
+            <span>Max input length</span>
+            <input
+              type="number"
+              min="256"
+              max="8192"
+              step="64"
+              value={settings.maxContextTokens}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  maxContextTokens: Number(event.target.value)
+                }))
+              }
+            />
+          </label>
+
+          <label className="atlas-form-field">
+            <span>Max answer length</span>
+            <input
+              type="number"
+              min="64"
+              max="2048"
+              step="32"
+              value={settings.responseTokenBudget}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  responseTokenBudget: Number(event.target.value)
+                }))
+              }
+            />
+          </label>
+        </div>
+      </details>
 
       <div className="atlas-stack">
         <label className="atlas-control-card">
@@ -217,25 +224,6 @@ export function AIRuntimeSettingsForm({
               type="checkbox"
               checked={settings.localOnlyMode}
               onChange={(event) => updateLocalOnlyMode(event.target.checked)}
-            />
-          </div>
-        </label>
-
-        <label className="atlas-control-card">
-          <div className="atlas-control-card__content">
-            <div className="atlas-control-card__title">Self-hosted distribution</div>
-            <div className="atlas-control-card__meta">Treat Atlas as a packaged local app instead of a centralized hosted service.</div>
-          </div>
-          <div className="atlas-control-card__actions">
-            <input
-              type="checkbox"
-              checked={settings.selfHostedDistribution}
-              onChange={(event) =>
-                setSettings((current) => ({
-                  ...current,
-                  selfHostedDistribution: event.target.checked
-                }))
-              }
             />
           </div>
         </label>
@@ -388,8 +376,8 @@ export function AIRuntimeSettingsForm({
           <div className="atlas-control-card__content">
             <div className="atlas-control-card__title">Advanced: non-local Ollama target</div>
             <div className="atlas-control-card__meta">
-              This base URL is not a loopback address. Requests will leave this device to reach it. Only use a
-              non-local target if you intentionally configured a cloud/hosted Ollama endpoint.
+              This isn&apos;t a loopback address, so requests will leave this device. Only use a non-local target if
+              you configured a hosted Ollama endpoint on purpose.
             </div>
           </div>
         </div>
@@ -398,10 +386,10 @@ export function AIRuntimeSettingsForm({
       <div className="atlas-stack">
         <div className="atlas-control-card">
           <div className="atlas-control-card__content">
-            <div className="atlas-control-card__title">Ollama first-run check</div>
+            <div className="atlas-control-card__title">Test the connection to Ollama</div>
             <div className="atlas-control-card__meta">
-              Verifies the runtime is installed, running, and has the chat and embedding models available. Keys
-              are never shown back in the result.
+              Checks that Ollama is installed, running, and has the right models ready. Your keys are never shown
+              back in the result.
             </div>
             {healthStatus ? (
               <div className="atlas-stack">
@@ -410,11 +398,18 @@ export function AIRuntimeSettingsForm({
                   <div className="atlas-detail-list__row">
                     <dt>1. Installed</dt>
                     <dd>
-                      {healthStatus.installed === null
-                        ? "Unknown (non-local target)"
-                        : healthStatus.installed
-                          ? "Yes"
-                          : `No - download from ${OLLAMA_DOWNLOAD_URL}`}
+                      {healthStatus.installed === null ? (
+                        "Unknown (non-local target)"
+                      ) : healthStatus.installed ? (
+                        "Yes"
+                      ) : (
+                        <>
+                          No -{" "}
+                          <a href={OLLAMA_DOWNLOAD_URL} target="_blank" rel="noreferrer">
+                            download Ollama
+                          </a>
+                        </>
+                      )}
                     </dd>
                   </div>
                   <div className="atlas-detail-list__row">
@@ -442,8 +437,8 @@ export function AIRuntimeSettingsForm({
                     </dd>
                   </div>
                   <div className="atlas-detail-list__row">
-                    <dt>Runtime location</dt>
-                    <dd>{healthStatus.localTarget ? "Local device" : "Non-local target"}</dd>
+                    <dt>Running on</dt>
+                    <dd>{healthStatus.localTarget ? "This device" : "A remote address"}</dd>
                   </div>
                 </dl>
                 {healthStatus.modelAvailable === false ? (
@@ -468,8 +463,8 @@ export function AIRuntimeSettingsForm({
                 ) : null}
                 {pullStatus ? <p className="atlas-note">{pullStatus.message}</p> : null}
                 <p className="atlas-note">
-                  Browse more models at {OLLAMA_LIBRARY_URL}. Pulling can take a while for large models - this
-                  page waits for a final result rather than showing live progress.
+                  Pulling a large model can take a while - this page waits for the final result rather than
+                  showing live progress. <a href={OLLAMA_LIBRARY_URL} target="_blank" rel="noreferrer">Browse models</a>
                 </p>
               </div>
             ) : null}
@@ -481,7 +476,7 @@ export function AIRuntimeSettingsForm({
               onClick={runOllamaHealthCheck}
               disabled={isTesting}
             >
-              {isTesting ? "Testing..." : "Run first-run check"}
+              {isTesting ? "Checking..." : "Check connection"}
             </button>
           </div>
         </div>

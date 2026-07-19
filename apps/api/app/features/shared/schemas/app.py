@@ -35,34 +35,6 @@ class HealthCheckResponse(BaseModel):
     checks: list[DependencyCheck] = Field(default_factory=list)
 
 
-class AppLockSettings(BaseModel):
-    """Optional local PIN gate for shared devices.
-
-    Atlas is single-user and local-only: this is a device-level access deterrent for shared
-    computers, not a real authentication/session system. There is no server, no account, and no
-    password recovery - if a user forgets their PIN, the only path is disabling it via direct
-    local file/database access, which is by design for a local-first app.
-    """
-
-    enabled: bool = False
-    has_pin: bool = False
-    updated_at: str | None = None
-
-
-class AppLockUpdateRequest(BaseModel):
-    enabled: bool
-    pin: str | None = Field(default=None, min_length=4, max_length=32)
-    current_pin: str | None = Field(default=None, min_length=1, max_length=32)
-
-
-class AppLockVerifyRequest(BaseModel):
-    pin: str = Field(..., min_length=1, max_length=32)
-
-
-class AppLockVerifyResponse(BaseModel):
-    unlocked: bool
-
-
 class FeatureSummary(BaseModel):
     key: FeatureKey
     label: str
@@ -202,6 +174,28 @@ class SearchSettings(BaseModel):
 class SearchSettingsUpdate(BaseModel):
     brave_api_key: str | None = None
     clear_brave_api_key: bool = False
+
+
+class StravaAppSettings(BaseModel):
+    """Strava requires each app to register its own OAuth client with Strava - there is no
+
+    Atlas-wide client ID Strava would let every self-hosted install share. Same local-first
+    guarantee as the other provider keys: sent directly from this device to Strava, never
+    through an Atlas-hosted relay. With no client ID/secret set, Strava simply can't be
+    connected - the connect button still stages locally, but sign-in and sync will fail.
+    """
+
+    client_id_set: bool = False
+    client_secret_set: bool = False
+    redirect_uri: str
+    scopes: str
+
+
+class StravaAppSettingsUpdate(BaseModel):
+    client_id: str | None = None
+    clear_client_id: bool = False
+    client_secret: str | None = None
+    clear_client_secret: bool = False
 
 
 class AIRuntimeHealthCheckRequest(BaseModel):

@@ -1,14 +1,13 @@
 "use client";
 
-import { ClipboardList, LayoutGrid, Link2, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { ClipboardList, LayoutGrid, Link2, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/settings", label: "Overview", icon: LayoutGrid },
   { href: "/settings/setup", label: "Setup", icon: ClipboardList },
-  { href: "/settings/integrations", label: "Integrations", icon: Link2 },
-  { href: "/settings/tracking", label: "Tracking fields", icon: SlidersHorizontal }
+  { href: "/settings/integrations", label: "Integrations", icon: Link2 }
 ];
 
 /**

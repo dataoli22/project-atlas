@@ -4,108 +4,76 @@ import { PageScaffold } from "@/components/page-scaffold";
 import { PairingSettingsForm } from "@/components/pairing-settings-form";
 import { SearchSettingsForm } from "@/components/search-settings-form";
 import { SettingsTabs } from "@/components/settings-tabs";
+import { StravaAppSettingsForm } from "@/components/strava-app-settings-form";
 import { DataSourceBadge } from "@/components/settings-data-list";
 import { getPairedDevices } from "@/lib/pairing-data";
-import { getAISettingsData, getIntegrationSourcesData, getSearchSettingsData } from "@/lib/settings-data";
+import {
+  getAISettingsData,
+  getIntegrationSourcesData,
+  getSearchSettingsData,
+  getStravaAppSettingsData
+} from "@/lib/settings-data";
 
 export default async function IntegrationsSettingsPage() {
-  const [ai, integrations, pairing, search] = await Promise.all([
+  const [ai, integrations, pairing, search, strava] = await Promise.all([
     getAISettingsData(),
     getIntegrationSourcesData(),
     getPairedDevices(),
-    getSearchSettingsData()
+    getSearchSettingsData(),
+    getStravaAppSettingsData()
   ]);
 
   return (
     <PageScaffold
       eyebrow="Settings"
       title="Integrations"
-      description="On-device AI runtime and connector settings: Ollama stays the default fully local provider, optional Groq remains device-configured only, and you can test local Ollama reachability here before saving runtime changes."
-      tags={["Ollama", "Groq", "Local-first", "Device-only keys"]}
+      description="Connect health apps, set up your AI assistant, and turn on web search - everything Atlas talks to outside itself."
+      tags={["Health apps", "AI assistant", "Web search"]}
       metrics={[
-        { label: "Default provider", value: ai.data.defaultProvider },
-        { label: "Local-only mode", value: ai.data.localOnlyMode ? "Enabled" : "Disabled" },
-        { label: "Prompt style", value: ai.data.systemPromptStyle }
+        { label: "Connected apps", value: integrations.data.filter((integration) => integration.connected).length.toString() },
+        { label: "AI provider", value: ai.data.defaultProvider === "ollama" ? "Ollama (on-device)" : "Groq (cloud)" },
+        { label: "Fully on-device", value: ai.data.localOnlyMode ? "Yes" : "No" }
       ]}
     >
       <SettingsTabs />
       <div className="atlas-grid atlas-grid--hero">
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Runtime posture</div>
-          <div className="atlas-meta">
-            <DataSourceBadge label="AI settings" source={ai.source} />
-          </div>
-          <dl className="atlas-detail-list">
-            <div className="atlas-detail-list__row">
-              <dt>Distribution model</dt>
-              <dd>{ai.data.selfHostedDistribution ? "Self-contained app package" : "Browser-first dev mode"}</dd>
-            </div>
-            <div className="atlas-detail-list__row">
-              <dt>Device-only runtime</dt>
-              <dd>{ai.data.localOnlyMode ? "Yes" : "Optional remote provider allowed"}</dd>
-            </div>
-            <div className="atlas-detail-list__row">
-              <dt>Ollama base URL</dt>
-              <dd>{ai.data.ollamaBaseUrl}</dd>
-            </div>
-            <div className="atlas-detail-list__row">
-              <dt>Groq allowed</dt>
-              <dd>{ai.data.allowGroq ? "Yes" : "No"}</dd>
-            </div>
-          </dl>
-          <p className="atlas-note">
-            Keys are intended to stay on the local device runtime only. In the packaged desktop or phone build, the UI
-            talks to a user-owned local process rather than a centralized Atlas cloud. Use the runtime check below to confirm that Atlas can reach Ollama on this device without exposing stored secrets.
-          </p>
-        </section>
-
-        <AIRuntimeSettingsForm initialSettings={ai.data} initialSource={ai.source} />
-
         <IntegrationConnectForm
           initialIntegrations={integrations.data}
           initialSource={integrations.source}
         />
+
+        <StravaAppSettingsForm initialSettings={strava.data} initialSource={strava.source} />
 
         <PairingSettingsForm
           initialDevices={pairing.ok ? pairing.devices : []}
           devicesLoadOk={pairing.ok}
         />
 
+        <section className="atlas-panel atlas-stack">
+          <div className="atlas-panel__eyebrow">How your AI assistant runs</div>
+          <div className="atlas-meta">
+            <DataSourceBadge label="AI settings" source={ai.source} />
+          </div>
+          <dl className="atlas-detail-list">
+            <div className="atlas-detail-list__row">
+              <dt>Stays on this device only</dt>
+              <dd>{ai.data.localOnlyMode ? "Yes" : "No - an optional cloud provider is allowed"}</dd>
+            </div>
+            <div className="atlas-detail-list__row">
+              <dt>Cloud fallback (Groq)</dt>
+              <dd>{ai.data.allowGroq ? "Allowed" : "Off"}</dd>
+            </div>
+          </dl>
+          <p className="atlas-note">
+            Any key you enter here stays on this device and goes straight to that provider - never
+            through an Atlas server. We have no access to it, and neither does anyone else. Use the
+            connection check below to confirm Atlas can reach Ollama.
+          </p>
+        </section>
+
+        <AIRuntimeSettingsForm initialSettings={ai.data} initialSource={ai.source} />
+
         <SearchSettingsForm initialSettings={search.data} initialSource={search.source} />
-
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Prompt guardrails</div>
-          <div className="atlas-stack">
-            {ai.data.promptProfiles.map((profile) => (
-              <div key={profile.module} className="atlas-list-card">
-                <div className="atlas-list-card__title">{profile.title}</div>
-                <div className="atlas-list-card__meta">{profile.system_prompt}</div>
-                <div className="atlas-list-card__meta">
-                  {profile.token_strategy_note} | context {profile.max_context_tokens} | response {profile.response_token_budget}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Connector summary</div>
-          <div className="atlas-stack">
-            {integrations.data.map((integration) => (
-              <div key={integration.key} className="atlas-list-card">
-                <div className="atlas-list-card__title">{integration.title}</div>
-                <div className="atlas-list-card__meta">
-                  {integration.connectMode} | {integration.connected ? "Connected" : "Not connected"}
-                </div>
-                <div className="atlas-list-card__meta">{integration.loginHint}</div>
-                <div className="atlas-list-card__meta">
-                  Runtime: {integration.runtimeSummary.synced_activity_count ?? integration.runtimeSummary.synced_session_count ?? 0} synced records
-                </div>
-                <div className="atlas-list-card__meta">Docs: {integration.docUrl}</div>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
     </PageScaffold>
   );

@@ -451,6 +451,108 @@ class LocalStateDatabase:
             )
             return True
 
+    def get_nutrition_preferences(self) -> dict | None:
+        row = self._connection.execute(
+            "SELECT cuisines, shop_frequency_per_week, meal_types, avg_cook_time_minutes, updated_at, "
+            "health_conditions, allergens, planning_note "
+            "FROM nutrition_preferences WHERE id = 1",
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "cuisines": json.loads(row[0]),
+            "shop_frequency_per_week": row[1],
+            "meal_types": json.loads(row[2]),
+            "avg_cook_time_minutes": row[3],
+            "updated_at": row[4],
+            "health_conditions": json.loads(row[5]) if row[5] else [],
+            "allergens": json.loads(row[6]) if row[6] else [],
+            "planning_note": row[7] or "",
+        }
+
+    def set_nutrition_preferences(
+        self,
+        *,
+        cuisines: list[str],
+        shop_frequency_per_week: int,
+        meal_types: list[str],
+        avg_cook_time_minutes: int,
+        health_conditions: list[str],
+        allergens: list[str],
+        planning_note: str,
+    ) -> None:
+        with self._transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO nutrition_preferences (
+                    id, cuisines, shop_frequency_per_week, meal_types, avg_cook_time_minutes, updated_at,
+                    health_conditions, allergens, planning_note
+                )
+                VALUES (1, ?, ?, ?, ?, datetime('now'), ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    cuisines = excluded.cuisines,
+                    shop_frequency_per_week = excluded.shop_frequency_per_week,
+                    meal_types = excluded.meal_types,
+                    avg_cook_time_minutes = excluded.avg_cook_time_minutes,
+                    updated_at = excluded.updated_at,
+                    health_conditions = excluded.health_conditions,
+                    allergens = excluded.allergens,
+                    planning_note = excluded.planning_note
+                """,
+                (
+                    json.dumps(cuisines),
+                    shop_frequency_per_week,
+                    json.dumps(meal_types),
+                    avg_cook_time_minutes,
+                    json.dumps(health_conditions),
+                    json.dumps(allergens),
+                    planning_note,
+                ),
+            )
+
+    def get_endurance_goal(self) -> dict | None:
+        row = self._connection.execute(
+            "SELECT goal_type, target_distance_km, target_time_minutes, target_date, note, updated_at "
+            "FROM endurance_goal WHERE id = 1",
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "goal_type": row[0],
+            "target_distance_km": row[1],
+            "target_time_minutes": row[2],
+            "target_date": row[3],
+            "note": row[4] or "",
+            "updated_at": row[5],
+        }
+
+    def set_endurance_goal(
+        self,
+        *,
+        goal_type: str,
+        target_distance_km: float,
+        target_time_minutes: float | None,
+        target_date: str | None,
+        note: str,
+    ) -> None:
+        with self._transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO endurance_goal (
+                    id, goal_type, target_distance_km, target_time_minutes, target_date, note, updated_at
+                )
+                VALUES (1, ?, ?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(id) DO UPDATE SET
+                    goal_type = excluded.goal_type,
+                    target_distance_km = excluded.target_distance_km,
+                    target_time_minutes = excluded.target_time_minutes,
+                    target_date = excluded.target_date,
+                    note = excluded.note,
+                    updated_at = excluded.updated_at
+                """,
+                (goal_type, target_distance_km, target_time_minutes, target_date, note),
+            )
+
     def is_empty(self) -> bool:
         row = self._connection.execute("SELECT COUNT(*) FROM app_state").fetchone()
         return row is None or row[0] == 0
@@ -636,12 +738,71 @@ def _migration_005_daily_rate_limits(connection: sqlite3.Connection) -> None:
     )
 
 
+def _migration_006_nutrition_preferences(connection: sqlite3.Connection) -> None:
+    # Single-row (id=1) singleton table for the user's saved nutrition preferences, following the
+    # same idempotent CREATE TABLE IF NOT EXISTS + upsert-by-primary-key approach as
+    # meal_plan_entries/daily_rate_limits above. A singleton (not one row per "user") because Atlas
+    # is a single-device, single-profile local app - there is no multi-user identity anywhere else
+    # in this schema either.
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS nutrition_preferences (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            cuisines TEXT NOT NULL,
+            shop_frequency_per_week INTEGER NOT NULL,
+            meal_types TEXT NOT NULL,
+            avg_cook_time_minutes INTEGER NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+
+
+def _migration_007_nutrition_preferences_health_allergens(connection: sqlite3.Connection) -> None:
+    # Adds health-condition/allergen multi-selects and a free-text planning note to the existing
+    # nutrition_preferences singleton (see migration 006) - ALTER TABLE ADD COLUMN rather than a
+    # table rebuild since sqlite supports additive columns and this table only ever has one row.
+    existing_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(nutrition_preferences)").fetchall()
+    }
+    if "health_conditions" not in existing_columns:
+        connection.execute("ALTER TABLE nutrition_preferences ADD COLUMN health_conditions TEXT")
+    if "allergens" not in existing_columns:
+        connection.execute("ALTER TABLE nutrition_preferences ADD COLUMN allergens TEXT")
+    if "planning_note" not in existing_columns:
+        connection.execute("ALTER TABLE nutrition_preferences ADD COLUMN planning_note TEXT")
+
+
+def _migration_008_endurance_goal(connection: sqlite3.Connection) -> None:
+    # Single-row (id=1) singleton table for the user's saved endurance goal (distance/time
+    # target for a real event, e.g. "sprint triathlon" or a 5k), following the same idempotent
+    # CREATE TABLE IF NOT EXISTS + upsert-by-primary-key approach as nutrition_preferences
+    # (migration 006) above - same reasoning: Atlas is single-device/single-profile, so a
+    # singleton row is enough.
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS endurance_goal (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            goal_type TEXT NOT NULL,
+            target_distance_km REAL NOT NULL,
+            target_time_minutes REAL,
+            target_date TEXT,
+            note TEXT,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+
+
 _MIGRATIONS = [
     _migration_001_initial_schema,
     _migration_002_history_tables,
     _migration_003_meal_plan_entries,
     _migration_004_health_history,
     _migration_005_daily_rate_limits,
+    _migration_006_nutrition_preferences,
+    _migration_007_nutrition_preferences_health_allergens,
+    _migration_008_endurance_goal,
 ]
 
 _SYNC_HISTORY_LIMIT_PER_SOURCE = 50

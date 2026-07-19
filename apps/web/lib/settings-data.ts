@@ -407,6 +407,80 @@ export async function saveSearchSettings(
   };
 }
 
+type StravaAppSettingsApiResponse = {
+  client_id_set: boolean;
+  client_secret_set: boolean;
+  redirect_uri: string;
+  scopes: string;
+};
+
+export type StravaAppSettingsData = {
+  clientIdSet: boolean;
+  clientSecretSet: boolean;
+  redirectUri: string;
+  scopes: string;
+};
+
+const stravaAppSettingsFallback: StravaAppSettingsApiResponse = {
+  client_id_set: false,
+  client_secret_set: false,
+  redirect_uri: "",
+  scopes: "read,activity:read_all"
+};
+
+function mapStravaAppSettings(response: StravaAppSettingsApiResponse): StravaAppSettingsData {
+  return {
+    clientIdSet: response.client_id_set,
+    clientSecretSet: response.client_secret_set,
+    redirectUri: response.redirect_uri,
+    scopes: response.scopes
+  };
+}
+
+export async function getStravaAppSettingsData(): Promise<DataEnvelope<StravaAppSettingsData>> {
+  const result = await requestJson<StravaAppSettingsApiResponse>("/api/v1/settings/strava", {
+    fallback: stravaAppSettingsFallback
+  });
+
+  return {
+    data: mapStravaAppSettings(result.data),
+    source: result.source
+  };
+}
+
+export async function saveStravaAppSettings(
+  update: {
+    clientId?: string;
+    clearClientId?: boolean;
+    clientSecret?: string;
+    clearClientSecret?: boolean;
+  }
+): Promise<DataEnvelope<StravaAppSettingsData>> {
+  const payload = {
+    client_id: update.clientId,
+    clear_client_id: update.clearClientId ?? false,
+    client_secret: update.clientSecret,
+    clear_client_secret: update.clearClientSecret ?? false
+  };
+
+  const fallback: StravaAppSettingsApiResponse = {
+    ...stravaAppSettingsFallback,
+    client_id_set: payload.clear_client_id ? false : Boolean(update.clientId),
+    client_secret_set: payload.clear_client_secret ? false : Boolean(update.clientSecret)
+  };
+
+  const result = await requestJson<StravaAppSettingsApiResponse>("/api/v1/settings/strava", {
+    method: "PUT",
+    body: payload,
+    fallback
+  });
+
+  return {
+    data: mapStravaAppSettings(result.data),
+    source: result.source
+  };
+}
+
 const aiSettingsFallback: AISettingsApiResponse = {
   default_provider: "ollama",
   local_only_mode: true,

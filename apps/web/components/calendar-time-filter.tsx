@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 
-import type { NutritionCalendarDay, NutritionMealSlot } from "@atlas/shared";
+import type { NutritionCalendarDay, NutritionMealSlot, NutritionVideoLink } from "@atlas/shared";
 import { COOK_TIME_BUCKETS, matchesCookTimeBucket, type CookTimeBucket } from "@/lib/cook-time";
+import { matchVideoForMeal } from "@/lib/match-video";
 
 function formatDate(iso: string): string {
   const date = new Date(iso);
@@ -13,7 +14,7 @@ function formatDate(iso: string): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function CalendarDayCard({ day }: { day: NutritionCalendarDay }) {
+function CalendarDayCard({ day, videoLinks }: { day: NutritionCalendarDay; videoLinks: NutritionVideoLink[] }) {
   return (
     <div
       className="atlas-list-card"
@@ -27,12 +28,23 @@ function CalendarDayCard({ day }: { day: NutritionCalendarDay }) {
         {day.isBatchDay ? " | Batch day" : ""}
       </div>
       <div className="atlas-stack" style={{ gap: "4px", marginTop: "6px" }}>
-        {day.meals.map((meal: { slot: NutritionMealSlot; title: string; isLeftover: boolean; carryoverFrom?: string | null }) => (
-          <div key={meal.slot} className="atlas-list-card__meta">
-            <strong style={{ textTransform: "capitalize" }}>{meal.slot}:</strong> {meal.title}
-            {meal.isLeftover ? ` (leftover${meal.carryoverFrom ? ` from ${meal.carryoverFrom}` : ""})` : ""}
-          </div>
-        ))}
+        {day.meals.map((meal: { slot: NutritionMealSlot; title: string; isLeftover: boolean; carryoverFrom?: string | null }) => {
+          const video = matchVideoForMeal(meal.title, videoLinks);
+          return (
+            <div key={meal.slot} className="atlas-list-card__meta">
+              <strong style={{ textTransform: "capitalize" }}>{meal.slot}:</strong> {meal.title}
+              {meal.isLeftover ? ` (leftover${meal.carryoverFrom ? ` from ${meal.carryoverFrom}` : ""})` : ""}
+              {video ? (
+                <>
+                  {" "}
+                  <a href={video.url} target="_blank" rel="noreferrer">
+                    Watch video
+                  </a>
+                </>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
       <div className="atlas-list-card__meta" style={{ marginTop: "6px" }}>
         {day.cookTimeMinutes} min cook
@@ -43,7 +55,13 @@ function CalendarDayCard({ day }: { day: NutritionCalendarDay }) {
   );
 }
 
-export function CalendarTimeFilter({ calendarDays }: { calendarDays: NutritionCalendarDay[] }) {
+export function CalendarTimeFilter({
+  calendarDays,
+  videoLinks
+}: {
+  calendarDays: NutritionCalendarDay[];
+  videoLinks: NutritionVideoLink[];
+}) {
   const [activeBucket, setActiveBucket] = useState<CookTimeBucket | "all">("all");
 
   const visibleDays =
@@ -88,7 +106,7 @@ export function CalendarTimeFilter({ calendarDays }: { calendarDays: NutritionCa
           }}
         >
           {visibleDays.map((day) => (
-            <CalendarDayCard key={day.date} day={day} />
+            <CalendarDayCard key={day.date} day={day} videoLinks={videoLinks} />
           ))}
         </div>
       )}

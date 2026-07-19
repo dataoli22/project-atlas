@@ -130,6 +130,44 @@ class NutritionPantryResponse(BaseModel):
     items: list[str]
 
 
+class NutritionPreferences(BaseModel):
+    cuisines: list[str] = Field(default_factory=list)
+    shop_frequency_per_week: int = 1
+    meal_types: list[str] = Field(default_factory=lambda: ["breakfast", "lunch", "dinner"])
+    avg_cook_time_minutes: int = 30
+    health_conditions: list[str] = Field(default_factory=list)
+    allergens: list[str] = Field(default_factory=list)
+    planning_note: str = ""
+    updated_at: str | None = None
+    # Honest scope labels for the frontend - "meal_types" is the only field that actually
+    # reshapes the served plan (get_nutrition_planner filters calendar_days by it);
+    # "allergens" also has a real effect: get_nutrition_shopping_list drops any shopping item
+    # whose name matches a selected allergen keyword, so selecting "peanuts" actually removes
+    # peanut items from the generated list. cuisines/shop_frequency_per_week/
+    # avg_cook_time_minutes/health_conditions/planning_note are saved and echoed back but do not
+    # regenerate the deterministic, blueprint-based market plan.
+    has_real_effect: list[str] = Field(default_factory=lambda: ["meal_types", "allergens"])
+    persisted_only: list[str] = Field(
+        default_factory=lambda: [
+            "cuisines",
+            "shop_frequency_per_week",
+            "avg_cook_time_minutes",
+            "health_conditions",
+            "planning_note",
+        ]
+    )
+
+
+class NutritionPreferencesRequest(BaseModel):
+    cuisines: list[str] = Field(default_factory=list)
+    shop_frequency_per_week: int = Field(default=1, ge=1, le=14)
+    meal_types: list[str] = Field(default_factory=lambda: ["breakfast", "lunch", "dinner"], min_length=1)
+    avg_cook_time_minutes: int = Field(default=30, ge=5, le=240)
+    health_conditions: list[str] = Field(default_factory=list)
+    allergens: list[str] = Field(default_factory=list)
+    planning_note: str = Field(default="", max_length=500)
+
+
 class NutritionPantryAddRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
 

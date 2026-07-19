@@ -4,10 +4,6 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 
 from app.features.shared.schemas.app import (
-    AppLockSettings,
-    AppLockUpdateRequest,
-    AppLockVerifyRequest,
-    AppLockVerifyResponse,
     AppPreferences,
     AppPreferencesUpdate,
     DependencyCheck,
@@ -55,24 +51,6 @@ def update_preferences(payload: AppPreferencesUpdate) -> AppPreferences:
 @router.post("/app/onboarding/complete", response_model=AppPreferences)
 def complete_onboarding() -> AppPreferences:
     return shared_state.mark_onboarding_complete()
-
-
-@router.get("/app/lock", response_model=AppLockSettings)
-def read_app_lock() -> AppLockSettings:
-    return shared_state.get_app_lock_settings()
-
-
-@router.put("/app/lock", response_model=AppLockSettings)
-def update_app_lock(payload: AppLockUpdateRequest) -> AppLockSettings:
-    try:
-        return shared_state.update_app_lock(payload)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.post("/app/lock/verify", response_model=AppLockVerifyResponse)
-def verify_app_lock(payload: AppLockVerifyRequest) -> AppLockVerifyResponse:
-    return AppLockVerifyResponse(unlocked=shared_state.verify_app_lock_pin(payload.pin))
 
 
 @router.get("/health", response_model=HealthCheckResponse)

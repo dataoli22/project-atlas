@@ -1,61 +1,33 @@
+import Link from "next/link";
+
 import {
   getNutritionPlannerDataWithSource,
   getNutritionShoppingListDataWithSource,
-  getNutritionSubstitutionsDataWithSource,
   getPantryItems
 } from "@/lib/nutrition-data";
 import { DataSourceBanner } from "@/components/data-source-banner";
+import { HintTooltip } from "@/components/hint-tooltip";
 import { PageScaffold } from "@/components/page-scaffold";
 import { PantryManagerForm } from "@/components/pantry-manager-form";
 import { RefreshButton } from "@/components/refresh-button";
+import { ShoppingListExportButton } from "@/components/shopping-list-export-button";
 import { combineDataSources } from "@/lib/data-source";
-import {
-  formatCurrencyDisplay,
-  formatLocalizedCurrency,
-  parseLocalizedAmount
-} from "@/lib/localization";
+import { formatCurrencyDisplay, formatLocalizedCurrency, parseLocalizedAmount } from "@/lib/localization";
 import { getLocalizationSettingsData } from "@/lib/settings-data";
-
-function getItemFrequencyByCategory(categories: Array<{ category: string; itemCount: number }>) {
-  if (categories.length === 0) {
-    return "No categories";
-  }
-
-  return categories
-    .map((group) => `${group.category} (${group.itemCount})`)
-    .join(" | ");
-}
 
 export default async function ShoppingPage() {
   const [
     { data: planner, source: plannerSource },
     { data: shoppingList, source: shoppingListSource },
-    { data: substitutions, source: substitutionsSource },
     localization,
     pantry
   ] = await Promise.all([
     getNutritionPlannerDataWithSource(),
     getNutritionShoppingListDataWithSource(),
-    getNutritionSubstitutionsDataWithSource(),
     getLocalizationSettingsData(),
     getPantryItems()
   ]);
-  const source = combineDataSources(plannerSource, shoppingListSource, substitutionsSource);
-
-  const groupedItems = shoppingList.items.reduce<Record<string, typeof shoppingList.items>>((groups, item) => {
-    groups[item.category] ??= [];
-    groups[item.category].push(item);
-
-    return groups;
-  }, {});
-
-  const categorySummaries = Object.entries(groupedItems)
-    .map(([category, items]) => ({
-      category,
-      items,
-      itemCount: items.length
-    }))
-    .sort((left, right) => right.itemCount - left.itemCount || left.category.localeCompare(right.category));
+  const source = combineDataSources(plannerSource, shoppingListSource);
 
   const budgetAmount = parseLocalizedAmount(planner.budget);
   const projectedAmount = parseLocalizedAmount(planner.projectedSpend);
@@ -69,180 +41,166 @@ export default async function ShoppingPage() {
       ? formatLocalizedCurrency(budgetAmount - projectedAmount, localization.data)
       : "N/A";
   const budgetVarianceAmount =
-    projectedAmount !== null && estimatedAmount !== null
-      ? estimatedAmount - projectedAmount
-      : null;
-  const budgetVariance =
+    projectedAmount !== null && estimatedAmount !== null ? estimatedAmount - projectedAmount : null;
+  const budgetVarianceSummary =
     budgetVarianceAmount === null
-      ? "N/A"
+      ? "close to"
       : budgetVarianceAmount === 0
         ? "on target with"
         : `${formatLocalizedCurrency(Math.abs(budgetVarianceAmount), localization.data)} ${
             budgetVarianceAmount > 0 ? "above" : "below"
           }`;
-  const budgetVarianceSummary =
-    budgetVariance === "N/A" ? "close to" : budgetVariance === "on target with" ? budgetVariance : `${budgetVariance}`;
 
-  const pantryLeanCategories = categorySummaries.slice(0, 2).map((group) => group.category);
-  const coveredDays = planner.meals.length;
-  const substitutionHighlights = substitutions.substitutions.slice(0, 2);
+  // Days actually planned (a day counts as "planned" once any meal slot is filled in) and how
+  // many items in the current list are swap-driven ("As needed" / "Not estimated" placeholders
+  // come from swapped meals per the nutrition service contract) - a short dynamic summary instead
+  // of the old full day-by-day breakdown, which now lives only on the Planner.
+  const plannedDayCount = planner.meals.filter(
+    (meal) => meal.breakfast || meal.lunch || meal.dinner
+  ).length;
+  const totalDayCount = planner.meals.length;
+  const swappedItemCount = shoppingList.items.filter(
+    (item) => item.quantity === "As needed" || item.estimatedCost === "Not estimated"
+  ).length;
 
   return (
     <PageScaffold
       eyebrow="Nutrition module"
-      title="Shopping flow"
-      description="This view turns the current nutrition plan into a mobile-friendly store run: grouped pickups, budget context, and swap guidance stay visible together so the shopping pass sets up the cooking week."
-      tags={["Shopping", "Grouped list", "Budget-aware"]}
+      title="Pantry"
+      description="A quick store-run pass: budget context, what still needs buying (including anything swapped in this week), a way to log what's already on hand, and an export you can take with you."
+      tags={["Pantry", "Shopping", "Budget-aware"]}
       metrics={[
         { label: "Week", value: planner.weekLabel },
         { label: "Estimated total", value: estimatedTotal },
-        { label: "Days covered", value: `${coveredDays} planned days` }
+        { label: "Still needed", value: `${shoppingList.totalItems} items` }
       ]}
     >
       <DataSourceBanner source={source} />
-      <div className="atlas-toolbar">
-        <RefreshButton />
+      <div className="atlas-toolbar" style={{ justifyContent: "space-between" }}>
+        <ShoppingListExportButton
+          items={shoppingList.items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            category: item.category,
+            estimatedCost: item.estimatedCost
+          }))}
+        />
+        <div className="atlas-toolbar">
+          <Link href="/planner" className="atlas-button">
+            Back to planner
+          </Link>
+          <Link href="/cooking" className="atlas-button">
+            Go to cooking flow
+          </Link>
+          <RefreshButton />
+        </div>
       </div>
-      <div className="atlas-grid atlas-grid--hero">
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Budget snapshot</div>
-          <div className="atlas-stat-grid">
-            <div className="atlas-stat">
-              <div className="atlas-stat__label">Planner budget</div>
-              <div className="atlas-stat__value">{plannerBudget}</div>
-            </div>
-            <div className="atlas-stat">
-              <div className="atlas-stat__label">Projected spend</div>
-              <div className="atlas-stat__value">{projectedSpend}</div>
-            </div>
-            <div className="atlas-stat">
-              <div className="atlas-stat__label">Shopping estimate</div>
-              <div className="atlas-stat__value">{estimatedTotal}</div>
-            </div>
-            <div className="atlas-stat">
-              <div className="atlas-stat__label">Budget remaining</div>
-              <div className="atlas-stat__value">{remainingBudget}</div>
-            </div>
-          </div>
-          <p className="atlas-note">
-            The current list sits {budgetVarianceSummary} the planner projection and keeps the plan centered on repeat-use staples.
-          </p>
-        </section>
 
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Store route</div>
-          <div className="atlas-meta">
-            <span>{shoppingList.totalItems} line items still needed</span>
-            <span>{categorySummaries.length} categories</span>
-            {shoppingList.pantryMatchedCount > 0 ? (
-              <span>
-                {shoppingList.pantryMatchedCount} already in pantry (saved {shoppingList.pantrySavings})
-              </span>
-            ) : null}
-          </div>
-          <div className="atlas-stack">
-            {categorySummaries.map((group) => (
-              <div key={group.category} className="atlas-list-card">
-                <div className="atlas-list-card__title">{group.category}</div>
-                <ul className="atlas-inline-list">
-                  {group.items.map((item) => (
-                    <li key={item.name}>
-                      {item.name} ({item.quantity}, {item.priority})
-                      {item.alreadyInPantry ? " - already have this" : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </section>
+      <nav className="atlas-section-nav" aria-label="Jump to section">
+        <a className="atlas-section-nav__link" href="#budget-snapshot">Budget</a>
+        <a className="atlas-section-nav__link" href="#what-to-buy">What to buy</a>
+        <a className="atlas-section-nav__link" href="#pantry-manager">Your pantry</a>
+      </nav>
 
-        <PantryManagerForm initialItems={pantry.data} />
-
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Meal coverage</div>
-          <p className="atlas-note">{planner.plannerSummary}</p>
-          <div className="atlas-stack">
-            {planner.meals.map((meal) => (
-              <div key={meal.day} className="atlas-list-card">
-                <div className="atlas-list-card__title">
-                  {meal.day} meals
-                </div>
-                <dl className="atlas-detail-list">
-                  <div className="atlas-detail-list__row">
-                    <dt>Breakfast</dt>
-                    <dd>{meal.breakfast}</dd>
-                  </div>
-                  <div className="atlas-detail-list__row">
-                    <dt>Lunch</dt>
-                    <dd>{meal.lunch}</dd>
-                  </div>
-                  <div className="atlas-detail-list__row">
-                    <dt>Dinner</dt>
-                    <dd>{meal.dinner}</dd>
-                  </div>
-                  <div className="atlas-detail-list__row">
-                    <dt>Prep</dt>
-                    <dd>{meal.prepFocus}</dd>
-                  </div>
-                  <div className="atlas-detail-list__row">
-                    <dt>Leftovers</dt>
-                    <dd>{meal.leftoverPlan}</dd>
-                  </div>
-                </dl>
-              </div>
-            ))}
+      <section id="budget-snapshot" className="atlas-panel atlas-section atlas-stack">
+        <div
+          className="atlas-panel__eyebrow"
+          style={{ display: "flex", alignItems: "center", gap: "6px" }}
+        >
+          Budget snapshot
+          <HintTooltip label="These four numbers">
+            Planner budget: what you set as your target. Projected spend: what the meal plan was
+            expected to cost when generated. Shopping estimate: the current list's cost, including
+            any swaps since. Budget remaining: planner budget minus projected spend.
+          </HintTooltip>
+        </div>
+        <div className="atlas-stat-grid">
+          <div className="atlas-stat">
+            <div className="atlas-stat__label">Planner budget</div>
+            <div className="atlas-stat__value">{plannerBudget}</div>
           </div>
-        </section>
+          <div className="atlas-stat">
+            <div className="atlas-stat__label">Projected spend</div>
+            <div className="atlas-stat__value">{projectedSpend}</div>
+          </div>
+          <div className="atlas-stat">
+            <div className="atlas-stat__label">Shopping estimate</div>
+            <div className="atlas-stat__value">{estimatedTotal}</div>
+          </div>
+          <div className="atlas-stat">
+            <div className="atlas-stat__label">Budget remaining</div>
+            <div className="atlas-stat__value">{remainingBudget}</div>
+          </div>
+        </div>
+        <p className="atlas-note">
+          The current list sits {budgetVarianceSummary} the planner projection
+          {" "}&middot;{" "}
+          {plannedDayCount} of {totalDayCount} days planned this week
+          {swappedItemCount > 0 ? `, ${swappedItemCount} swap${swappedItemCount === 1 ? "" : "s"} made` : ""}.
+        </p>
+        {/* Real, honest progress toward this week's actual meal plan - not an invented score.
+            Counts the same "days planned" figure already shown in the note above, just made
+            visible as a bar so a full week reads as a clear, at-a-glance finish line. */}
+        <div className="atlas-progress">
+          <div className="atlas-progress__label">
+            <span>Week planned</span>
+            <span>{plannedDayCount} of {totalDayCount} days</span>
+          </div>
+          <div className="atlas-progress__track">
+            <div
+              className={`atlas-progress__fill${plannedDayCount >= totalDayCount ? " atlas-progress__fill--complete" : ""}`}
+              style={{ width: `${totalDayCount > 0 ? Math.round((plannedDayCount / totalDayCount) * 100) : 0}%` }}
+            />
+          </div>
+        </div>
+        <div className="atlas-badge-row">
+          <span className={`atlas-badge${plannedDayCount >= totalDayCount ? " atlas-badge--earned" : ""}`}>
+            <span className="atlas-badge__dot" />
+            {plannedDayCount >= totalDayCount ? "Full week planned" : "Week in progress"}
+          </span>
+          {shoppingList.pantryMatchedCount > 0 ? (
+            <span className="atlas-badge atlas-badge--earned">
+              <span className="atlas-badge__dot" />
+              {shoppingList.pantryMatchedCount} items already have a home in your pantry
+            </span>
+          ) : null}
+        </div>
+      </section>
 
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Buy once, use often</div>
+      <section id="what-to-buy" className="atlas-panel atlas-section atlas-stack" style={{ marginTop: "16px" }}>
+        <div className="atlas-panel__eyebrow">What to buy</div>
+        <div className="atlas-meta">
+          <span>{shoppingList.totalItems} line items</span>
+          <span>{shoppingList.categories.length} categories</span>
+          {shoppingList.pantryMatchedCount > 0 ? (
+            <span>
+              {shoppingList.pantryMatchedCount} already in pantry (saved {shoppingList.pantrySavings})
+            </span>
+          ) : null}
+          {swappedItemCount > 0 ? <span>{swappedItemCount} from meal swaps</span> : null}
+        </div>
+        <div className={shoppingList.items.length > 8 ? "atlas-scroll-list atlas-scroll-list--fade" : undefined}>
           <dl className="atlas-detail-list">
-            <div className="atlas-detail-list__row">
-              <dt>Top categories</dt>
-              <dd>{getItemFrequencyByCategory(categorySummaries)}</dd>
-            </div>
-            <div className="atlas-detail-list__row">
-              <dt>Pantry lean</dt>
-              <dd>{pantryLeanCategories.join(" + ")}</dd>
-            </div>
-            <div className="atlas-detail-list__row">
-              <dt>Cooking handoff</dt>
-              <dd>{coveredDays} days staged</dd>
-            </div>
-          </dl>
-          <p className="atlas-note">
-            Grouping by category keeps the mobile checklist quick to scan while the repeated staples help the week stay low-friction after the store run.
-          </p>
-        </section>
-
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Swap guidance</div>
-          <p className="atlas-note">{substitutions.marketNote}</p>
-          <div className="atlas-stack">
-            {substitutionHighlights.map((item) => (
-              <div key={item.ingredient} className="atlas-list-card">
-                <div className="atlas-list-card__title">
-                  {item.ingredient} {"->"} {item.substitute}
-                </div>
-                <div className="atlas-list-card__meta">{item.reason}</div>
-                <dl className="atlas-detail-list">
-                  <div className="atlas-detail-list__row">
-                    <dt>Budget impact</dt>
-                    <dd>{item.budgetImpact}</dd>
-                  </div>
-                  <div className="atlas-detail-list__row">
-                    <dt>Swap category</dt>
-                    <dd>{item.swapCategory}</dd>
-                  </div>
-                </dl>
-                {item.nutrientComparison ? (
-                  <div className="atlas-list-card__meta">{item.nutrientComparison}</div>
-                ) : null}
+            {shoppingList.items.map((item) => (
+              <div key={`${item.name}-${item.quantity}`} className="atlas-detail-list__row">
+                <dt>
+                  {item.name}
+                  {item.alreadyInPantry ? " (have it)" : ""}
+                </dt>
+                <dd>
+                  {item.quantity} &middot; {item.estimatedCost} &middot; {item.category} &middot; {item.priority}
+                </dd>
               </div>
             ))}
-          </div>
-        </section>
+          </dl>
+        </div>
+        {shoppingList.items.length > 8 ? (
+          <div className="atlas-scroll-hint">Scroll for the full list</div>
+        ) : null}
+      </section>
+
+      <div id="pantry-manager" style={{ marginTop: "16px", scrollMarginTop: "64px" }}>
+        <PantryManagerForm initialItems={pantry.data} />
       </div>
     </PageScaffold>
   );

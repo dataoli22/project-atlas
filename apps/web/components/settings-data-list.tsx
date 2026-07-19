@@ -25,8 +25,15 @@ type DataSourceBadgeProps = {
 
 export function DataSourceBadge({ label, source }: DataSourceBadgeProps) {
   return (
-    <span className={source === "api" ? "atlas-source-badge" : "atlas-source-badge atlas-source-badge--stub"}>
-      {label}: {source === "api" ? "API" : "Stub fallback"}
+    <span
+      className={source === "api" ? "atlas-source-badge" : "atlas-source-badge atlas-source-badge--stub"}
+      title={
+        source === "api"
+          ? "Loaded from the local Atlas app on this device"
+          : "The local Atlas app wasn't reachable, so this is example data, not your real data"
+      }
+    >
+      {label}: {source === "api" ? "Live" : "Offline default"}
     </span>
   );
 }

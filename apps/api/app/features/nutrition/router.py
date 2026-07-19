@@ -12,6 +12,8 @@ from app.features.nutrition.schemas import (
     NutritionPantryAddRequest,
     NutritionPantryResponse,
     NutritionPlannerResponse,
+    NutritionPreferences,
+    NutritionPreferencesRequest,
     NutritionProductLookupResponse,
     NutritionProductSearchResponse,
     NutritionProductSummary,
@@ -24,9 +26,11 @@ from app.features.nutrition.service import (
     RecipeSearchRateLimitedError,
     get_nutrition_cooking_plan,
     get_nutrition_planner,
+    get_nutrition_preferences,
     get_nutrition_shopping_list,
     get_nutrition_substitutions,
     refresh_nutrition_planner,
+    save_nutrition_preferences,
     search_recipes,
     swap_meal,
 )
@@ -158,6 +162,27 @@ def add_pantry_item(payload: NutritionPantryAddRequest) -> NutritionPantryRespon
 @router.delete("/pantry/{name}", response_model=NutritionPantryResponse)
 def remove_pantry_item(name: str) -> NutritionPantryResponse:
     return NutritionPantryResponse(items=shared_state.remove_pantry_item(name))
+
+
+@router.get("/preferences", response_model=NutritionPreferences)
+def read_nutrition_preferences() -> NutritionPreferences:
+    return get_nutrition_preferences()
+
+
+@router.post("/preferences", response_model=NutritionPreferences)
+def write_nutrition_preferences(payload: NutritionPreferencesRequest) -> NutritionPreferences:
+    try:
+        return save_nutrition_preferences(
+            cuisines=payload.cuisines,
+            shop_frequency_per_week=payload.shop_frequency_per_week,
+            meal_types=payload.meal_types,
+            avg_cook_time_minutes=payload.avg_cook_time_minutes,
+            health_conditions=payload.health_conditions,
+            allergens=payload.allergens,
+            planning_note=payload.planning_note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/substitutions", response_model=NutritionSubstitutionsResponse)

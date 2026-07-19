@@ -64,6 +64,12 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- In-app QR scanning for pairing (@capacitor-mlkit/barcode-scanning) - requested at runtime
+         via BarcodeScanner.requestPermissions() in App.tsx, this declaration only registers
+         intent, matching the same pattern as the Health Connect permissions below. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <!-- Health Connect read permissions - matches HealthConnectPlugin.kt's requiredPermissions.
          Health Connect additionally requires runtime consent via PermissionController; these
          manifest entries only declare intent, they do not grant access by themselves. -->

@@ -4,7 +4,10 @@ export function TrendBadge({ text }: { text: string }) {
   const direction = inferTrendDirection(text);
 
   return (
-    <span className={`atlas-trend atlas-trend--${direction}`}>
+    <span
+      className={`atlas-trend atlas-trend--${direction}`}
+      title="Compared to the same period before this one"
+    >
       <span aria-hidden="true">{TREND_ARROW[direction]}</span>
       {text}
     </span>

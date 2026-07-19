@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { HintTooltip } from "@/components/hint-tooltip";
 import type { ApiDataSource } from "@/lib/api";
 import {
   askAtlas,
@@ -13,6 +14,10 @@ import {
 
 type AskAtlasFormProps = {
   initialFeature: ChatFeatureScope;
+  /** Hides the "Grounding panel" (provider/model/citation detail) column - used when this form is
+   * embedded inline on another page (e.g. the dashboard) where that level of debug detail would
+   * compete with the page's own primary content. The full chat at /ask still shows it. */
+  hideGroundingPanel?: boolean;
 };
 
 const PROVIDER_ERROR_COPY: Record<ProviderErrorKind, string> = {
@@ -24,7 +29,7 @@ const PROVIDER_ERROR_COPY: Record<ProviderErrorKind, string> = {
   other: "The provider was unavailable for an unclassified reason."
 };
 
-export function AskAtlasForm({ initialFeature }: AskAtlasFormProps) {
+export function AskAtlasForm({ initialFeature, hideGroundingPanel = false }: AskAtlasFormProps) {
   const [feature, setFeature] = useState<ChatFeatureScope>(initialFeature);
   const [question, setQuestion] = useState("");
   const [history, setHistory] = useState<ChatMessage[]>([]);
@@ -61,27 +66,23 @@ export function AskAtlasForm({ initialFeature }: AskAtlasFormProps) {
   }
 
   return (
-    <div className="atlas-grid atlas-grid--hero">
+    <div className={hideGroundingPanel ? "atlas-stack" : "atlas-grid atlas-grid--hero"}>
       <section className="atlas-panel atlas-stack">
         <div className="atlas-panel__eyebrow">Conversation frame</div>
         <div className="atlas-form-grid">
           <label className="atlas-form-field">
-            <span>Feature scope</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              Feature scope
+              <HintTooltip label="What scope changes">
+                Which data Atlas looks at to answer - Endurance for training, Nutrition for meals,
+                or Shared for general questions across both.
+              </HintTooltip>
+            </span>
             <select value={feature} onChange={(event) => setFeature(event.target.value as ChatFeatureScope)}>
               <option value="shared">Shared shell</option>
               <option value="endurance">Endurance</option>
               <option value="nutrition">Nutrition</option>
             </select>
-          </label>
-
-          <label className="atlas-form-field">
-            <span>Suggested token behavior</span>
-            <input
-              type="text"
-              value="Short answers, bounded history, deterministic grounding"
-              readOnly
-              disabled
-            />
           </label>
         </div>
 
@@ -119,8 +120,19 @@ export function AskAtlasForm({ initialFeature }: AskAtlasFormProps) {
         </div>
       </section>
 
+      {hideGroundingPanel ? null : (
       <section className="atlas-panel atlas-stack">
-        <div className="atlas-panel__eyebrow">Grounding panel</div>
+        <div
+          className="atlas-panel__eyebrow"
+          style={{ display: "flex", alignItems: "center", gap: "6px" }}
+        >
+          How this answer was built
+          <HintTooltip label="What these terms mean">
+            Provider/model = which AI answered. Response provenance = whether it used your real
+            data, a canned fallback, or both. Confidence = how sure Atlas is. Connector freshness
+            = how recently your connected apps synced.
+          </HintTooltip>
+        </div>
         {result ? (
           <>
             <dl className="atlas-detail-list">
@@ -208,6 +220,7 @@ export function AskAtlasForm({ initialFeature }: AskAtlasFormProps) {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }

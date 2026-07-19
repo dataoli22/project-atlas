@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import type { NutritionCuisine } from "@atlas/shared";
+import { HintTooltip } from "@/components/hint-tooltip";
 import { CUISINE_LABELS, CUISINE_ORDER, findMarketForCuisine, marketCodeToCuisine } from "@/lib/cuisine";
 import { buildLocaleTag } from "@/lib/localization";
 import type { LocalizationSettingsData, MarketOptionData } from "@/lib/settings-data";
@@ -54,7 +55,16 @@ export function CuisineSwitcher({ localization, markets }: CuisineSwitcherProps)
 
   return (
     <div className="atlas-stack" style={{ gap: "8px" }}>
-      <div className="atlas-panel__eyebrow">Cuisine</div>
+      <div
+        className="atlas-panel__eyebrow"
+        style={{ display: "flex", alignItems: "center", gap: "6px" }}
+      >
+        Cuisine
+        <HintTooltip label="What switching does">
+          Changes your market/region setting too (currency, product data source) and regenerates
+          this week&apos;s meal plan from scratch - not just a filter.
+        </HintTooltip>
+      </div>
       <div className="atlas-feature-switcher">
         {CUISINE_ORDER.map((cuisine) => (
           <button

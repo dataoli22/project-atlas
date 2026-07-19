@@ -14,6 +14,8 @@ from app.features.shared.schemas.app import (
     ProfileSettingsUpdate,
     SearchSettings,
     SearchSettingsUpdate,
+    StravaAppSettings,
+    StravaAppSettingsUpdate,
 )
 from app.features.shared.services.ai import check_ollama_runtime, pull_ollama_model
 from app.features.shared.services.registry import (
@@ -110,3 +112,13 @@ def read_search_settings() -> SearchSettings:
 @router.put("/search", response_model=SearchSettings)
 def update_search_settings(payload: SearchSettingsUpdate) -> SearchSettings:
     return shared_state.update_search_settings(payload)
+
+
+@router.get("/strava", response_model=StravaAppSettings)
+def read_strava_settings() -> StravaAppSettings:
+    return shared_state.get_strava_settings()
+
+
+@router.put("/strava", response_model=StravaAppSettings)
+def update_strava_settings(payload: StravaAppSettingsUpdate) -> StravaAppSettings:
+    return shared_state.update_strava_settings(payload)

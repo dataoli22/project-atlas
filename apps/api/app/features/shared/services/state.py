@@ -12,8 +12,6 @@ from app.core.config import build_market_registry, get_settings
 from app.features.shared.schemas.app import (
     AISettings,
     AISettingsUpdate,
-    AppLockSettings,
-    AppLockUpdateRequest,
     AppPreferences,
     AppPreferencesUpdate,
     IntegrationConnectMode,
@@ -29,6 +27,8 @@ from app.features.shared.schemas.app import (
     ProfileSettingsUpdate,
     SearchSettings,
     SearchSettingsUpdate,
+    StravaAppSettings,
+    StravaAppSettingsUpdate,
 )
 from app.features.shared.services.ai import build_ai_settings_response
 from app.features.shared.services.app_lock import hash_pin, verify_pin
@@ -68,7 +68,7 @@ class SharedStateStore:
         self._integrations = _build_default_integrations()
         self._integration_runtime = _build_default_integration_runtime()
         self._nutrition_runtime = _build_default_nutrition_runtime()
-        self._app_lock = _build_default_app_lock()
+        self._endurance_goal: dict | None = None
         self._pairing = _build_default_pairing()
         self._pairing_start_call_times: list[datetime] = []
         settings = get_settings()
@@ -82,6 +82,8 @@ class SharedStateStore:
         self._ollama_api_key = settings.ollama_api_key
         self._groq_api_key = settings.groq_api_key
         self._brave_api_key = settings.brave_api_key
+        self._strava_client_id = settings.strava_client_id
+        self._strava_client_secret = settings.strava_client_secret
         self._load_persisted_state()
 
     def get_preferences(self) -> AppPreferences:
@@ -231,6 +233,48 @@ class SharedStateStore:
 
             self._persist_state_unlocked()
             return SearchSettings(brave_api_key_set=bool(self._brave_api_key))
+
+    def get_strava_settings(self) -> StravaAppSettings:
+        with self._lock:
+            settings = get_settings()
+            return StravaAppSettings(
+                client_id_set=bool(self._strava_client_id or settings.strava_client_id),
+                client_secret_set=bool(self._strava_client_secret or settings.strava_client_secret),
+                redirect_uri=settings.strava_redirect_uri,
+                scopes=settings.strava_scopes,
+            )
+
+    def get_strava_client_id(self) -> str:
+        # Falls back to the env-configured value (ATLAS_STRAVA_CLIENT_ID) when nothing has been
+        # entered through Settings - lets an operator configure this once via env/Docker instead
+        # of through the UI, same as the runtime value taking precedence when both are set.
+        with self._lock:
+            return self._strava_client_id or get_settings().strava_client_id
+
+    def get_strava_client_secret(self) -> str:
+        with self._lock:
+            return self._strava_client_secret or get_settings().strava_client_secret
+
+    def update_strava_settings(self, payload: StravaAppSettingsUpdate) -> StravaAppSettings:
+        with self._lock:
+            if payload.clear_client_id:
+                self._strava_client_id = ""
+            elif payload.client_id is not None:
+                self._strava_client_id = payload.client_id.strip()
+
+            if payload.clear_client_secret:
+                self._strava_client_secret = ""
+            elif payload.client_secret is not None:
+                self._strava_client_secret = payload.client_secret.strip()
+
+            self._persist_state_unlocked()
+            settings = get_settings()
+            return StravaAppSettings(
+                client_id_set=bool(self._strava_client_id or settings.strava_client_id),
+                client_secret_set=bool(self._strava_client_secret or settings.strava_client_secret),
+                redirect_uri=settings.strava_redirect_uri,
+                scopes=settings.strava_scopes,
+            )
 
     def get_integrations(self) -> list[IntegrationSourceStatus]:
         with self._lock:
@@ -641,6 +685,94 @@ class SharedStateStore:
             self._persist_state_unlocked()
             return list(self._nutrition_runtime["pantry_items"])
 
+    def get_nutrition_preferences(self) -> dict | None:
+        """Real, saved preferences from the nutrition_preferences sqlite singleton, or the
+        in-memory fallback (mirrors pantry_items' pattern) when persistence is disabled (test/
+        in-memory mode), so the round trip still works under pytest. Returns None ("nothing saved
+        yet") rather than defaults - nutrition/service.py's get_nutrition_preferences() is
+        responsible for turning that into sensible defaults for the frontend."""
+        with self._lock:
+            if self._db is None:
+                return self._nutrition_runtime.get("preferences")
+            return self._db.get_nutrition_preferences()
+
+    def set_nutrition_preferences(
+        self,
+        *,
+        cuisines: list[str],
+        shop_frequency_per_week: int,
+        meal_types: list[str],
+        avg_cook_time_minutes: int,
+        health_conditions: list[str],
+        allergens: list[str],
+        planning_note: str,
+    ) -> dict:
+        with self._lock:
+            record = {
+                "cuisines": list(cuisines),
+                "shop_frequency_per_week": shop_frequency_per_week,
+                "meal_types": list(meal_types),
+                "avg_cook_time_minutes": avg_cook_time_minutes,
+                "health_conditions": list(health_conditions),
+                "allergens": list(allergens),
+                "planning_note": planning_note,
+                "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            }
+            if self._db is None:
+                self._nutrition_runtime["preferences"] = record
+                self._persist_state_unlocked()
+                return record
+            self._db.set_nutrition_preferences(
+                cuisines=cuisines,
+                shop_frequency_per_week=shop_frequency_per_week,
+                meal_types=meal_types,
+                avg_cook_time_minutes=avg_cook_time_minutes,
+                health_conditions=health_conditions,
+                allergens=allergens,
+                planning_note=planning_note,
+            )
+            return self._db.get_nutrition_preferences() or record
+
+    def get_endurance_goal(self) -> dict | None:
+        """Real, saved endurance goal from the endurance_goal sqlite singleton, or the in-memory
+        fallback (mirrors get_nutrition_preferences' pattern) when persistence is disabled (test/
+        in-memory mode). Returns None ("nothing set yet") rather than a default - endurance/
+        service.py owns turning that into a "no goal set" response for the frontend."""
+        with self._lock:
+            if self._db is None:
+                return self._endurance_goal
+            return self._db.get_endurance_goal()
+
+    def set_endurance_goal(
+        self,
+        *,
+        goal_type: str,
+        target_distance_km: float,
+        target_time_minutes: float | None,
+        target_date: str | None,
+        note: str,
+    ) -> dict:
+        with self._lock:
+            record = {
+                "goal_type": goal_type,
+                "target_distance_km": target_distance_km,
+                "target_time_minutes": target_time_minutes,
+                "target_date": target_date,
+                "note": note,
+                "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            }
+            if self._db is None:
+                self._endurance_goal = record
+                return record
+            self._db.set_endurance_goal(
+                goal_type=goal_type,
+                target_distance_km=target_distance_km,
+                target_time_minutes=target_time_minutes,
+                target_date=target_date,
+                note=note,
+            )
+            return self._db.get_endurance_goal() or record
+
     def get_daily_limit_count(self, *, limit_key: str) -> int:
         with self._lock:
             if self._db is None:
@@ -795,62 +927,6 @@ class SharedStateStore:
             if self._db is None:
                 return []
             return self._db.list_planner_generation_history(limit=limit)
-
-    def get_app_lock_settings(self) -> AppLockSettings:
-        with self._lock:
-            return AppLockSettings(
-                enabled=self._app_lock["enabled"],
-                has_pin=self._app_lock["pin_hash"] is not None,
-                updated_at=self._app_lock["updated_at"],
-            )
-
-    def update_app_lock(self, payload: AppLockUpdateRequest) -> AppLockSettings:
-        with self._lock:
-            currently_enabled = self._app_lock["enabled"]
-
-            if currently_enabled and self._app_lock["pin_hash"] is not None:
-                if not payload.current_pin or not verify_pin(
-                    payload.current_pin,
-                    salt_hex=self._app_lock["salt"],
-                    hash_hex=self._app_lock["pin_hash"],
-                    iterations=self._app_lock["iterations"],
-                ):
-                    raise ValueError("The current PIN is required to change or disable the app lock.")
-
-            if payload.enabled:
-                if payload.pin:
-                    hashed = hash_pin(payload.pin)
-                    self._app_lock["pin_hash"] = hashed.hash_hex
-                    self._app_lock["salt"] = hashed.salt_hex
-                    self._app_lock["iterations"] = hashed.iterations
-                elif self._app_lock["pin_hash"] is None:
-                    raise ValueError("A PIN is required to enable the app lock.")
-                self._app_lock["enabled"] = True
-            else:
-                self._app_lock["enabled"] = False
-                self._app_lock["pin_hash"] = None
-                self._app_lock["salt"] = None
-
-            self._app_lock["updated_at"] = datetime.now(timezone.utc).isoformat()
-            self._persist_state_unlocked()
-
-            return AppLockSettings(
-                enabled=self._app_lock["enabled"],
-                has_pin=self._app_lock["pin_hash"] is not None,
-                updated_at=self._app_lock["updated_at"],
-            )
-
-    def verify_app_lock_pin(self, pin: str) -> bool:
-        with self._lock:
-            if not self._app_lock["enabled"] or self._app_lock["pin_hash"] is None:
-                return True
-
-            return verify_pin(
-                pin,
-                salt_hex=self._app_lock["salt"],
-                hash_hex=self._app_lock["pin_hash"],
-                iterations=self._app_lock["iterations"],
-            )
 
     def start_device_pairing(self) -> PairingStartResponse:
         with self._lock:
@@ -1087,12 +1163,9 @@ class SharedStateStore:
                 self._nutrition_runtime["pantry_items"] = [
                     str(item) for item in pantry_items if isinstance(item, str)
                 ]
-
-        app_lock_payload = payload.get("app_lock", {})
-        if isinstance(app_lock_payload, dict):
-            for key in ("enabled", "pin_hash", "salt", "iterations", "updated_at"):
-                if key in app_lock_payload:
-                    self._app_lock[key] = app_lock_payload[key]
+            preferences_runtime_payload = nutrition_payload.get("preferences")
+            if isinstance(preferences_runtime_payload, dict):
+                self._nutrition_runtime["preferences"] = preferences_runtime_payload
 
         pairing_payload = payload.get("pairing", {})
         if isinstance(pairing_payload, dict):
@@ -1139,6 +1212,12 @@ class SharedStateStore:
         self._brave_api_key = self._secret_protector.unprotect(
             payload.get("brave_api_key_protected"), key="brave_api_key"
         ) or self._brave_api_key
+        self._strava_client_id = self._secret_protector.unprotect(
+            payload.get("strava_client_id_protected"), key="strava_client_id"
+        ) or self._strava_client_id
+        self._strava_client_secret = self._secret_protector.unprotect(
+            payload.get("strava_client_secret_protected"), key="strava_client_secret"
+        ) or self._strava_client_secret
 
         self._restore_protected_runtime_secrets_unlocked()
 
@@ -1158,8 +1237,12 @@ class SharedStateStore:
                 "refresh_due_at": self._nutrition_runtime["refresh_due_at"],
                 "refresh_reason": self._nutrition_runtime["refresh_reason"],
                 "pantry_items": list(self._nutrition_runtime["pantry_items"]),
+                "preferences": (
+                    dict(self._nutrition_runtime["preferences"])
+                    if self._nutrition_runtime.get("preferences")
+                    else None
+                ),
             },
-            "app_lock": dict(self._app_lock),
             "pairing": {
                 "pending_code": self._pairing["pending_code"],
                 "pending_expires_at": self._pairing["pending_expires_at"],
@@ -1178,6 +1261,12 @@ class SharedStateStore:
             ),
             "brave_api_key_protected": self._secret_protector.protect(
                 self._brave_api_key, key="brave_api_key"
+            ),
+            "strava_client_id_protected": self._secret_protector.protect(
+                self._strava_client_id, key="strava_client_id"
+            ),
+            "strava_client_secret_protected": self._secret_protector.protect(
+                self._strava_client_secret, key="strava_client_secret"
             ),
         }
         self._db.set_json("shared_state", payload)
@@ -1366,16 +1455,11 @@ def _build_default_nutrition_runtime() -> dict[str, object]:
         "refresh_due_at": None,
         "refresh_reason": None,
         "pantry_items": [],
-    }
-
-
-def _build_default_app_lock() -> dict[str, object]:
-    return {
-        "enabled": False,
-        "pin_hash": None,
-        "salt": None,
-        "iterations": None,
-        "updated_at": None,
+        # None means "nothing saved yet" - mirrors the sqlite-backed path returning no row, so
+        # callers (nutrition/service.py's get_nutrition_preferences) can tell "unsaved" apart from
+        # "saved with everything deselected" and fall back to sensible defaults only in the former
+        # case.
+        "preferences": None,
     }
 
 

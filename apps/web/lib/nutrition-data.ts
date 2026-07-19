@@ -4,6 +4,8 @@ import type {
   NutritionMealSlot,
   NutritionPlanStatus,
   NutritionPlannerData,
+  NutritionPreferences,
+  NutritionPreferencesRequest,
   NutritionProductSearchData,
   NutritionShoppingListData,
   NutritionSubstitutionsData,
@@ -988,6 +990,80 @@ export async function removePantryItem(name: string): Promise<{ data: string[]; 
   );
 
   return { data: result.data.items, source: result.source };
+}
+
+type NutritionPreferencesApiResponse = {
+  cuisines: string[];
+  shop_frequency_per_week: number;
+  meal_types: NutritionMealSlot[];
+  avg_cook_time_minutes: number;
+  health_conditions: string[];
+  allergens: string[];
+  planning_note: string;
+  updated_at: string | null;
+  has_real_effect: string[];
+  persisted_only: string[];
+};
+
+function mapPreferencesResponse(response: NutritionPreferencesApiResponse): NutritionPreferences {
+  return {
+    cuisines: response.cuisines,
+    shopFrequencyPerWeek: response.shop_frequency_per_week,
+    mealTypes: response.meal_types,
+    avgCookTimeMinutes: response.avg_cook_time_minutes,
+    healthConditions: response.health_conditions ?? [],
+    allergens: response.allergens ?? [],
+    planningNote: response.planning_note ?? "",
+    updatedAt: response.updated_at,
+    hasRealEffect: response.has_real_effect,
+    persistedOnly: response.persisted_only
+  };
+}
+
+function preferencesFallback(): NutritionPreferencesApiResponse {
+  return {
+    cuisines: [],
+    shop_frequency_per_week: 1,
+    meal_types: ["breakfast", "lunch", "dinner"],
+    avg_cook_time_minutes: 30,
+    health_conditions: [],
+    allergens: [],
+    planning_note: "",
+    updated_at: null,
+    has_real_effect: ["meal_types", "allergens"],
+    persisted_only: ["cuisines", "shop_frequency_per_week", "avg_cook_time_minutes", "health_conditions", "planning_note"]
+  };
+}
+
+export async function getNutritionPreferencesData(): Promise<{
+  data: NutritionPreferences;
+  source: ApiDataSource;
+}> {
+  const result = await requestJson<NutritionPreferencesApiResponse>("/api/v1/nutrition/preferences", {
+    fallback: preferencesFallback()
+  });
+
+  return { data: mapPreferencesResponse(result.data), source: result.source };
+}
+
+export async function saveNutritionPreferences(
+  payload: NutritionPreferencesRequest
+): Promise<{ data: NutritionPreferences; source: ApiDataSource }> {
+  const result = await requestJson<NutritionPreferencesApiResponse>("/api/v1/nutrition/preferences", {
+    method: "POST",
+    body: {
+      cuisines: payload.cuisines,
+      shop_frequency_per_week: payload.shopFrequencyPerWeek,
+      meal_types: payload.mealTypes,
+      avg_cook_time_minutes: payload.avgCookTimeMinutes,
+      health_conditions: payload.healthConditions,
+      allergens: payload.allergens,
+      planning_note: payload.planningNote
+    },
+    fallback: preferencesFallback()
+  });
+
+  return { data: mapPreferencesResponse(result.data), source: result.source };
 }
 
 function substitutionsFallback(): NutritionSubstitutionsApiResponse {

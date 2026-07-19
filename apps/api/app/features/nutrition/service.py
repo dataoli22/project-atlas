@@ -23,6 +23,7 @@ from app.features.nutrition.schemas import (
     NutritionMealSummary,
     NutritionPlanRefreshMeta,
     NutritionPlannerResponse,
+    NutritionPreferences,
     NutritionShoppingItem,
     NutritionShoppingListResponse,
     NutritionSubstitutionItem,
@@ -40,6 +41,51 @@ _PLANNER_VERSION = "2026.07"
 _REFRESH_INTERVAL_DAYS = 7
 _DATA_FRESHNESS = "Deterministic market blueprint, on-device"
 _BATCH_PREP_WINDOW = "90-minute prep block before dinner"
+
+# The real cuisine strings backing every market blueprint below (see _market_blueprints()) - kept
+# as a set here so preference validation rejects anything the blueprints don't actually recognize
+# rather than accepting fabricated cuisine names.
+REAL_BLUEPRINT_CUISINES = {"indian", "continental", "chinese", "japanese"}
+
+# Real, common health-condition options offered to the user. Persisted-only (informational) -
+# see NutritionPreferences.has_real_effect docstring for why this deterministic blueprint backend
+# doesn't regenerate meals around a medical condition.
+REAL_HEALTH_CONDITIONS = {
+    "diabetes",
+    "high_cholesterol",
+    "hypertension",
+    "celiac_disease",
+    "ibs",
+    "kidney_disease",
+}
+
+# Real, common allergen options offered to the user. Unlike health_conditions, these have a real
+# mechanical effect: _filter_shopping_items_by_allergens drops any shopping item whose name
+# contains one of these keywords.
+REAL_ALLERGENS = {
+    "peanuts",
+    "tree_nuts",
+    "shellfish",
+    "dairy",
+    "gluten",
+    "soy",
+    "eggs",
+    "fish",
+}
+
+# Keyword(s) each allergen maps to for a case-insensitive substring match against shopping item
+# names - deliberately conservative (real ingredient words, not guesses) so the filter doesn't
+# over-exclude unrelated items.
+_ALLERGEN_KEYWORDS: dict[str, list[str]] = {
+    "peanuts": ["peanut"],
+    "tree_nuts": ["almond", "cashew", "walnut", "pistachio", "hazelnut"],
+    "shellfish": ["shrimp", "prawn", "crab", "lobster", "shellfish"],
+    "dairy": ["milk", "cheese", "paneer", "yogurt", "yoghurt", "butter", "cream", "ghee"],
+    "gluten": ["wheat", "flour", "bread", "pasta", "roti", "naan"],
+    "soy": ["soy", "tofu", "edamame"],
+    "eggs": ["egg"],
+    "fish": ["fish", "salmon", "tuna", "sardine"],
+}
 
 _ABBREV_TO_FULL = {
     "Mon": "Monday",
@@ -133,10 +179,113 @@ _FX_RATES_TO_USD = {
 }
 
 
+def get_nutrition_preferences() -> NutritionPreferences:
+    saved = shared_state.get_nutrition_preferences()
+    if saved is None:
+        return NutritionPreferences()
+    return NutritionPreferences(**saved)
+
+
+def save_nutrition_preferences(
+    *,
+    cuisines: list[str],
+    shop_frequency_per_week: int,
+    meal_types: list[str],
+    avg_cook_time_minutes: int,
+    health_conditions: list[str] | None = None,
+    allergens: list[str] | None = None,
+    planning_note: str = "",
+) -> NutritionPreferences:
+    normalized_cuisines = [cuisine.strip().lower() for cuisine in cuisines if cuisine.strip()]
+    unknown_cuisines = sorted(set(normalized_cuisines) - REAL_BLUEPRINT_CUISINES)
+    if unknown_cuisines:
+        raise ValueError(
+            f"Unknown cuisine(s): {', '.join(unknown_cuisines)}. Real options are "
+            f"{', '.join(sorted(REAL_BLUEPRINT_CUISINES))}."
+        )
+
+    valid_meals = [meal for meal in meal_types if meal in _MEAL_SLOTS]
+    if not valid_meals:
+        raise ValueError(f"Select at least one real meal type from {', '.join(_MEAL_SLOTS)}.")
+
+    normalized_conditions = [
+        condition.strip().lower() for condition in (health_conditions or []) if condition.strip()
+    ]
+    unknown_conditions = sorted(set(normalized_conditions) - REAL_HEALTH_CONDITIONS)
+    if unknown_conditions:
+        raise ValueError(
+            f"Unknown health condition(s): {', '.join(unknown_conditions)}. Real options are "
+            f"{', '.join(sorted(REAL_HEALTH_CONDITIONS))}."
+        )
+
+    normalized_allergens = [allergen.strip().lower() for allergen in (allergens or []) if allergen.strip()]
+    unknown_allergens = sorted(set(normalized_allergens) - REAL_ALLERGENS)
+    if unknown_allergens:
+        raise ValueError(
+            f"Unknown allergen(s): {', '.join(unknown_allergens)}. Real options are "
+            f"{', '.join(sorted(REAL_ALLERGENS))}."
+        )
+
+    saved = shared_state.set_nutrition_preferences(
+        cuisines=normalized_cuisines,
+        shop_frequency_per_week=shop_frequency_per_week,
+        meal_types=valid_meals,
+        avg_cook_time_minutes=avg_cook_time_minutes,
+        health_conditions=normalized_conditions,
+        allergens=normalized_allergens,
+        planning_note=planning_note.strip(),
+    )
+    return NutritionPreferences(**saved)
+
+
+def _filter_shopping_items_by_allergens(
+    items: list[NutritionShoppingItem], allergens: list[str]
+) -> list[NutritionShoppingItem]:
+    """Real, mechanical effect of the saved allergen preference: any shopping item whose name
+    contains a keyword for a selected allergen (see _ALLERGEN_KEYWORDS) is dropped from the
+    generated list, the same way meal_types filtering drops unselected calendar slots. Applied
+    here (not baked into the static blueprint) so it stays correct across markets and swaps."""
+    if not allergens:
+        return items
+    keywords = [keyword for allergen in allergens for keyword in _ALLERGEN_KEYWORDS.get(allergen, [])]
+    if not keywords:
+        return items
+    return [
+        item for item in items if not any(keyword in item.name.lower() for keyword in keywords)
+    ]
+
+
+def _filter_calendar_meals_by_preference(
+    calendar_days: list[NutritionCalendarDay], selected_meals: list[str]
+) -> list[NutritionCalendarDay]:
+    """Real, mechanical effect of the saved meal-type preference: each calendar day's meals list
+    is filtered down to only the selected slots (breakfast/lunch/dinner). This is applied here
+    (not baked into the static blueprint) so it stays correct regardless of market or swaps.
+    NutritionMealSummary rows (the flat day/breakfast/lunch/dinner table used elsewhere - cooking
+    plan, meal-prep-hack derivation) are left untouched: that schema's breakfast/lunch/dinner
+    fields are required strings tied to day-level cook-time/prep-focus derivation, so blanking
+    them would break those consumers rather than meaningfully "filter" them. The calendar view is
+    where a real, non-breaking filter applies.
+    """
+    if set(selected_meals) >= set(_MEAL_SLOTS):
+        return calendar_days
+    filtered: list[NutritionCalendarDay] = []
+    for day in calendar_days:
+        filtered.append(
+            NutritionCalendarDay(
+                **{**day.model_dump(), "meals": [meal for meal in day.meals if meal.slot in selected_meals]}
+            )
+        )
+    return filtered
+
+
 def get_nutrition_planner() -> NutritionPlannerResponse:
     blueprint, currency_code = _resolve_blueprint()
     runtime = shared_state.get_nutrition_runtime()
     refresh = _build_refresh_meta(blueprint, runtime)
+    preferences = shared_state.get_nutrition_preferences()
+    selected_meals = list((preferences or {}).get("meal_types") or _MEAL_SLOTS)
+    calendar_days = _filter_calendar_meals_by_preference(_build_calendar_days(blueprint, refresh.status), selected_meals)
     return NutritionPlannerResponse(
         generated_at=_GENERATED_AT,
         week_label=blueprint.week_label,
@@ -167,7 +316,7 @@ def get_nutrition_planner() -> NutritionPlannerResponse:
         ],
         planner_summary=blueprint.planner_summary,
         refresh=refresh,
-        calendar_days=_build_calendar_days(blueprint, refresh.status),
+        calendar_days=calendar_days,
         meal_prep_hacks=_build_meal_prep_hacks(blueprint),
         video_links=_build_video_links(blueprint),
         swap_history=[
@@ -464,29 +613,109 @@ def get_nutrition_shopping_list() -> NutritionShoppingListResponse:
         )
         for item in blueprint.shopping_items
     ]
+
+    # Planner -> shopping sync: ingredients from a meal the user (or chat, once tool-calling
+    # lands) actually swapped in - real, Open-Food-Facts-grounded names from ingredient_rag.py,
+    # not the static per-market blueprint. Appended rather than replacing the blueprint list
+    # because these carry no real quantity/cost/priority (the RAG pipeline was never asked to
+    # estimate those, and fabricating a price would violate this project's "don't invent numbers"
+    # rule) - existing_names guards against listing the same ingredient twice if a swapped dish
+    # happens to share an ingredient name with something already in the blueprint list.
+    existing_names = {item.name.strip().lower() for item in items}
+    for swapped_item in _swapped_meal_shopping_items(blueprint.market_code):
+        if swapped_item.name.strip().lower() in existing_names:
+            continue
+        existing_names.add(swapped_item.name.strip().lower())
+        items.append(
+            NutritionShoppingItem(
+                name=swapped_item.name,
+                quantity="As needed",
+                estimated_cost="Not estimated",
+                category=swapped_item.category or "Swapped meals",
+                priority="medium",
+                used_in_days=swapped_item.used_in_days,
+                already_in_pantry=_matches_pantry(swapped_item.name, pantry_items),
+            )
+        )
+
+    preferences = shared_state.get_nutrition_preferences()
+    selected_allergens = list((preferences or {}).get("allergens") or [])
+    items = _filter_shopping_items_by_allergens(items, selected_allergens)
+
     categories = sorted({item.category for item in items})
     batch_cook_count = sum(1 for item in items if item.priority == "high")
     pantry_staple_count = sum(1 for item in items if item.category in {"Breakfast staples", "Grains", "Protein"})
 
     # "Still need to buy" totals - matched items stay visible in the list (flagged, not hidden)
     # so the user can see what was skipped and why, but the totals that matter for an actual
-    # shopping trip only count what they don't already have.
-    still_needed = [item for item in blueprint.shopping_items if not _matches_pantry(str(item["name"]), pantry_items)]
-    matched = [item for item in blueprint.shopping_items if _matches_pantry(str(item["name"]), pantry_items)]
-    total_amount = sum(float(item["estimated_cost_amount"]) for item in still_needed)
-    pantry_savings_amount = sum(float(item["estimated_cost_amount"]) for item in matched)
+    # shopping trip only count what they don't already have. Only blueprint items carry a real
+    # cost estimate (swapped-meal ingredients are "Not estimated" - see above), so the cost
+    # totals below stay scoped to the blueprint list; total_items counts every real item
+    # (blueprint + swapped) still needed, since that count doesn't require a fabricated price.
+    allergen_keywords = [
+        keyword for allergen in selected_allergens for keyword in _ALLERGEN_KEYWORDS.get(allergen, [])
+    ]
+    blueprint_items_after_allergens = [
+        item
+        for item in blueprint.shopping_items
+        if not any(keyword in str(item["name"]).lower() for keyword in allergen_keywords)
+    ]
+    blueprint_still_needed = [
+        item for item in blueprint_items_after_allergens if not _matches_pantry(str(item["name"]), pantry_items)
+    ]
+    blueprint_matched = [
+        item for item in blueprint_items_after_allergens if _matches_pantry(str(item["name"]), pantry_items)
+    ]
+    total_amount = sum(float(item["estimated_cost_amount"]) for item in blueprint_still_needed)
+    pantry_savings_amount = sum(float(item["estimated_cost_amount"]) for item in blueprint_matched)
+    still_needed_count = sum(1 for item in items if not item.already_in_pantry)
+    matched_count = sum(1 for item in items if item.already_in_pantry)
 
     return NutritionShoppingListResponse(
         generated_at="2026-07-09T10:30:00Z",
-        total_items=len(still_needed),
+        total_items=still_needed_count,
         estimated_total=_format_money(total_amount, currency_code),
         categories=categories,
         batch_cook_item_count=batch_cook_count,
         pantry_staple_count=pantry_staple_count,
-        pantry_matched_count=len(matched),
+        pantry_matched_count=matched_count,
         pantry_savings=_format_money(pantry_savings_amount, currency_code),
         items=items,
     )
+
+
+@dataclass(frozen=True)
+class _SwappedMealIngredient:
+    name: str
+    category: str | None
+    used_in_days: list[str]
+
+
+def _swapped_meal_shopping_items(market_code: str) -> list[_SwappedMealIngredient]:
+    """Real ingredients from meals the user (or, once tool-calling lands, chat) actually swapped
+    - excludes still-on-blueprint-default meals (source == "blueprint-default"), which never got
+    a real ingredient breakdown generated (see _seed_meal_plan_from_blueprint's docstring: that
+    would mean 100+ AI calls on first read). Deduplicates by ingredient name across the week,
+    tracking every day it appears on."""
+    entries = shared_state.list_meal_plan_entries(market_code=market_code)
+    by_name: dict[str, _SwappedMealIngredient] = {}
+    for entry in entries:
+        if entry.get("source") == "blueprint-default":
+            continue
+        for ingredient in entry.get("ingredients") or []:
+            name = str(ingredient.get("name") or "").strip()
+            if not name:
+                continue
+            key = name.lower()
+            existing = by_name.get(key)
+            day = str(entry["day"])
+            if existing is None:
+                by_name[key] = _SwappedMealIngredient(
+                    name=name, category=ingredient.get("category"), used_in_days=[day]
+                )
+            elif day not in existing.used_in_days:
+                existing.used_in_days.append(day)
+    return list(by_name.values())
 
 
 def _matches_pantry(item_name: str, pantry_items: list[str]) -> bool:

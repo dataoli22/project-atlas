@@ -1,18 +1,15 @@
-import { AppLockSettingsForm } from "@/components/app-lock-settings-form";
+import Link from "next/link";
+import { ClipboardList, Link2 } from "lucide-react";
+
 import { FeaturePreferencesForm } from "@/components/feature-preferences-form";
 import { PageScaffold } from "@/components/page-scaffold";
 import { SettingsTabs } from "@/components/settings-tabs";
-import { DataSourceBadge, SettingsDataList } from "@/components/settings-data-list";
+import { SettingsDataList } from "@/components/settings-data-list";
 import { UpdatesPanel } from "@/components/updates-panel";
-import { getAppLockSettingsData } from "@/lib/app-lock-data";
 import { getSettingsPageData } from "@/lib/settings-data";
 
-function formatFeatureLabel(featureKey: string) {
-  return featureKey === "endurance" ? "Endurance" : "Nutrition";
-}
-
 export default async function SettingsPage() {
-  const [settings, appLock] = await Promise.all([getSettingsPageData(), getAppLockSettingsData()]);
+  const settings = await getSettingsPageData();
   const activeFeature =
     settings.featureRegistry.data.features.find((feature) => feature.key === settings.featureRegistry.data.activeFeature) ??
     settings.featureRegistry.data.features[0];
@@ -21,50 +18,29 @@ export default async function SettingsPage() {
     <PageScaffold
       eyebrow="Settings"
       title="Overview"
-      description="Everything Atlas-wide in one place: feature visibility, app lock, updates, and a read-only snapshot of your profile, market, and localization. Edit profile/market/providers under Setup, connectors under Integrations."
-      tags={["Settings", "Locale", "Feature state"]}
+      description="Choose which sections you use, check for updates, and see your saved profile. Your account, region, and AI setup live under Setup; connected apps live under Integrations."
+      tags={["Settings"]}
       metrics={[
-        { label: "Active workspace", value: activeFeature?.label ?? "Atlas shell" },
-        { label: "Enabled features", value: settings.appPreferences.data.enabledFeatureFlags.length.toString() },
-        { label: "Shared locale", value: settings.localization.data.locale }
+        { label: "Default view", value: activeFeature?.label ?? "Atlas" },
+        { label: "Sections shown", value: settings.appPreferences.data.enabledFeatureFlags.length.toString() },
+        { label: "Region", value: settings.localization.data.market }
       ]}
     >
       <SettingsTabs />
+
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Shared preferences preview</div>
+          <div className="atlas-panel__eyebrow">Jump to</div>
           <div className="atlas-meta">
-            <DataSourceBadge label="Features" source={settings.featureRegistry.source} />
-            <DataSourceBadge label="Preferences" source={settings.appPreferences.source} />
-            <DataSourceBadge label="Localization" source={settings.localization.source} />
+            <Link href="/settings/setup" className="atlas-button">
+              <ClipboardList size={15} strokeWidth={2} aria-hidden="true" />
+              Setup - profile, region, AI
+            </Link>
+            <Link href="/settings/integrations" className="atlas-button">
+              <Link2 size={15} strokeWidth={2} aria-hidden="true" />
+              Integrations - connect apps
+            </Link>
           </div>
-          <SettingsDataList
-            items={[
-              {
-                label: "Active workspace",
-                value:
-                  settings.featureRegistry.data.features.find(
-                    (feature) => feature.key === settings.appPreferences.data.activeFeature
-                  )?.label ?? "Unavailable"
-              },
-              {
-                label: "Enabled modules",
-                value: settings.appPreferences.data.enabledFeatureFlags.map(formatFeatureLabel).join(" and ")
-              },
-              {
-                label: "Shell density",
-                value: settings.appPreferences.data.preferredPlatformDensity
-              },
-              {
-                label: "Shared locale",
-                value: settings.appPreferences.data.sharedLocale
-              }
-            ]}
-          />
-          <p className="atlas-note">
-            The page reads current shell state from the shared loaders now, and the shell settings below can save
-            active-feature and enabled-feature preferences through the shared preferences endpoint.
-          </p>
         </section>
 
         <FeaturePreferencesForm
@@ -73,15 +49,10 @@ export default async function SettingsPage() {
           initialSource={settings.appPreferences.source}
         />
 
-        <AppLockSettingsForm initialSettings={appLock.data} initialSource={appLock.source} />
-
         <UpdatesPanel />
 
         <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Profile defaults</div>
-          <div className="atlas-meta">
-            <DataSourceBadge label="Profile" source={settings.profile.source} />
-          </div>
+          <div className="atlas-panel__eyebrow">Your profile</div>
           <SettingsDataList
             items={[
               { label: "Primary goal", value: settings.profile.data.primaryGoal ?? "Not set" },
@@ -101,58 +72,7 @@ export default async function SettingsPage() {
               }
             ]}
           />
-        </section>
-
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Localization state</div>
-          <SettingsDataList
-            items={[
-              { label: "Market", value: settings.localization.data.market },
-              { label: "Currency", value: settings.localization.data.currency },
-              { label: "Language", value: settings.localization.data.language },
-              {
-                label: "Supported languages",
-                value: settings.localization.data.supportedLanguages.join(", ")
-              },
-              {
-                label: "Overrides",
-                value: [
-                  settings.localization.data.currencyOverride ? "Currency override" : null,
-                  settings.localization.data.languageOverride ? "Language override" : null
-                ]
-                  .filter(Boolean)
-                  .join(", ") || "Defaults only"
-              }
-            ]}
-          />
-        </section>
-
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Market registry</div>
-          <div className="atlas-meta">
-            <DataSourceBadge label="Markets" source={settings.markets.source} />
-          </div>
-          <div className="atlas-stack">
-            {settings.markets.data.map((market) => (
-              <div key={market.code} className="atlas-list-card">
-                <div className="atlas-list-card__title">
-                  {market.name} ({market.code})
-                </div>
-                <div className="atlas-list-card__meta">
-                  {market.defaultCurrency} | {market.supportedLanguages.join(", ")}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="atlas-panel">
-          <div className="atlas-panel__eyebrow">Shell behavior</div>
-          <p className="atlas-note">
-            Desktop keeps persistent navigation while mobile compresses the shell into bottom tabs. Because the shared
-            settings data lives behind isolated loader functions, the real API can replace the stubs without forcing
-            these pages to be rewritten. Enabled features now also control which modules appear in shell navigation.
-          </p>
+          <p className="atlas-note">Edit these under Setup.</p>
         </section>
       </div>
     </PageScaffold>

@@ -4,14 +4,14 @@ import { PageScaffold } from "@/components/page-scaffold";
 export default function AskPage() {
   return (
     <PageScaffold
-      eyebrow="Shared AI surface"
+      eyebrow="Ask Atlas"
       title="Ask Atlas"
-      description="This shared route now uses explicit feature-aware routing with local Ollama-first execution, deterministic grounding, and token-budgeted prompts that stay aligned with the on-device AI runtime settings."
-      tags={["Shared chat", "Feature-aware routing", "Ollama-first"]}
+      description="A single chat that can answer questions about either your training or your meal plan. It runs on your device by default and always answers using your real, current data - never guesses or made-up numbers."
+      tags={["Chat", "Works with both modules", "Runs on your device"]}
       metrics={[
-        { label: "Prompt scope", value: "Endurance / Nutrition" },
-        { label: "Grounding", value: "Deterministic data" },
-        { label: "Session mode", value: "Local shared shell" }
+        { label: "Can answer about", value: "Training & nutrition" },
+        { label: "Answers based on", value: "Your real data" },
+        { label: "Where it runs", value: "This device" }
       ]}
     >
       <AskAtlasForm initialFeature="shared" />

@@ -1,17 +1,21 @@
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
 
 import { CalendarTimeFilter } from "@/components/calendar-time-filter";
 import { CuisineSwitcher } from "@/components/cuisine-switcher";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { EmptyState } from "@/components/empty-state";
+import { HintTooltip } from "@/components/hint-tooltip";
+import { NutritionPreferencesForm } from "@/components/nutrition-preferences-form";
 import { PageScaffold } from "@/components/page-scaffold";
 import { RefreshButton } from "@/components/refresh-button";
 import { combineDataSources } from "@/lib/data-source";
 import {
   getNutritionPlannerDataWithSource,
-  getNutritionShoppingListDataWithSource,
+  getNutritionPreferencesData,
   getNutritionSubstitutionsDataWithSource,
-  refreshNutritionPlan
+  refreshNutritionPlan,
+  searchNutritionProducts
 } from "@/lib/nutrition-data";
 import { getLocalizationSettingsData, getMarketOptionsData } from "@/lib/settings-data";
 import type { NutritionPlanStatus } from "@atlas/shared";
@@ -49,27 +53,31 @@ async function refreshPlanAction(formData: FormData) {
 export default async function PlannerPage() {
   const [
     { data: planner, source: plannerSource },
-    { data: shoppingList, source: shoppingListSource },
+    { data: preferences },
     { data: substitutions, source: substitutionsSource },
     { data: localization },
-    { data: markets }
+    { data: markets },
+    productSearch
   ] = await Promise.all([
     getNutritionPlannerDataWithSource(),
-    getNutritionShoppingListDataWithSource(),
+    getNutritionPreferencesData(),
     getNutritionSubstitutionsDataWithSource(),
     getLocalizationSettingsData(),
-    getMarketOptionsData()
+    getMarketOptionsData(),
+    searchNutritionProducts("oats", 3)
   ]);
-  const source = combineDataSources(plannerSource, shoppingListSource, substitutionsSource);
+  const source = combineDataSources(plannerSource, substitutionsSource);
 
   const { refresh } = planner;
   const remaining = daysUntil(refresh.refreshDueAt);
+  const plannedDayCount = planner.meals.filter((meal) => meal.breakfast || meal.lunch || meal.dinner).length;
+  const totalDayCount = planner.meals.length;
 
   return (
     <PageScaffold
       eyebrow="Nutrition module"
       title="Weekly planner"
-      description="A seven-day calendar plan that refreshes every seven days. Batch anchors, leftover carryover, meal-prep hacks, and curated prep videos are surfaced inline so the week stays low-cost and low-friction."
+      description="A seven-day calendar plan that refreshes every seven days. Batch anchors and leftover carryover are surfaced inline; meal-prep hacks and curated prep videos live on the cooking flow."
       tags={["Nutrition", "Seven-day calendar", "Refreshable plan"]}
       metrics={[
         { label: "Week", value: planner.weekLabel },
@@ -80,213 +88,234 @@ export default async function PlannerPage() {
       <DataSourceBanner source={source} />
       <div className="atlas-toolbar" style={{ justifyContent: "space-between" }}>
         <CuisineSwitcher localization={localization} markets={markets} />
-        <RefreshButton />
+        <div className="atlas-toolbar">
+          <Link href="/cooking" className="atlas-button">
+            Go to cooking flow
+          </Link>
+          <Link href="/shopping" className="atlas-button">
+            Go to pantry
+          </Link>
+          <RefreshButton />
+        </div>
       </div>
-      <div className="atlas-grid">
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Plan status</div>
-          <div className="atlas-meta">
-            <span>Status: {STATUS_LABEL[refresh.status]}</span>
-            <span>Version {refresh.plannerVersion}</span>
-          </div>
-          <dl className="atlas-detail-list">
-            <div className="atlas-detail-list__row">
-              <dt>Plan window</dt>
-              <dd>
-                {formatDate(refresh.weekStartDate)} - {formatDate(refresh.weekEndDate)}
-              </dd>
-            </div>
-            <div className="atlas-detail-list__row">
-              <dt>Refreshes every</dt>
-              <dd>{refresh.refreshIntervalDays} days</dd>
-            </div>
-            <div className="atlas-detail-list__row">
-              <dt>Next refresh due</dt>
-              <dd>
-                {formatDate(refresh.refreshDueAt)}
-                {refresh.isStale
-                  ? " (overdue)"
-                  : remaining >= 0
-                    ? ` (in ${remaining} day${remaining === 1 ? "" : "s"})`
-                    : ""}
-              </dd>
-            </div>
-            <div className="atlas-detail-list__row">
-              <dt>Last refreshed</dt>
-              <dd>{formatDate(refresh.lastRefreshedAt)}</dd>
-            </div>
-            <div className="atlas-detail-list__row">
-              <dt>Reason</dt>
-              <dd>{refresh.refreshReason}</dd>
-            </div>
-          </dl>
-          <p className="atlas-note">{refresh.dataFreshness}</p>
-          <form action={refreshPlanAction} className="atlas-stack">
-            <label className="atlas-form-field">
-              <span>Refresh this plan now</span>
-              <input id="refresh-reason" name="reason" placeholder="Why refresh? e.g. ran out of paneer" />
-            </label>
-            <button type="submit" className="atlas-button atlas-button--primary">
-              Refresh plan
-            </button>
-            <span className="atlas-note">
-              The previous plan is preserved in swap history instead of being overwritten.
-            </span>
-          </form>
-        </section>
 
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Planner summary</div>
-          <p className="atlas-note">{planner.plannerSummary}</p>
-          <div className="atlas-panel__eyebrow">Execution lane</div>
-          <div className="atlas-stat-grid">
-            <div className="atlas-stat">
-              <div className="atlas-stat__label">Schedule</div>
-              <div className="atlas-stat__value">{planner.scheduleLabel}</div>
-            </div>
-            <div className="atlas-stat">
-              <div className="atlas-stat__label">Cooking cadence</div>
-              <div className="atlas-stat__value">{planner.cookingCadence}</div>
-            </div>
-            <div className="atlas-stat">
-              <div className="atlas-stat__label">Batch day</div>
-              <div className="atlas-stat__value">{planner.batchDay}</div>
-            </div>
+      {/* Chronology, top to bottom, per product direction: 1) preferences (incl. free-text
+          planning note + health conditions/allergens), 2) merged plan status + summary
+          (compact - collapsed unit), 3) substitutions (right after the collapsed unit),
+          4) seven-day calendar with links to planner/cooking. */}
+      <nav className="atlas-section-nav" aria-label="Jump to section">
+        <a className="atlas-section-nav__link" href="#plan-status">Plan status</a>
+        <a className="atlas-section-nav__link" href="#substitutions">Substitutions</a>
+        <a className="atlas-section-nav__link" href="#seven-day-calendar">This week</a>
+        <a className="atlas-section-nav__link" href="#ingredient-data">Ingredient lookup</a>
+      </nav>
+
+      <NutritionPreferencesForm initialPreferences={preferences} />
+
+      <section id="plan-status" className="atlas-panel atlas-section atlas-stack" style={{ marginTop: "20px" }}>
+        <div
+          className="atlas-panel__eyebrow"
+          style={{ display: "flex", alignItems: "center", gap: "6px" }}
+        >
+          Plan status &amp; summary
+          <HintTooltip label="Status and version">
+            Plans refresh automatically on a set interval (see below), or anytime you trigger one
+            manually. Version goes up by one each time the plan is regenerated.
+          </HintTooltip>
+        </div>
+        <div className="atlas-meta">
+          <span>Status: {STATUS_LABEL[refresh.status]}</span>
+          <span>Version {refresh.plannerVersion}</span>
+          <span>
+            {formatDate(refresh.weekStartDate)} - {formatDate(refresh.weekEndDate)}
+          </span>
+          <span>
+            Next refresh {formatDate(refresh.refreshDueAt)}
+            {refresh.isStale
+              ? " (overdue)"
+              : remaining >= 0
+                ? ` (in ${remaining} day${remaining === 1 ? "" : "s"})`
+                : ""}
+          </span>
+        </div>
+        <p className="atlas-note">{planner.plannerSummary}</p>
+        {/* Real progress toward this week's actual plan (same "days with a meal filled in" count
+            used on the pantry page) plus a milestone badge for a real, checkable fact: every day
+            of the week has meals scheduled. No invented points or streaks. */}
+        <div className="atlas-progress">
+          <div className="atlas-progress__label">
+            <span>Week scheduled</span>
+            <span>{plannedDayCount} of {totalDayCount} days</span>
           </div>
-          <div className="atlas-panel__eyebrow">Swap history</div>
-          {planner.swapHistory.length > 0 ? (
-            <div className="atlas-stack">
-              {planner.swapHistory.map((entry, index) => (
-                <div key={`${entry.refreshedAt}-${index}`} className="atlas-list-card">
-                  <div className="atlas-list-card__title">{entry.reason}</div>
-                  <div className="atlas-list-card__meta">
-                    {formatDate(entry.refreshedAt)} | {entry.summary}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="No refreshes yet"
-              note="Once you refresh this plan, the previous week is preserved here instead of being discarded."
+          <div className="atlas-progress__track">
+            <div
+              className={`atlas-progress__fill${plannedDayCount >= totalDayCount ? " atlas-progress__fill--complete" : ""}`}
+              style={{ width: `${totalDayCount > 0 ? Math.round((plannedDayCount / totalDayCount) * 100) : 0}%` }}
             />
-          )}
-        </section>
-      </div>
+          </div>
+        </div>
+        <div className="atlas-badge-row">
+          <span className={`atlas-badge${plannedDayCount >= totalDayCount ? " atlas-badge--earned" : ""}`}>
+            <span className="atlas-badge__dot" />
+            {plannedDayCount >= totalDayCount ? "Full week scheduled" : "Still filling in the week"}
+          </span>
+          {planner.swapHistory.length > 0 ? (
+            <span className="atlas-badge atlas-badge--earned">
+              <span className="atlas-badge__dot" />
+              {planner.swapHistory.length} past {planner.swapHistory.length === 1 ? "plan" : "plans"} kept in your history
+            </span>
+          ) : null}
+        </div>
+        <div className="atlas-stat-grid">
+          <div className="atlas-stat">
+            <div className="atlas-stat__label">Schedule</div>
+            <div className="atlas-stat__value">{planner.scheduleLabel}</div>
+          </div>
+          <div className="atlas-stat">
+            <div className="atlas-stat__label">Cooking rhythm</div>
+            <div className="atlas-stat__value">{planner.cookingCadence}</div>
+          </div>
+          <div className="atlas-stat">
+            <div className="atlas-stat__label">Batch day</div>
+            <div className="atlas-stat__value">{planner.batchDay}</div>
+          </div>
+        </div>
 
-      <section className="atlas-panel atlas-stack" style={{ marginTop: "20px" }}>
+        <details>
+          <summary className="atlas-note" style={{ cursor: "pointer" }}>
+            More plan detail (refresh reason, data freshness, swap history)
+          </summary>
+          <div className="atlas-stack" style={{ marginTop: "10px" }}>
+            <dl className="atlas-detail-list">
+              <div className="atlas-detail-list__row">
+                <dt>Refreshes every</dt>
+                <dd>{refresh.refreshIntervalDays} days</dd>
+              </div>
+              <div className="atlas-detail-list__row">
+                <dt>Last refreshed</dt>
+                <dd>{formatDate(refresh.lastRefreshedAt)}</dd>
+              </div>
+              <div className="atlas-detail-list__row">
+                <dt>Reason</dt>
+                <dd>{refresh.refreshReason}</dd>
+              </div>
+            </dl>
+            <p className="atlas-note">{refresh.dataFreshness}</p>
+            <form action={refreshPlanAction} className="atlas-stack">
+              <label className="atlas-form-field">
+                <span>Refresh this plan now</span>
+                <input id="refresh-reason" name="reason" placeholder="Why refresh? e.g. ran out of paneer" />
+              </label>
+              <button type="submit" className="atlas-button atlas-button--primary">
+                Refresh plan
+              </button>
+              <span className="atlas-note">
+                The previous plan is preserved in swap history instead of being overwritten.
+              </span>
+            </form>
+            <div className="atlas-panel__eyebrow">Swap history</div>
+            {planner.swapHistory.length > 0 ? (
+              <div className="atlas-stack">
+                {planner.swapHistory.map((entry, index) => (
+                  <div key={`${entry.refreshedAt}-${index}`} className="atlas-list-card">
+                    <div className="atlas-list-card__title">{entry.reason}</div>
+                    <div className="atlas-list-card__meta">{formatDate(entry.refreshedAt)}</div>
+                    <div className="atlas-list-card__meta">{entry.summary}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="No refreshes yet"
+                note="Once you refresh this plan, the previous week is preserved here instead of being discarded."
+              />
+            )}
+          </div>
+        </details>
+      </section>
+
+      {/* Substitutions render directly after the collapsed status/summary unit above, per the
+          required chronology. */}
+      <section id="substitutions" className="atlas-panel atlas-section atlas-stack" style={{ marginTop: "20px" }}>
+        <div className="atlas-panel__eyebrow">Substitutions</div>
+        <p className="atlas-note">{substitutions.marketNote}</p>
+        <div className="atlas-stack">
+          {substitutions.substitutions.map((item) => (
+            <div key={item.ingredient} className="atlas-list-card">
+              <div className="atlas-list-card__title">
+                {item.ingredient} {"->"} {item.substitute}
+              </div>
+              <div className="atlas-list-card__meta">{item.reason}</div>
+              <dl className="atlas-detail-list">
+                <div className="atlas-detail-list__row">
+                  <dt>Budget impact</dt>
+                  <dd>{item.budgetImpact}</dd>
+                </div>
+                <div className="atlas-detail-list__row">
+                  <dt>Swap category</dt>
+                  <dd>{item.swapCategory}</dd>
+                </div>
+              </dl>
+              {item.nutrientComparison ? (
+                <div className="atlas-list-card__meta">{item.nutrientComparison}</div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="seven-day-calendar" className="atlas-panel atlas-section atlas-stack" style={{ marginTop: "20px" }}>
         <div className="atlas-panel__eyebrow">Seven-day calendar</div>
         <p className="atlas-note">
           Batch days are outlined; leftover meals show where they carried over from. Filter by how long a
-          day&apos;s cook time runs, or scroll for the full week.
+          day&apos;s cook time runs, or scroll for the full week. Meal prep hacks and prep videos now live on
+          the <Link href="/cooking">cooking flow</Link>.
         </p>
-        <CalendarTimeFilter calendarDays={planner.calendarDays} />
+        <div className="atlas-toolbar">
+          <Link href="/cooking" className="atlas-button">
+            Go to cooking
+          </Link>
+        </div>
+        <CalendarTimeFilter calendarDays={planner.calendarDays} videoLinks={planner.videoLinks} />
       </section>
 
-      <div className="atlas-grid" style={{ marginTop: "20px" }}>
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Meal prep hacks</div>
-          <div className="atlas-stack">
-            {planner.mealPrepHacks.map((hack) => (
-              <div key={hack.title} className="atlas-list-card">
-                <div className="atlas-list-card__title">{hack.title}</div>
-                <div className="atlas-list-card__meta">{hack.detail}</div>
-                <div className="atlas-list-card__meta">
-                  Days: {hack.appliesToDays.join(", ") || "Any"} | Saves ~
-                  {hack.estimatedTimeSavedMinutes} min | {hack.difficulty}
-                </div>
+      <section id="ingredient-data" className="atlas-panel atlas-section atlas-stack" style={{ marginTop: "20px" }}>
+        <div className="atlas-panel__eyebrow">Ingredient data</div>
+        <p className="atlas-note">
+          Quick lookups against the same product database backing the shopping list. Full cooking
+          steps and prep sequencing live on the{" "}
+          <Link href="/cooking">cooking flow</Link>.
+        </p>
+        <div className="atlas-meta">
+          <span>{productSearch.primarySource}</span>
+          <span>{productSearch.fallbackUsed ? "Backup data (offline copy)" : "Live data"}</span>
+          <span>{productSearch.totalResults} matches</span>
+        </div>
+        <div className="atlas-stack">
+          {productSearch.results.slice(0, 3).map((product) => (
+            <div key={`${product.source}-${product.sourceId}`} className="atlas-list-card">
+              <div className="atlas-list-card__title">
+                {product.name}
+                {product.brand ? ` (${product.brand})` : ""}
               </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Prep videos</div>
-          <p className="atlas-note">Curated searches to help execute the week. Opens on YouTube.</p>
-          <div className="atlas-stack">
-            {planner.videoLinks.map((video) => (
-              <a
-                key={video.url}
-                href={video.url}
-                target="_blank"
-                rel="noreferrer"
-                className="atlas-list-card"
-                style={{ textDecoration: "none", color: "inherit", display: "block" }}
-              >
-                <div className="atlas-list-card__title">{video.title}</div>
-                <div className="atlas-list-card__meta">
-                  {video.topic} | scope: {video.marketScope}
+              <dl className="atlas-detail-list">
+                <div className="atlas-detail-list__row">
+                  <dt>Protein</dt>
+                  <dd>{product.nutriments.proteinGramsPer100g ?? "n/a"} g / 100 g</dd>
                 </div>
-                <div className="atlas-list-card__meta">{video.whyRecommended}</div>
-              </a>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <div className="atlas-grid" style={{ marginTop: "20px" }}>
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Shopping list</div>
-          <div className="atlas-meta">
-            <span>{shoppingList.totalItems} items</span>
-            <span>{shoppingList.estimatedTotal}</span>
-          </div>
-          <div className="atlas-stack">
-            {shoppingList.items.map((item) => (
-              <div key={`${item.name}-${item.quantity}`} className="atlas-list-card">
-                <div className="atlas-list-card__title">
-                  {item.name} ({item.quantity})
+                <div className="atlas-detail-list__row">
+                  <dt>Fiber</dt>
+                  <dd>{product.nutriments.fiberGramsPer100g ?? "n/a"} g / 100 g</dd>
                 </div>
-                <dl className="atlas-detail-list">
-                  <div className="atlas-detail-list__row">
-                    <dt>Category</dt>
-                    <dd>{item.category}</dd>
-                  </div>
-                  <div className="atlas-detail-list__row">
-                    <dt>Cost</dt>
-                    <dd>{item.estimatedCost}</dd>
-                  </div>
-                  <div className="atlas-detail-list__row">
-                    <dt>Priority</dt>
-                    <dd>{item.priority}</dd>
-                  </div>
-                  <div className="atlas-detail-list__row">
-                    <dt>Used in</dt>
-                    <dd>{item.usedInDays.join(", ")}</dd>
-                  </div>
-                </dl>
-              </div>
-            ))}
-          </div>
-        </section>
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Substitutions</div>
-          <p className="atlas-note">{substitutions.marketNote}</p>
-          <div className="atlas-stack">
-            {substitutions.substitutions.map((item) => (
-              <div key={item.ingredient} className="atlas-list-card">
-                <div className="atlas-list-card__title">
-                  {item.ingredient} {"->"} {item.substitute}
+                <div className="atlas-detail-list__row">
+                  <dt>Calories</dt>
+                  <dd>{product.nutriments.caloriesKcalPer100g ?? "n/a"} kcal / 100 g</dd>
                 </div>
-                <div className="atlas-list-card__meta">{item.reason}</div>
-                <dl className="atlas-detail-list">
-                  <div className="atlas-detail-list__row">
-                    <dt>Budget impact</dt>
-                    <dd>{item.budgetImpact}</dd>
-                  </div>
-                  <div className="atlas-detail-list__row">
-                    <dt>Swap category</dt>
-                    <dd>{item.swapCategory}</dd>
-                  </div>
-                </dl>
-                {item.nutrientComparison ? (
-                  <div className="atlas-list-card__meta">{item.nutrientComparison}</div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
+              </dl>
+            </div>
+          ))}
+        </div>
+      </section>
     </PageScaffold>
   );
 }

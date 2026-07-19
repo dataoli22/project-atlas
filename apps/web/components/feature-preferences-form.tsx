@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 
 import type { AppPreference, AtlasFeature } from "@atlas/shared";
 
+import { HintTooltip } from "@/components/hint-tooltip";
 import type { ApiDataSource } from "@/lib/api";
 import type { FeatureSummary } from "@/lib/settings-data";
 import { saveAppPreferences } from "@/lib/settings-data";
@@ -85,63 +86,60 @@ export function FeaturePreferencesForm({
           detail: result.data
         })
       );
-      setStatus(
-        result.source === "api"
-          ? "Saved through the shared API."
-          : "Backend unavailable, so stub fallback was used locally."
-      );
+      setStatus(result.source === "api" ? "Saved." : "Couldn't reach the local app - try again.");
     });
   }
 
   return (
     <section className="atlas-panel atlas-stack">
-      <div className="atlas-panel__eyebrow">Feature visibility and active workspace</div>
+      <div
+        className="atlas-panel__eyebrow"
+        style={{ display: "flex", alignItems: "center", gap: "6px" }}
+      >
+        What do you want to see?
+        <HintTooltip label="What hiding a section does">
+          Only hides it from the navigation menu - your data for that section is kept and comes
+          right back if you turn it on again.
+        </HintTooltip>
+      </div>
+      <p className="atlas-note">
+        Pick the sections that are relevant to you. You can turn either one back on anytime.
+      </p>
       <div className="atlas-stack">
         {availableFeatures.map((feature) => {
           const checked = enabledSet.has(feature);
           const active = preferences.activeFeature === feature;
 
           return (
-            <label key={feature} className="atlas-control-card">
+            <div key={feature} className="atlas-control-card">
               <div className="atlas-control-card__content">
                 <div className="atlas-control-card__title">{formatFeatureLabel(feature)}</div>
                 <div className="atlas-control-card__meta">
-                  {checked ? "Enabled in shell" : "Hidden from shell"}
-                  {active ? " | Active workspace" : ""}
+                  {checked ? "Shown in navigation" : "Hidden from navigation"}
+                  {active ? " - this is your default view" : ""}
                 </div>
               </div>
               <div className="atlas-control-card__actions">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggleFeature(feature)}
-                  aria-label={`Enable ${formatFeatureLabel(feature)}`}
-                />
+                <button
+                  type="button"
+                  className={checked ? "atlas-button atlas-button--active" : "atlas-button"}
+                  onClick={() => toggleFeature(feature)}
+                >
+                  {checked ? "Showing" : "Hidden"}
+                </button>
                 <button
                   type="button"
                   className={active ? "atlas-button atlas-button--active" : "atlas-button"}
                   onClick={() => setActiveFeature(feature)}
-                  disabled={!checked}
+                  disabled={!checked || active}
                 >
-                  Make active
+                  {active ? "Default view" : "Set as default"}
                 </button>
               </div>
-            </label>
+            </div>
           );
         })}
       </div>
-
-      <dl className="atlas-detail-list">
-        <div className="atlas-detail-list__row">
-          <dt>Shell density</dt>
-          <dd>{preferences.preferredPlatformDensity}</dd>
-        </div>
-
-        <div className="atlas-detail-list__row">
-          <dt>Last save source</dt>
-          <dd>{lastSource === "api" ? "API" : "Stub fallback"}</dd>
-        </div>
-      </dl>
 
       <p className="atlas-note">{status}</p>
 
@@ -151,7 +149,7 @@ export function FeaturePreferencesForm({
         onClick={savePreferences}
         disabled={isPending}
       >
-        {isPending ? "Saving..." : "Save feature settings"}
+        {isPending ? "Saving..." : "Save"}
       </button>
     </section>
   );

@@ -19,15 +19,17 @@ export const featureOptions: Array<{
     feature.key === "endurance"
       ? "Capability, recovery, and event readiness."
       : "Planning, shopping, and cooking flow.",
-  href: feature.key === "endurance" ? "/dashboard" : "/nutrition"
+  href: feature.key === "endurance" ? "/dashboard" : "/planner"
 }));
 
 // Collapsed IA: "Shared shell" is deliberately just Ask Atlas + Settings now - Settings is a
 // tabbed hub (see components/settings-tabs.tsx) covering overview, setup/onboarding,
 // integrations, and tracking fields, so those don't need separate top-level nav items anymore.
-// Each module now owns its own Dashboard as the default landing page (nutrition's was the old
-// "Nutrition summary" page at /nutrition; endurance's was the old shared /dashboard, moved here
-// since its content was always endurance-specific).
+// Nutrition has no separate "Dashboard" nav entry - Planner is the module's landing page and
+// absorbed the old /nutrition summary page's unique content (ingredient lookup). /nutrition
+// itself now just redirects to /planner so old links/bookmarks keep working.
+// Endurance's Dashboard absorbed the Daily log page's "Athlete notes" and an embedded Ask Atlas
+// chat, so /log no longer has its own nav entry either - it redirects to /dashboard.
 export const navGroups: Array<{
   label: string;
   items: AtlasNavItem[];
@@ -42,9 +44,8 @@ export const navGroups: Array<{
   {
     label: "Nutrition module",
     items: [
-      { href: "/nutrition", label: "Dashboard", shortLabel: "Dash", feature: "nutrition" },
       { href: "/planner", label: "Planner", shortLabel: "Plan", feature: "nutrition" },
-      { href: "/shopping", label: "Shopping & pantry", shortLabel: "Shop", feature: "nutrition" },
+      { href: "/shopping", label: "Pantry", shortLabel: "Pantry", feature: "nutrition" },
       { href: "/cooking", label: "Cooking", shortLabel: "Cook", feature: "nutrition" }
     ]
   },
@@ -53,14 +54,13 @@ export const navGroups: Array<{
     items: [
       { href: "/dashboard", label: "Dashboard", shortLabel: "Dash", feature: "endurance" },
       { href: "/timeline", label: "Timeline", shortLabel: "Timeline", feature: "endurance" },
-      { href: "/capability", label: "Capability", shortLabel: "Capability", feature: "endurance" },
-      { href: "/log", label: "Daily log", shortLabel: "Log", feature: "endurance" }
+      { href: "/capability", label: "Capability", shortLabel: "Capability", feature: "endurance" }
     ]
   }
 ];
 
 export const mobileNavItems: AtlasNavItem[] = [
-  { href: "/nutrition", label: "Nutrition", shortLabel: "Nutri", feature: "nutrition" },
+  { href: "/planner", label: "Nutrition", shortLabel: "Nutri", feature: "nutrition" },
   { href: "/dashboard", label: "Endurance", shortLabel: "Endur", feature: "endurance" },
   { href: "/ask", label: "Ask Atlas", shortLabel: "Ask", feature: "shared" },
   { href: "/settings", label: "Settings", shortLabel: "Settings", feature: "shared" }

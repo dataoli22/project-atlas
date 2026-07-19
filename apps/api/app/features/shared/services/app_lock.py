@@ -18,12 +18,11 @@ class HashedPin:
 
 
 def hash_pin(pin: str) -> HashedPin:
-    """One-way hash a PIN for local verification. Never store or log the raw PIN.
+    """One-way hash a short code (PIN or device pairing token) for local verification.
 
-    This is deliberately verify-only (no way to recover the PIN from the hash), unlike the
-    OS-native secret storage used for OAuth tokens - a forgotten app-lock PIN on a local-first,
-    single-user app is expected to be reset by disabling the lock via the local database, not
-    recovered.
+    Never store or log the raw value. Deliberately verify-only (no way to recover the original
+    from the hash), unlike the OS-native secret storage used for OAuth tokens - callers that need
+    recovery, not just verification, should not use this.
     """
 
     salt = os.urandom(_SALT_BYTES)

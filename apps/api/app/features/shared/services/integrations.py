@@ -84,17 +84,20 @@ class StravaIntegrationAdapter(IntegrationAdapter):
         )
 
     def exchange_tokens(self) -> IntegrationOperationResult:
-        settings = get_settings()
         runtime = shared_state.get_integration_runtime_snapshot()["strava"]
         authorization_code = runtime.get("authorization_code")
         if not authorization_code:
             raise ValueError("Capture a Strava authorization code before exchanging tokens.")
-        if not settings.strava_client_id or not settings.strava_client_secret:
-            raise ValueError("Configure Strava client ID and client secret before exchanging tokens.")
+        client_id = shared_state.get_strava_client_id()
+        client_secret = shared_state.get_strava_client_secret()
+        if not client_id or not client_secret:
+            raise ValueError(
+                "Add your Strava app's client ID and client secret under Settings -> Integrations before exchanging tokens."
+            )
 
         client = StravaOAuthClient(
-            client_id=settings.strava_client_id,
-            client_secret=settings.strava_client_secret,
+            client_id=client_id,
+            client_secret=client_secret,
         )
 
         try:
@@ -144,18 +147,21 @@ class StravaIntegrationAdapter(IntegrationAdapter):
         )
 
     def sync(self) -> IntegrationOperationResult:
-        settings = get_settings()
         runtime = shared_state.get_integration_runtime_snapshot()["strava"]
         access_token = runtime.get("access_token")
         refresh_token = runtime.get("refresh_token")
         if not access_token:
             raise ValueError("Exchange Strava tokens before running a live sync.")
-        if not settings.strava_client_id or not settings.strava_client_secret:
-            raise ValueError("Configure Strava client credentials before running a live sync.")
+        client_id = shared_state.get_strava_client_id()
+        client_secret = shared_state.get_strava_client_secret()
+        if not client_id or not client_secret:
+            raise ValueError(
+                "Add your Strava app's client ID and client secret under Settings -> Integrations before running a live sync."
+            )
 
         client = StravaOAuthClient(
-            client_id=settings.strava_client_id,
-            client_secret=settings.strava_client_secret,
+            client_id=client_id,
+            client_secret=client_secret,
         )
         try:
             access_token = self._refresh_if_needed(
@@ -240,13 +246,14 @@ class StravaIntegrationAdapter(IntegrationAdapter):
         if not _token_is_expired(expires_at, buffer_seconds=buffer_seconds):
             return False
 
-        settings = get_settings()
-        if not settings.strava_client_id or not settings.strava_client_secret:
+        client_id = shared_state.get_strava_client_id()
+        client_secret = shared_state.get_strava_client_secret()
+        if not client_id or not client_secret:
             return False
 
         client = StravaOAuthClient(
-            client_id=settings.strava_client_id,
-            client_secret=settings.strava_client_secret,
+            client_id=client_id,
+            client_secret=client_secret,
         )
         refreshed = client.refresh_access_token(refresh_token=str(refresh_token))
         shared_state.refresh_strava_token(
@@ -345,13 +352,14 @@ def refresh_strava_token_if_expiring_soon(*, buffer_seconds: int = 900) -> bool:
 
 
 def _build_strava_launch_url(*, settings) -> str:
-    if not settings.strava_client_id or not settings.strava_redirect_uri:
+    client_id = shared_state.get_strava_client_id()
+    if not client_id or not settings.strava_redirect_uri:
         return "https://developers.strava.com/docs/authentication/"
 
     state_token = shared_state.prepare_strava_oauth()
     query = urlencode(
         {
-            "client_id": settings.strava_client_id,
+            "client_id": client_id,
             "redirect_uri": settings.strava_redirect_uri,
             "response_type": "code",
             "approval_prompt": "auto",

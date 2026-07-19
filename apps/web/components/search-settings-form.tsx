@@ -2,9 +2,12 @@
 
 import { useState, useTransition } from "react";
 
+import { HintTooltip } from "@/components/hint-tooltip";
 import type { ApiDataSource } from "@/lib/api";
 import type { SearchSettingsData } from "@/lib/settings-data";
 import { saveSearchSettings } from "@/lib/settings-data";
+
+const BRAVE_KEYS_URL = "https://api.search.brave.com/app/keys";
 
 type SearchSettingsFormProps = {
   initialSettings: SearchSettingsData;
@@ -16,7 +19,7 @@ export function SearchSettingsForm({ initialSettings, initialSource }: SearchSet
   const [braveApiKey, setBraveApiKey] = useState("");
   const [clearBraveApiKey, setClearBraveApiKey] = useState(false);
   const [lastSource, setLastSource] = useState<ApiDataSource>(initialSource);
-  const [status, setStatus] = useState("Optional - only needed if OpenFoodFacts doesn't have a product.");
+  const [status, setStatus] = useState<string | null>(null);
   const [isSaving, startSaveTransition] = useTransition();
 
   function save() {
@@ -26,23 +29,28 @@ export function SearchSettingsForm({ initialSettings, initialSource }: SearchSet
       setBraveApiKey("");
       setClearBraveApiKey(false);
       setLastSource(result.source);
-      setStatus(
-        result.source === "api"
-          ? "Saved to the local Atlas runtime on this device."
-          : "Backend unavailable, so the page stayed in stub fallback mode."
-      );
+      setStatus(result.source === "api" ? "Saved." : "Couldn't reach the local app - try again.");
     });
   }
 
   return (
     <section className="atlas-panel atlas-stack">
-      <div className="atlas-panel__eyebrow">Nutrition search fallback</div>
+      <div
+        className="atlas-panel__eyebrow"
+        style={{ display: "flex", alignItems: "center", gap: "6px" }}
+      >
+        Web search
+        <HintTooltip label="How to get a Brave Search key">
+          Create a free Brave Search API account, then copy your API key from the dashboard.{" "}
+          <a href={BRAVE_KEYS_URL} target="_blank" rel="noreferrer">
+            Get a key
+          </a>
+        </HintTooltip>
+      </div>
       <p className="atlas-note">
-        OpenFoodFacts is the primary nutrition data source and needs no key. Adding a Brave Search
-        API key lets Atlas fall back to a web search when OpenFoodFacts doesn&apos;t have a
-        product - entirely optional. The key is sent directly from this device to Brave&apos;s
-        API over HTTPS, never through an Atlas-hosted relay, and never logged - same guarantee as
-        the Ollama and Groq keys above.
+        Fills the gap when a food isn&apos;t in Atlas&apos;s product database yet. Set up during
+        onboarding - this is where you replace or remove that key later. Same guarantee as your
+        other keys: it goes straight from this device to Brave, never through Atlas.
       </p>
 
       <div className="atlas-form-grid">
@@ -52,28 +60,22 @@ export function SearchSettingsForm({ initialSettings, initialSource }: SearchSet
             type="password"
             value={braveApiKey}
             onChange={(event) => setBraveApiKey(event.target.value)}
-            placeholder={settings.braveApiKeySet ? "Key already stored - leave blank to keep it" : "BSA..."}
+            placeholder={settings.braveApiKeySet ? "Key already saved - leave blank to keep it" : "Brave Search API key"}
           />
         </label>
       </div>
 
-      <dl className="atlas-detail-list">
-        <div className="atlas-detail-list__row">
-          <dt>Brave key stored</dt>
-          <dd>{settings.braveApiKeySet ? "Yes" : "No"}</dd>
-        </div>
-        <div className="atlas-detail-list__row">
-          <dt>Last save source</dt>
-          <dd>{lastSource === "api" ? "Local API" : "Stub fallback"}</dd>
-        </div>
-      </dl>
+      <div className="atlas-meta">
+        <span className={settings.braveApiKeySet ? "atlas-source-badge" : "atlas-source-badge atlas-source-badge--stub"}>
+          {settings.braveApiKeySet ? "Key saved" : "No key saved"}
+        </span>
+      </div>
 
       <label className="atlas-control-card">
         <div className="atlas-control-card__content">
-          <div className="atlas-control-card__title">Clear stored Brave key</div>
+          <div className="atlas-control-card__title">Remove saved key</div>
           <div className="atlas-control-card__meta">
-            Removes the key and disables the search fallback - OpenFoodFacts keeps working as
-            normal.
+            Turns off web search - Atlas keeps using its product database as normal.
           </div>
         </div>
         <div className="atlas-control-card__actions">
@@ -86,10 +88,10 @@ export function SearchSettingsForm({ initialSettings, initialSource }: SearchSet
       </label>
 
       <button type="button" className="atlas-button atlas-button--primary" onClick={save} disabled={isSaving}>
-        {isSaving ? "Saving..." : "Save search settings"}
+        {isSaving ? "Saving..." : "Save"}
       </button>
 
-      <p className="atlas-note">{status}</p>
+      {status ? <p className="atlas-note">{status}</p> : null}
     </section>
   );
 }

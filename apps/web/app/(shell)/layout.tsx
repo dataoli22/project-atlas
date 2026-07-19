@@ -1,52 +1,48 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-import { AppLockGate } from "@/components/app-lock-gate";
 import { AppVersionFooter } from "@/components/app-version-footer";
 import { FeatureSwitcher } from "@/components/feature-switcher";
 import { OnboardingGate } from "@/components/onboarding-gate";
 import { ShellMobileNav, ShellSidebar } from "@/components/shell-nav";
-import { getAppLockSettingsData } from "@/lib/app-lock-data";
 import { getAppPreferencesData } from "@/lib/settings-data";
 
 export default async function ShellLayout({ children }: { children: ReactNode }) {
-  const [appLock, preferences] = await Promise.all([getAppLockSettingsData(), getAppPreferencesData()]);
+  const preferences = await getAppPreferencesData();
 
   return (
-    <AppLockGate initialLockSettings={appLock.data}>
-      <OnboardingGate hasCompletedOnboarding={preferences.data.hasCompletedOnboarding}>
-        <div className="atlas-shell">
-          <div className="atlas-shell__inner">
-            <header className="atlas-header">
-              <div className="atlas-brand">
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <span className="atlas-brand__mark">AT</span>
-                  <div>
-                    <div className="atlas-brand__eyebrow">Project Atlas</div>
-                    <h1 className="atlas-brand__title">Shared health shell for two focused workspaces</h1>
-                    <p className="atlas-brand__summary">
-                      One account, one navigation shell, one feature switcher. Endurance and Nutrition stay modular
-                      without feeling like separate apps.
-                    </p>
-                  </div>
+    <OnboardingGate hasCompletedOnboarding={preferences.data.hasCompletedOnboarding}>
+      <div className="atlas-shell">
+        <div className="atlas-shell__inner">
+          <header className="atlas-header">
+            <div className="atlas-brand">
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span className="atlas-brand__mark">AT</span>
+                <div>
+                  <div className="atlas-brand__eyebrow">Project Atlas</div>
+                  <h1 className="atlas-brand__title">Shared health shell for two focused workspaces</h1>
+                  <p className="atlas-brand__summary">
+                    One account, one navigation shell, one feature switcher. Endurance and Nutrition stay modular
+                    without feeling like separate apps.
+                  </p>
                 </div>
-                <Link href="/settings" className="atlas-chip">
-                  Global settings
-                </Link>
               </div>
-              <FeatureSwitcher />
-            </header>
-
-            <div className="atlas-layout">
-              <ShellSidebar />
-              <main className="atlas-content">{children}</main>
+              <Link href="/settings" className="atlas-chip">
+                Global settings
+              </Link>
             </div>
+            <FeatureSwitcher />
+          </header>
 
-            <ShellMobileNav />
-            <AppVersionFooter />
+          <div className="atlas-layout">
+            <ShellSidebar />
+            <main className="atlas-content">{children}</main>
           </div>
+
+          <ShellMobileNav />
+          <AppVersionFooter />
         </div>
-      </OnboardingGate>
-    </AppLockGate>
+      </div>
+    </OnboardingGate>
   );
 }

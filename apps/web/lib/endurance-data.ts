@@ -1,9 +1,14 @@
 import type {
   EnduranceDashboardData,
+  EnduranceDisciplineKpiData,
+  EnduranceGoal,
+  EnduranceGoalRequest,
   EnduranceInsightsData,
   EnduranceSupportLink,
   EnduranceSupportResourceType,
-  EnduranceTimelineData
+  EnduranceTimelineData,
+  EnduranceTrainingPlanData,
+  EnduranceWeeklyVolumeTrendData
 } from "@atlas/shared";
 
 import type { ApiDataSource } from "@/lib/api";
@@ -392,4 +397,215 @@ export async function getEnduranceInsightsDataWithSource(): Promise<{
   );
 
   return { data: mapInsightsResponse(response), source };
+}
+
+// ---------------------------------------------------------------------------
+// Goal selection, discipline-split KPIs, weekly-volume trend, training plan. All backed by real
+// endpoints under /api/v1/endurance (see apps/api/app/features/endurance/router.py) - no stub
+// data fallback beyond the standard "backend unreachable" empty-state fallbacks below.
+// ---------------------------------------------------------------------------
+
+type EnduranceGoalApiResponse = {
+  goal_type: string;
+  target_distance_km: number;
+  target_time_minutes?: number | null;
+  target_date?: string | null;
+  note: string;
+  updated_at?: string | null;
+  is_set: boolean;
+};
+
+function mapGoalResponse(response: EnduranceGoalApiResponse): EnduranceGoal {
+  return {
+    goalType: response.goal_type as EnduranceGoal["goalType"],
+    targetDistanceKm: response.target_distance_km,
+    targetTimeMinutes: response.target_time_minutes ?? undefined,
+    targetDate: response.target_date ?? undefined,
+    note: response.note,
+    updatedAt: response.updated_at ?? undefined,
+    isSet: response.is_set
+  };
+}
+
+const GOAL_FALLBACK: EnduranceGoalApiResponse = {
+  goal_type: "",
+  target_distance_km: 0,
+  note: "",
+  is_set: false
+};
+
+export async function getEnduranceGoalData(): Promise<{ data: EnduranceGoal; source: ApiDataSource }> {
+  const { data, source } = await requestJson<EnduranceGoalApiResponse>("/api/v1/endurance/goal", {
+    fallback: GOAL_FALLBACK
+  });
+  return { data: mapGoalResponse(data), source };
+}
+
+export async function saveEnduranceGoal(
+  payload: EnduranceGoalRequest
+): Promise<{ data: EnduranceGoal; source: ApiDataSource }> {
+  const { data, source } = await requestJson<EnduranceGoalApiResponse>("/api/v1/endurance/goal", {
+    method: "POST",
+    body: {
+      goal_type: payload.goalType,
+      target_distance_km: payload.targetDistanceKm,
+      target_time_minutes: payload.targetTimeMinutes ?? null,
+      target_date: payload.targetDate ?? null,
+      note: payload.note ?? ""
+    },
+    fallback: GOAL_FALLBACK
+  });
+  return { data: mapGoalResponse(data), source };
+}
+
+type EnduranceDisciplineKpiApiResponse = {
+  generated_at: string;
+  window_label: string;
+  week: Array<{ discipline: string; session_count: number; total_distance_km: number; total_duration_minutes: number }>;
+  month: Array<{ discipline: string; session_count: number; total_distance_km: number; total_duration_minutes: number }>;
+  has_real_sessions: boolean;
+};
+
+const DISCIPLINE_KPI_FALLBACK: EnduranceDisciplineKpiApiResponse = {
+  generated_at: "2026-07-08T09:00:00Z",
+  window_label: "Last 7 days vs last 30 days",
+  week: [],
+  month: [],
+  has_real_sessions: false
+};
+
+export async function getEnduranceDisciplineKpiData(): Promise<{
+  data: EnduranceDisciplineKpiData;
+  source: ApiDataSource;
+}> {
+  const { data, source } = await requestJson<EnduranceDisciplineKpiApiResponse>(
+    "/api/v1/endurance/kpis/discipline-split",
+    { fallback: DISCIPLINE_KPI_FALLBACK }
+  );
+  return {
+    data: {
+      generatedAt: data.generated_at,
+      windowLabel: data.window_label,
+      week: data.week.map((row) => ({
+        discipline: row.discipline,
+        sessionCount: row.session_count,
+        totalDistanceKm: row.total_distance_km,
+        totalDurationMinutes: row.total_duration_minutes
+      })),
+      month: data.month.map((row) => ({
+        discipline: row.discipline,
+        sessionCount: row.session_count,
+        totalDistanceKm: row.total_distance_km,
+        totalDurationMinutes: row.total_duration_minutes
+      })),
+      hasRealSessions: data.has_real_sessions
+    },
+    source
+  };
+}
+
+type EnduranceWeeklyVolumeTrendApiResponse = {
+  generated_at: string;
+  weeks: Array<{
+    week_label: string;
+    week_start_date: string;
+    total_distance_km: number;
+    total_duration_minutes: number;
+    session_count: number;
+  }>;
+  has_real_sessions: boolean;
+};
+
+const WEEKLY_VOLUME_TREND_FALLBACK: EnduranceWeeklyVolumeTrendApiResponse = {
+  generated_at: "2026-07-08T09:00:00Z",
+  weeks: [],
+  has_real_sessions: false
+};
+
+export async function getEnduranceWeeklyVolumeTrendData(): Promise<{
+  data: EnduranceWeeklyVolumeTrendData;
+  source: ApiDataSource;
+}> {
+  const { data, source } = await requestJson<EnduranceWeeklyVolumeTrendApiResponse>(
+    "/api/v1/endurance/kpis/weekly-volume",
+    { fallback: WEEKLY_VOLUME_TREND_FALLBACK }
+  );
+  return {
+    data: {
+      generatedAt: data.generated_at,
+      weeks: data.weeks.map((week) => ({
+        weekLabel: week.week_label,
+        weekStartDate: week.week_start_date,
+        totalDistanceKm: week.total_distance_km,
+        totalDurationMinutes: week.total_duration_minutes,
+        sessionCount: week.session_count
+      })),
+      hasRealSessions: data.has_real_sessions
+    },
+    source
+  };
+}
+
+type EnduranceTrainingPlanApiResponse = {
+  generated_at: string;
+  has_goal: boolean;
+  goal: EnduranceGoalApiResponse | null;
+  methodology_note: string;
+  baseline_weekly_distance_km: number;
+  sessions_by_discipline: Array<{
+    discipline: string;
+    sessions_per_week: number;
+    focus: string;
+    target_distance_km?: number | null;
+  }>;
+  weeks: Array<{
+    week_number: number;
+    label: string;
+    long_session_distance_km: number;
+    total_distance_km: number;
+    note: string;
+  }>;
+};
+
+const TRAINING_PLAN_FALLBACK: EnduranceTrainingPlanApiResponse = {
+  generated_at: "2026-07-08T09:00:00Z",
+  has_goal: false,
+  goal: null,
+  methodology_note: "",
+  baseline_weekly_distance_km: 0,
+  sessions_by_discipline: [],
+  weeks: []
+};
+
+export async function getEnduranceTrainingPlanData(): Promise<{
+  data: EnduranceTrainingPlanData;
+  source: ApiDataSource;
+}> {
+  const { data, source } = await requestJson<EnduranceTrainingPlanApiResponse>(
+    "/api/v1/endurance/training-plan",
+    { fallback: TRAINING_PLAN_FALLBACK }
+  );
+  return {
+    data: {
+      generatedAt: data.generated_at,
+      hasGoal: data.has_goal,
+      goal: data.goal ? mapGoalResponse(data.goal) : null,
+      methodologyNote: data.methodology_note,
+      baselineWeeklyDistanceKm: data.baseline_weekly_distance_km,
+      sessionsByDiscipline: data.sessions_by_discipline.map((row) => ({
+        discipline: row.discipline,
+        sessionsPerWeek: row.sessions_per_week,
+        focus: row.focus,
+        targetDistanceKm: row.target_distance_km ?? undefined
+      })),
+      weeks: data.weeks.map((week) => ({
+        weekNumber: week.week_number,
+        label: week.label,
+        longSessionDistanceKm: week.long_session_distance_km,
+        totalDistanceKm: week.total_distance_km,
+        note: week.note
+      }))
+    },
+    source
+  };
 }

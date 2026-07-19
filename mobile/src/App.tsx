@@ -26,27 +26,50 @@ interface DeepLinkPairing {
 }
 
 /**
- * Parses the atlas://pair?host=...&port=...&code=... deep link the desktop's QR code encodes
- * (see AndroidManifest.xml's atlas/pair intent-filter and the desktop pairing-settings-form's QR
- * rendering). Returns null for anything else so a malformed or unrelated URL just falls through
- * to the normal manual-entry pairing screen instead of throwing.
+ * Parses the pairing payload the desktop's QR code encodes, in either form it can arrive in:
+ * - `atlas://pair?host=...&port=...&code=...` - what the OS hands appUrlOpen after resolving the
+ *   `intent://` URI (e.g. tapping a QR result from the system Camera app).
+ * - `intent://pair?host=...&port=...&code=...#Intent;scheme=atlas;...;end` - the *raw* text an
+ *   in-app QR scanner reads directly, before any OS intent resolution happens (see
+ *   pairing-settings-form.tsx's buildPairingQrPayload for why the QR encodes this format rather
+ *   than a plain atlas:// URI - it needs the browser_fallback_url for the "app isn't installed
+ *   yet" case, which only an intent:// URI supports).
+ * Returns null for anything else (including a scanned QR that's just some unrelated URL) so it
+ * falls through to the normal manual-entry pairing screen instead of throwing.
  */
-function parsePairingDeepLink(url: string): DeepLinkPairing | null {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "atlas:" || parsed.hostname !== "pair") {
-      return null;
-    }
-    const host = parsed.searchParams.get("host");
-    const port = parsed.searchParams.get("port");
-    const code = parsed.searchParams.get("code");
-    if (!host || !port || !code) {
-      return null;
-    }
-    return { desktopBaseUrl: `${host}:${port}`, code };
-  } catch {
+function parsePairingPayload(raw: string): DeepLinkPairing | null {
+  const queryString = extractPairingQueryString(raw);
+  if (!queryString) {
     return null;
   }
+  const params = new URLSearchParams(queryString);
+  const host = params.get("host");
+  const port = params.get("port");
+  const code = params.get("code");
+  if (!host || !port || !code) {
+    return null;
+  }
+  return { desktopBaseUrl: `${host}:${port}`, code };
+}
+
+function extractPairingQueryString(raw: string): string | null {
+  if (raw.startsWith("atlas://pair")) {
+    try {
+      return new URL(raw).search.replace(/^\?/, "");
+    } catch {
+      return null;
+    }
+  }
+  if (raw.startsWith("intent://pair")) {
+    // Not a real URL by JS's standards (the #Intent;...;end suffix isn't a valid URL fragment,
+    // and "intent:" isn't a scheme the URL class understands) - parse it as plain text instead:
+    // everything between "pair?" and the first "#" is the query string.
+    const afterPair = raw.slice("intent://pair".length);
+    const queryEnd = afterPair.indexOf("#");
+    const query = queryEnd === -1 ? afterPair : afterPair.slice(0, queryEnd);
+    return query.replace(/^\?/, "");
+  }
+  return null;
 }
 
 export default function App() {
@@ -60,7 +83,7 @@ export default function App() {
       .finally(() => setIsLoadingPairing(false));
 
     const listenerPromise = CapacitorApp.addListener("appUrlOpen", (event: URLOpenListenerEvent) => {
-      const parsed = parsePairingDeepLink(event.url);
+      const parsed = parsePairingPayload(event.url);
       if (parsed) {
         setDeepLinkPairing(parsed);
       }
@@ -126,6 +149,46 @@ function PairScreen({
     setIsBusy(false);
   }
 
+  async function scanQrCode() {
+    setIsError(false);
+    setStatus(null);
+    try {
+      const { BarcodeScanner } = await import("@capacitor-mlkit/barcode-scanning");
+
+      const { camera } = await BarcodeScanner.requestPermissions();
+      if (camera !== "granted" && camera !== "limited") {
+        setStatus("Camera permission is needed to scan a QR code.");
+        setIsError(true);
+        return;
+      }
+
+      // BarcodeScanner.scan() shows Google ML Kit's own full-screen scanning UI and resolves
+      // once the user scans something or backs out - no custom camera preview to build/maintain.
+      const { barcodes } = await BarcodeScanner.scan();
+      const raw = barcodes[0]?.rawValue;
+      if (!raw) {
+        setStatus("No QR code detected.");
+        return;
+      }
+
+      const parsed = parsePairingPayload(raw);
+      if (!parsed) {
+        setStatus("That QR code isn't an Atlas pairing code.");
+        setIsError(true);
+        return;
+      }
+
+      // Same "pre-fill, don't auto-submit" reasoning as the deep-link path above - an in-app scan
+      // still hasn't proven the user verified which server it points to.
+      setDesktopBaseUrl(parsed.desktopBaseUrl);
+      setCode(parsed.code);
+      setStatus("Filled in from the scanned QR code. Check the address below, then tap \"Pair with desktop\".");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not scan the QR code.");
+      setIsError(true);
+    }
+  }
+
   async function pair(overrideBaseUrl?: string, overrideCode?: string) {
     setIsBusy(true);
     setIsError(false);
@@ -160,6 +223,10 @@ function PairScreen({
           desktop before tapping &quot;Pair with desktop&quot;.
         </p>
       ) : null}
+
+      <button className="atlas-mobile-button" onClick={scanQrCode}>
+        Scan QR code
+      </button>
 
       <label>
         <span className="atlas-mobile-note">Desktop address (IP:port)</span>

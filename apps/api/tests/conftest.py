@@ -50,7 +50,6 @@ def restore_shared_state():
                 "refresh_reason": shared_state._nutrition_runtime["refresh_reason"],
                 "pantry_items": list(shared_state._nutrition_runtime["pantry_items"]),
             },
-            "app_lock": dict(shared_state._app_lock),
             "pairing": {
                 "pending_code": shared_state._pairing["pending_code"],
                 "pending_expires_at": shared_state._pairing["pending_expires_at"],
@@ -60,6 +59,8 @@ def restore_shared_state():
             "ollama_api_key": shared_state._ollama_api_key,
             "groq_api_key": shared_state._groq_api_key,
             "brave_api_key": shared_state._brave_api_key,
+            "strava_client_id": shared_state._strava_client_id,
+            "strava_client_secret": shared_state._strava_client_secret,
         }
 
     yield
@@ -72,12 +73,13 @@ def restore_shared_state():
         shared_state._integrations = snapshot["integrations"]
         shared_state._integration_runtime = snapshot["integration_runtime"]
         shared_state._nutrition_runtime = snapshot["nutrition_runtime"]
-        shared_state._app_lock = snapshot["app_lock"]
         shared_state._pairing = snapshot["pairing"]
         shared_state._pairing_start_call_times = []
         shared_state._ollama_api_key = snapshot["ollama_api_key"]
         shared_state._groq_api_key = snapshot["groq_api_key"]
         shared_state._brave_api_key = snapshot["brave_api_key"]
+        shared_state._strava_client_id = snapshot["strava_client_id"]
+        shared_state._strava_client_secret = snapshot["strava_client_secret"]
 
 
 @pytest.fixture

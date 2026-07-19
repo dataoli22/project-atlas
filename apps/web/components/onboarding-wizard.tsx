@@ -1,22 +1,46 @@
 "use client";
 
-import { BrainCircuit, CheckCircle2, CircleCheck, PartyPopper, Smartphone, UserCircle2, Watch, Zap } from "lucide-react";
+import { BrainCircuit, CheckCircle2, CircleCheck, HeartPulse, PartyPopper, Search, UserCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
+import { HintTooltip } from "@/components/hint-tooltip";
 import { NutritionOnboardingForm } from "@/components/nutrition-onboarding-form";
-import { completeOnboarding, saveAISettings, testAIRuntimeHealth } from "@/lib/settings-data";
-import type { AISettingsData, LocalizationSettingsData, MarketOptionData, ProfileSettingsData } from "@/lib/settings-data";
+import { CONNECTOR_INFO, isFullyConnected, pendingConnectionNote } from "@/lib/connector-info";
+import {
+  completeOnboarding,
+  connectIntegrationSource,
+  saveAISettings,
+  saveSearchSettings,
+  testAIRuntimeHealth
+} from "@/lib/settings-data";
+import type {
+  AISettingsData,
+  IntegrationSourceData,
+  LocalizationSettingsData,
+  MarketOptionData,
+  ProfileSettingsData,
+  SearchSettingsData
+} from "@/lib/settings-data";
 
-type WizardStep = "welcome" | "profile" | "ai" | "providers" | "finish";
+type IntegrationSourceKey = IntegrationSourceData["key"];
 
-const STEP_ORDER: WizardStep[] = ["welcome", "profile", "ai", "providers", "finish"];
+const GROQ_KEYS_URL = "https://console.groq.com/keys";
+const OLLAMA_DOWNLOAD_URL = "https://ollama.com/download";
+const OLLAMA_CLOUD_KEYS_URL = "https://ollama.com/settings/keys";
+const OLLAMA_CLOUD_BASE_URL = "https://ollama.com";
+const OLLAMA_LOCAL_BASE_URL = "http://localhost:11434";
+const BRAVE_KEYS_URL = "https://api.search.brave.com/app/keys";
+
+type WizardStep = "profile" | "connect" | "ai" | "brave" | "finish";
+
+const STEP_ORDER: WizardStep[] = ["profile", "connect", "ai", "brave", "finish"];
 
 const STEP_LABEL: Record<WizardStep, string> = {
-  welcome: "Welcome",
-  profile: "Profile & plan",
+  profile: "Your details",
+  connect: "Health apps",
   ai: "AI setup",
-  providers: "Connect providers",
+  brave: "Web search",
   finish: "Finish"
 };
 
@@ -28,40 +52,29 @@ function hasWorkingAiPath(ai: AISettingsData, ollamaVerifiedReachable: boolean):
   return ollamaVerifiedReachable || ai.groqApiKeySet || ai.ollamaApiKeySet;
 }
 
-const PROVIDERS = [
-  {
-    title: "Strava",
-    icon: Zap,
-    detail: "Syncs recent activities and training load for the endurance module."
-  },
-  {
-    title: "Health Connect",
-    icon: Smartphone,
-    detail: "Android bridge for recovery inputs - hydration, steps, active energy."
-  },
-  {
-    title: "Samsung Health",
-    icon: Watch,
-    detail: "Android bridge for sleep, resting heart rate, and energy score."
-  }
-];
-
 type OnboardingWizardProps = {
   initialProfile: ProfileSettingsData;
   initialLocalization: LocalizationSettingsData;
   markets: MarketOptionData[];
   initialAiSettings: AISettingsData;
+  initialIntegrations: IntegrationSourceData[];
+  initialSearchSettings: SearchSettingsData;
 };
 
 export function OnboardingWizard({
   initialProfile,
   initialLocalization,
   markets,
-  initialAiSettings
+  initialAiSettings,
+  initialIntegrations,
+  initialSearchSettings
 }: OnboardingWizardProps) {
-  const [step, setStep] = useState<WizardStep>("welcome");
+  const [step, setStep] = useState<WizardStep>("profile");
   const [profileSaved, setProfileSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  const [integrations, setIntegrations] = useState(initialIntegrations);
+  const [connectingKey, setConnectingKey] = useState<IntegrationSourceKey | null>(null);
 
   const [aiSettings, setAiSettings] = useState(initialAiSettings);
   const [ollamaVerified, setOllamaVerified] = useState(false);
@@ -70,14 +83,33 @@ export function OnboardingWizard({
   const [groqKeyInput, setGroqKeyInput] = useState("");
   const [groqError, setGroqError] = useState<string | null>(null);
   const [isSavingGroq, setIsSavingGroq] = useState(false);
+  const [ollamaCloudKeyInput, setOllamaCloudKeyInput] = useState("");
+  const [ollamaCloudError, setOllamaCloudError] = useState<string | null>(null);
+  const [isSavingOllamaCloud, setIsSavingOllamaCloud] = useState(false);
+
+  const [searchSettings, setSearchSettings] = useState(initialSearchSettings);
+  const [braveKeyInput, setBraveKeyInput] = useState("");
+  const [braveError, setBraveError] = useState<string | null>(null);
+  const [isSavingBrave, setIsSavingBrave] = useState(false);
 
   const aiConfigured = hasWorkingAiPath(aiSettings, ollamaVerified);
+  const braveConfigured = searchSettings.braveApiKeySet;
+
+  function connectSource(key: IntegrationSourceKey) {
+    setConnectingKey(key);
+    connectIntegrationSource({ source: key }).then((result) => {
+      setIntegrations((current) =>
+        current.map((integration) => (integration.key === key ? result.data.integration : integration))
+      );
+      setConnectingKey(null);
+    });
+  }
 
   function checkOllama() {
     setIsCheckingOllama(true);
     setOllamaCheckMessage(null);
     testAIRuntimeHealth({
-      ollamaBaseUrl: aiSettings.ollamaBaseUrl,
+      ollamaBaseUrl: OLLAMA_LOCAL_BASE_URL,
       ollamaModel: aiSettings.ollamaModel,
       ollamaEmbedModel: aiSettings.ollamaEmbedModel
     }).then((result) => {
@@ -107,6 +139,47 @@ export function OnboardingWizard({
       }
       setAiSettings(result.data);
       setGroqKeyInput("");
+    });
+  }
+
+  function saveOllamaCloudKey() {
+    if (!ollamaCloudKeyInput.trim()) {
+      setOllamaCloudError("Enter an Ollama Cloud API key first.");
+      return;
+    }
+    setIsSavingOllamaCloud(true);
+    setOllamaCloudError(null);
+    saveAISettings({
+      ...aiSettings,
+      defaultProvider: "ollama",
+      ollamaBaseUrl: OLLAMA_CLOUD_BASE_URL,
+      ollamaApiKey: ollamaCloudKeyInput.trim()
+    }).then((result) => {
+      setIsSavingOllamaCloud(false);
+      if (result.source !== "api") {
+        setOllamaCloudError("Atlas could not reach the local backend to save this key. Try again.");
+        return;
+      }
+      setAiSettings(result.data);
+      setOllamaCloudKeyInput("");
+    });
+  }
+
+  function saveBraveKey() {
+    if (!braveKeyInput.trim()) {
+      setBraveError("Enter a Brave Search API key first.");
+      return;
+    }
+    setIsSavingBrave(true);
+    setBraveError(null);
+    saveSearchSettings({ braveApiKey: braveKeyInput.trim() }).then((result) => {
+      setIsSavingBrave(false);
+      if (result.source !== "api") {
+        setBraveError("Atlas could not reach the local backend to save this key. Try again.");
+        return;
+      }
+      setSearchSettings(result.data);
+      setBraveKeyInput("");
     });
   }
 
@@ -146,38 +219,18 @@ export function OnboardingWizard({
         ))}
       </div>
 
-      {step === "welcome" ? (
+      {step === "profile" ? (
         <div className="atlas-stack">
           <h2
             className="atlas-panel__title"
             style={{ fontSize: "1.4rem", display: "flex", alignItems: "center", gap: "10px" }}
           >
             <UserCircle2 size={26} strokeWidth={1.75} aria-hidden="true" />
-            Set up Atlas on this device
+            Tell us about you
           </h2>
           <p className="atlas-note">
-            A few quick steps get your nutrition plan generating real data today and Ask Atlas
-            actually answering questions. Health provider connections (Strava, Health Connect,
-            Samsung Health) are entirely optional - skip them now and connect later from Settings
-            whenever you want live endurance tracking.
-          </p>
-          <p className="atlas-note">
-            Everything you enter stays on this device. Nothing is sent anywhere except whichever
-            provider you explicitly connect, and never through an Atlas-hosted relay.
-          </p>
-          <div className="atlas-control-card__actions">
-            <button type="button" className="atlas-button atlas-button--primary" onClick={() => goTo("profile")}>
-              Get started
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {step === "profile" ? (
-        <div className="atlas-stack">
-          <p className="atlas-note">
-            This sets your market, currency, and body basics - the weekly nutrition plan generates
-            immediately from these, no connector required.
+            Your region and a few body basics get a real nutrition plan generating right away - no
+            connected app required. Everything you enter stays on this device.
           </p>
           <NutritionOnboardingForm
             initialProfile={initialProfile}
@@ -186,16 +239,90 @@ export function OnboardingWizard({
             onSaved={() => setProfileSaved(true)}
           />
           <div className="atlas-control-card__actions">
-            <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("welcome")}>
-              Back
-            </button>
             <button
               type="button"
               className="atlas-button atlas-button--primary"
-              onClick={() => goTo("ai")}
+              onClick={() => goTo("connect")}
               disabled={!profileSaved}
             >
               {profileSaved ? "Continue" : "Save above to continue"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === "connect" ? (
+        <div className="atlas-stack">
+          <h2
+            className="atlas-panel__title"
+            style={{ fontSize: "1.2rem", display: "flex", alignItems: "center", gap: "10px" }}
+          >
+            <HeartPulse size={22} strokeWidth={1.75} aria-hidden="true" />
+            Connect your health apps
+          </h2>
+          <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
+            Strava&apos;s sign-in and sync are real, working code - it just needs a Strava API app
+            registered first, under Settings → Integrations. Health Connect and Samsung Health are
+            further behind: the phone-side code that would read them hasn&apos;t been built or
+            tested on a real device yet, so skip those two for now if you just want a working
+            setup.
+          </p>
+          <p className="atlas-note">
+            Connecting an app brings in real activities, recovery, and sleep instead of sample
+            data. Entirely optional - skip the rest, and add more anytime from Settings.
+          </p>
+          <div className="atlas-stack">
+            {CONNECTOR_INFO.map((connector) => {
+              const integration = integrations.find((item) => item.key === connector.key);
+              const staged = integration?.connected ?? false;
+              const connected = integration ? isFullyConnected(integration) : false;
+              const pendingNote = integration ? pendingConnectionNote(integration) : null;
+              const isConnecting = connectingKey === connector.key;
+
+              return (
+                <div key={connector.key} className="atlas-list-card">
+                  <div
+                    className="atlas-list-card__title"
+                    style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                  >
+                    <connector.icon size={17} strokeWidth={2} aria-hidden="true" />
+                    {connector.title}
+                    <HintTooltip label={connector.hintLabel}>{connector.hint}</HintTooltip>
+                  </div>
+                  <div className="atlas-list-card__meta">{connector.detail}</div>
+                  <div className="atlas-control-card__actions" style={{ marginTop: "10px" }}>
+                    <button
+                      type="button"
+                      className="atlas-button atlas-button--secondary"
+                      onClick={() => connectSource(connector.key)}
+                      disabled={isConnecting || staged}
+                    >
+                      {staged ? "Requested" : isConnecting ? "Connecting..." : "Connect"}
+                    </button>
+                    {connected ? (
+                      <span
+                        style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--atlas-accent)" }}
+                      >
+                        <CircleCheck size={16} strokeWidth={2} aria-hidden="true" />
+                        Connected
+                      </span>
+                    ) : null}
+                  </div>
+                  {pendingNote ? <p className="atlas-note">{pendingNote}</p> : null}
+                </div>
+              );
+            })}
+          </div>
+          <p className="atlas-note">
+            Need the full sign-in flow, or want to disconnect something? Use{" "}
+            <Link href="/settings/integrations">Settings &rarr; Integrations</Link> anytime.
+          </p>
+          <div className="atlas-control-card__actions">
+            <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("profile")}>
+              Back
+            </button>
+            <button type="button" className="atlas-button atlas-button--primary" onClick={() => goTo("ai")}>
+              Continue
             </button>
           </div>
         </div>
@@ -211,13 +338,153 @@ export function OnboardingWizard({
             Set up AI
           </h2>
           <p className="atlas-note">
-            Ask Atlas needs at least one working AI path before it can answer real questions -
-            without one, chat only returns a canned deterministic reply. Pick either option below;
-            you can add the other (or change your mind) anytime from Settings.
+            Atlas needs one of these set up before it can give real answers - pick whichever fits
+            you, then Continue unlocks once it's confirmed. You can add the others, or change your
+            mind, anytime from Settings.
+          </p>
+          <p className="atlas-note">
+            Any key you enter goes straight from this device to that provider, and nowhere else -
+            never through an Atlas server. We don&apos;t see it, store it remotely, or have any way
+            to access it. Neither does anyone else.
           </p>
 
+          {aiSettings.localOnlyMode ? (
+            <p className="atlas-note">
+              Local-only mode is enabled, so cloud options are disabled - on-device Ollama is the
+              only available provider. Turn local-only mode off in Settings first if you want a
+              cloud option.
+            </p>
+          ) : (
+            <>
+              <div className="atlas-list-card">
+                <div
+                  className="atlas-list-card__title"
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  Option A: Groq (cloud, free tier)
+                  <HintTooltip label="How to get a Groq key">
+                    Create a free account, then generate an API key from the Groq console.{" "}
+                    <a href={GROQ_KEYS_URL} target="_blank" rel="noreferrer">
+                      Get a key
+                    </a>
+                  </HintTooltip>
+                </div>
+                <div className="atlas-list-card__meta">Faster than most local hardware, and doesn't need anything installed.</div>
+                <div className="atlas-form-field" style={{ marginTop: "10px" }}>
+                  <input
+                    type="password"
+                    value={groqKeyInput}
+                    onChange={(event) => setGroqKeyInput(event.target.value)}
+                    placeholder={aiSettings.groqApiKeySet ? "Key already saved - enter a new one to replace it" : "Groq API key"}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: "12px",
+                      border: "1px solid var(--atlas-border)",
+                      background: "var(--atlas-surface-strong)",
+                      color: "var(--atlas-ink)"
+                    }}
+                  />
+                </div>
+                <div className="atlas-control-card__actions" style={{ marginTop: "10px" }}>
+                  <button
+                    type="button"
+                    className="atlas-button atlas-button--secondary"
+                    onClick={saveGroqKey}
+                    disabled={isSavingGroq}
+                  >
+                    {isSavingGroq ? "Saving..." : "Save Groq key"}
+                  </button>
+                  {aiSettings.groqApiKeySet ? (
+                    <span
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--atlas-accent)" }}
+                    >
+                      <CircleCheck size={16} strokeWidth={2} aria-hidden="true" />
+                      Key saved
+                    </span>
+                  ) : null}
+                </div>
+                {groqError ? (
+                  <p className="atlas-note" style={{ color: "var(--atlas-danger)" }}>
+                    {groqError}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="atlas-list-card">
+                <div
+                  className="atlas-list-card__title"
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  Option B: Ollama Cloud (hosted, free tier)
+                  <HintTooltip label="How to get an Ollama Cloud key">
+                    Sign in at ollama.com, then generate an API key for Ollama's hosted models - no
+                    local install needed.{" "}
+                    <a href={OLLAMA_CLOUD_KEYS_URL} target="_blank" rel="noreferrer">
+                      Get a key
+                    </a>
+                  </HintTooltip>
+                </div>
+                <div className="atlas-list-card__meta">
+                  Runs on Ollama's servers instead of this device - no local install needed.
+                </div>
+                <div className="atlas-form-field" style={{ marginTop: "10px" }}>
+                  <input
+                    type="password"
+                    value={ollamaCloudKeyInput}
+                    onChange={(event) => setOllamaCloudKeyInput(event.target.value)}
+                    placeholder={
+                      aiSettings.ollamaApiKeySet ? "Key already saved - enter a new one to replace it" : "Ollama Cloud API key"
+                    }
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: "12px",
+                      border: "1px solid var(--atlas-border)",
+                      background: "var(--atlas-surface-strong)",
+                      color: "var(--atlas-ink)"
+                    }}
+                  />
+                </div>
+                <div className="atlas-control-card__actions" style={{ marginTop: "10px" }}>
+                  <button
+                    type="button"
+                    className="atlas-button atlas-button--secondary"
+                    onClick={saveOllamaCloudKey}
+                    disabled={isSavingOllamaCloud}
+                  >
+                    {isSavingOllamaCloud ? "Saving..." : "Save Ollama Cloud key"}
+                  </button>
+                  {aiSettings.ollamaApiKeySet && aiSettings.ollamaBaseUrl === OLLAMA_CLOUD_BASE_URL ? (
+                    <span
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--atlas-accent)" }}
+                    >
+                      <CircleCheck size={16} strokeWidth={2} aria-hidden="true" />
+                      Key saved
+                    </span>
+                  ) : null}
+                </div>
+                {ollamaCloudError ? (
+                  <p className="atlas-note" style={{ color: "var(--atlas-danger)" }}>
+                    {ollamaCloudError}
+                  </p>
+                ) : null}
+              </div>
+            </>
+          )}
+
           <div className="atlas-list-card">
-            <div className="atlas-list-card__title">Option A: On-device Ollama (recommended, free, private)</div>
+            <div
+              className="atlas-list-card__title"
+              style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              Option C: On-device Ollama (recommended, free, private)
+              <HintTooltip label="How to set up Ollama">
+                Download and install Ollama, then leave it running in the background - Atlas talks to it
+                automatically, no key needed.{" "}
+                <a href={OLLAMA_DOWNLOAD_URL} target="_blank" rel="noreferrer">
+                  Download Ollama
+                </a>
+              </HintTooltip>
+            </div>
             <div className="atlas-list-card__meta">
               No key needed - just confirm Atlas can reach Ollama running on this machine.
             </div>
@@ -242,67 +509,14 @@ export function OnboardingWizard({
             {ollamaCheckMessage ? <p className="atlas-note">{ollamaCheckMessage}</p> : null}
           </div>
 
-          {aiSettings.localOnlyMode ? (
-            <p className="atlas-note">
-              Local-only mode is enabled, so Groq is disabled - Ollama is the only available
-              provider. Turn local-only mode off in Settings first if you want a cloud fallback.
-            </p>
-          ) : (
-            <div className="atlas-list-card">
-              <div className="atlas-list-card__title">Option B: Groq (cloud, free tier)</div>
-              <div className="atlas-list-card__meta">
-                Faster than most local hardware. The key is sent directly from this device to Groq
-                - never through an Atlas-hosted relay.
-              </div>
-              <div className="atlas-form-field" style={{ marginTop: "10px" }}>
-                <input
-                  type="password"
-                  value={groqKeyInput}
-                  onChange={(event) => setGroqKeyInput(event.target.value)}
-                  placeholder={aiSettings.groqApiKeySet ? "Key already saved - enter a new one to replace it" : "Groq API key"}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: "12px",
-                    border: "1px solid var(--atlas-border)",
-                    background: "var(--atlas-surface-strong)",
-                    color: "var(--atlas-ink)"
-                  }}
-                />
-              </div>
-              <div className="atlas-control-card__actions" style={{ marginTop: "10px" }}>
-                <button
-                  type="button"
-                  className="atlas-button atlas-button--secondary"
-                  onClick={saveGroqKey}
-                  disabled={isSavingGroq}
-                >
-                  {isSavingGroq ? "Saving..." : "Save Groq key"}
-                </button>
-                {aiSettings.groqApiKeySet ? (
-                  <span
-                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--atlas-accent)" }}
-                  >
-                    <CircleCheck size={16} strokeWidth={2} aria-hidden="true" />
-                    Key saved
-                  </span>
-                ) : null}
-              </div>
-              {groqError ? (
-                <p className="atlas-note" style={{ color: "var(--atlas-danger)" }}>
-                  {groqError}
-                </p>
-              ) : null}
-            </div>
-          )}
-
           <div className="atlas-control-card__actions">
-            <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("profile")}>
+            <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("connect")}>
               Back
             </button>
             <button
               type="button"
               className="atlas-button atlas-button--primary"
-              onClick={() => goTo("providers")}
+              onClick={() => goTo("brave")}
               disabled={!aiConfigured}
             >
               {aiConfigured ? "Continue" : "Set up at least one option to continue"}
@@ -311,39 +525,90 @@ export function OnboardingWizard({
         </div>
       ) : null}
 
-      {step === "providers" ? (
+      {step === "brave" ? (
         <div className="atlas-stack">
-          <h2 className="atlas-panel__title" style={{ fontSize: "1.2rem" }}>
-            Connect health providers (optional)
+          <h2
+            className="atlas-panel__title"
+            style={{ fontSize: "1.2rem", display: "flex", alignItems: "center", gap: "10px" }}
+          >
+            <Search size={22} strokeWidth={1.75} aria-hidden="true" />
+            Set up web search
           </h2>
           <p className="atlas-note">
-            Connecting a provider unlocks live endurance tracking - synced activities, recovery,
-            and sleep instead of illustrative example data. Entirely optional: skip this and Atlas
-            works fully for nutrition today, and you can connect a provider anytime from Settings.
+            Not every food is in Atlas's product database yet. A Brave Search key lets Atlas fall
+            back to the web so a lookup never comes up empty - this step is required to finish
+            setup.
           </p>
-          <div className="atlas-stack">
-            {PROVIDERS.map((provider) => (
-              <div key={provider.title} className="atlas-list-card">
-                <div
-                  className="atlas-list-card__title"
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+          <p className="atlas-note">
+            Same guarantee as your AI keys: this key goes straight from this device to Brave, never
+            through an Atlas server, and we have no access to it.
+          </p>
+
+          <div className="atlas-list-card">
+            <div
+              className="atlas-list-card__title"
+              style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              Brave Search API key
+              <HintTooltip label="How to get a Brave Search key">
+                Create a free Brave Search API account, then copy your API key from the dashboard.{" "}
+                <a href={BRAVE_KEYS_URL} target="_blank" rel="noreferrer">
+                  Get a key
+                </a>
+              </HintTooltip>
+            </div>
+            <div className="atlas-list-card__meta">Free tier is enough for everyday nutrition lookups.</div>
+            <div className="atlas-form-field" style={{ marginTop: "10px" }}>
+              <input
+                type="password"
+                value={braveKeyInput}
+                onChange={(event) => setBraveKeyInput(event.target.value)}
+                placeholder={braveConfigured ? "Key already saved - enter a new one to replace it" : "Brave Search API key"}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: "12px",
+                  border: "1px solid var(--atlas-border)",
+                  background: "var(--atlas-surface-strong)",
+                  color: "var(--atlas-ink)"
+                }}
+              />
+            </div>
+            <div className="atlas-control-card__actions" style={{ marginTop: "10px" }}>
+              <button
+                type="button"
+                className="atlas-button atlas-button--secondary"
+                onClick={saveBraveKey}
+                disabled={isSavingBrave}
+              >
+                {isSavingBrave ? "Saving..." : "Save Brave key"}
+              </button>
+              {braveConfigured ? (
+                <span
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--atlas-accent)" }}
                 >
-                  <provider.icon size={17} strokeWidth={2} aria-hidden="true" />
-                  {provider.title}
-                </div>
-                <div className="atlas-list-card__meta">{provider.detail}</div>
-              </div>
-            ))}
+                  <CircleCheck size={16} strokeWidth={2} aria-hidden="true" />
+                  Key saved
+                </span>
+              ) : null}
+            </div>
+            {braveError ? (
+              <p className="atlas-note" style={{ color: "var(--atlas-danger)" }}>
+                {braveError}
+              </p>
+            ) : null}
           </div>
+
           <div className="atlas-control-card__actions">
             <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("ai")}>
               Back
             </button>
-            <Link href="/settings/integrations" className="atlas-button atlas-button--secondary">
-              Connect a provider now
-            </Link>
-            <button type="button" className="atlas-button atlas-button--primary" onClick={() => goTo("finish")}>
-              Skip for now
+            <button
+              type="button"
+              className="atlas-button atlas-button--primary"
+              onClick={() => goTo("finish")}
+              disabled={!braveConfigured}
+            >
+              {braveConfigured ? "Continue" : "Save your key above to continue"}
             </button>
           </div>
         </div>
@@ -360,11 +625,10 @@ export function OnboardingWizard({
           </h2>
           <p className="atlas-note">
             Your nutrition plan is generating from the profile and market you just set. You can
-            revisit any of this - including connecting a health provider - from Settings at any
-            time.
+            revisit any of this - including connecting a health app - from Settings at any time.
           </p>
           <div className="atlas-control-card__actions">
-            <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("providers")}>
+            <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("brave")}>
               Back
             </button>
             <button

@@ -249,8 +249,12 @@ textarea {
   grid-template-columns: 1fr;
 }
 
-@media (min-width: 1400px) {
+@media (min-width: 900px) {
   .atlas-grid--hero {
+    /* Two-plus columns from a typical laptop width up, not just ultra-wide displays - panels
+       read left-to-right in a horizontal flow instead of one long vertical stack, while
+       minmax(420px, ...) still keeps each panel wide enough to avoid the original cramped-text
+       problem this class was introduced to fix. */
     grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
   }
 }
@@ -270,6 +274,36 @@ textarea {
   display: grid;
   gap: 10px;
   margin: 0;
+}
+
+.atlas-table-scroll {
+  overflow-x: auto;
+}
+
+.atlas-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.atlas-table th,
+.atlas-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(31, 36, 33, 0.08);
+  white-space: nowrap;
+}
+
+.atlas-table th {
+  color: var(--atlas-muted);
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.atlas-table tbody tr:hover {
+  background: rgba(31, 107, 92, 0.05);
 }
 
 .atlas-detail-list__row {
@@ -512,6 +546,31 @@ textarea {
   margin: 10px 0 0;
   font-size: 1.8rem;
   line-height: 1;
+}
+
+/* Compact variant of .atlas-kpis/.atlas-kpi for small, non-disruptive metric strips (e.g. the
+   timeline/capability "session metrics" row) - same visual language, much smaller footprint so
+   it reads as a side-note rather than a headline stat block. */
+.atlas-kpis--compact {
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+}
+
+.atlas-kpi--compact {
+  padding: 10px 12px;
+}
+
+.atlas-kpi--compact .atlas-kpi__label {
+  font-size: 0.72rem;
+}
+
+.atlas-kpi--compact .atlas-kpi__value {
+  margin: 4px 0 0;
+  font-size: 1.1rem;
+}
+
+.atlas-kpi--compact .atlas-kpi__value--na {
+  color: var(--atlas-muted);
 }
 
 .atlas-meta {
@@ -791,4 +850,382 @@ textarea {
 
 .atlas-timeline__entry:hover {
   background: rgba(255, 255, 255, 0.5);
+}
+
+/* Scrollable container for long lists (shopping items, athlete notes, meal plans) instead of
+   letting the page grow indefinitely. The bottom fade signals there is more content to scroll to. */
+.atlas-scroll-list {
+  position: relative;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.atlas-scroll-list--fade::after {
+  content: "";
+  position: sticky;
+  display: block;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  margin-top: -28px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(244, 241, 232, 0), var(--atlas-bg));
+}
+
+.atlas-scroll-hint {
+  font-size: 0.76rem;
+  color: var(--atlas-muted);
+  text-align: right;
+}
+
+/* Small dismissable reminder banner, distinct from the full-width DataSourceBanner - meant for a
+   single transient nudge (e.g. "connect a data source") rather than persistent page-level status. */
+.atlas-toast {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--atlas-radius-sm);
+  background: var(--atlas-amber-soft);
+  border: 1px solid rgba(184, 135, 58, 0.35);
+  color: var(--atlas-ink);
+}
+
+.atlas-toast__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.atlas-toast__close {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--atlas-muted);
+  padding: 2px 4px;
+}
+
+.atlas-toast__close:hover {
+  color: var(--atlas-ink);
+}
+
+.atlas-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 12, 8, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 16px 16px;
+  z-index: 40;
+}
+
+.atlas-modal {
+  width: min(640px, 100%);
+  max-height: 82vh;
+  overflow-y: auto;
+  background: var(--atlas-surface);
+  border: 1px solid var(--atlas-border);
+  border-radius: var(--atlas-radius-md, var(--atlas-radius-sm));
+  padding: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.atlas-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* Section sub-nav - a row of jump links pinned near the top of a long, section-heavy page (the
+   cooking flow: search, prep sequence, cadence, hacks, videos, ...) so a user can jump straight
+   to a section instead of scrolling past everything before it. Sticky so it stays reachable while
+   scrolling through a tall page. */
+.atlas-section-nav {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--atlas-surface);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--atlas-border);
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow);
+}
+
+.atlas-section-nav__link {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--atlas-muted);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--atlas-border);
+  transition: background var(--atlas-transition), color var(--atlas-transition);
+}
+
+.atlas-section-nav__link:hover {
+  color: var(--atlas-ink);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* Compact section wrapper for long stacked pages - trims the padding/gap that .atlas-panel uses
+   by default (18px / 12px) and adds a colored top rule plus scroll-margin so anchor-nav jumps
+   don't tuck the heading under the sticky sub-nav. Section headers use a two-line eyebrow+title
+   pattern instead of one flat eyebrow label, so sections read as distinct chunks at a glance
+   rather than one continuous scroll of same-weight text. */
+.atlas-section {
+  scroll-margin-top: 64px;
+  padding: 14px 16px;
+  gap: 10px;
+  border-top: 3px solid var(--atlas-accent-soft);
+}
+
+.atlas-section--warm {
+  border-top-color: var(--atlas-warm-soft);
+}
+
+.atlas-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.atlas-section__title {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.atlas-section__count {
+  font-size: 0.78rem;
+  color: var(--atlas-muted);
+  white-space: nowrap;
+}
+
+/* Native details/summary accordion instead of a JS-driven one - the cooking page is a server
+   component with no client-side state, and <details> gives collapse/expand for free with no
+   hydration cost. Long flat lists (prep videos, substitution fallbacks) collapse to their summary
+   count by default so the page doesn't read as one long sprawling scroll. */
+.atlas-accordion {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(31, 36, 33, 0.08);
+  padding: 2px 4px;
+}
+
+.atlas-accordion + .atlas-accordion {
+  margin-top: 8px;
+}
+
+.atlas-accordion__summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 600;
+}
+
+.atlas-accordion__summary::-webkit-details-marker {
+  display: none;
+}
+
+.atlas-accordion__summary::after {
+  content: "+";
+  color: var(--atlas-muted);
+  font-weight: 400;
+  font-size: 1.1rem;
+}
+
+.atlas-accordion[open] .atlas-accordion__summary::after {
+  content: "\2212";
+}
+
+.atlas-accordion__body {
+  padding: 0 12px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+/* Numbered marker for the prep-sequence timeline - replaces the plain dot with a small filled
+   badge showing the step number, so a reader can see "step 3 of 6" progress at a glance instead
+   of counting dots. */
+.atlas-timeline__badge {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--atlas-accent);
+  color: #fffdf8;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.atlas-timeline__entry--numbered {
+  padding-left: 30px;
+}
+
+.atlas-timeline__entry--numbered::before,
+.atlas-timeline__entry--numbered::after {
+  left: 9px;
+}
+
+.atlas-timeline__entry--numbered::before {
+  display: none;
+}
+
+/* Progress + milestone mechanics: honest, data-driven "gaming-like" UX (a progress bar toward a
+   real weekly target, a small completion badge once that target is actually met) rather than a
+   visual game reskin. Kept in the same muted, earthy palette as the rest of the shell. */
+.atlas-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.atlas-progress__label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--atlas-muted);
+  font-weight: 600;
+}
+
+.atlas-progress__track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  border: 1px solid var(--atlas-border);
+}
+
+.atlas-progress__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--atlas-accent-soft), var(--atlas-accent));
+  transition: width var(--atlas-transition);
+}
+
+.atlas-progress__fill--complete {
+  background: linear-gradient(90deg, var(--atlas-warm-soft), var(--atlas-warm, var(--atlas-accent)));
+}
+
+.atlas-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.atlas-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid var(--atlas-border);
+  color: var(--atlas-muted);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.atlas-badge--earned {
+  color: #4a3418;
+  background: var(--atlas-warm-soft);
+  border-color: var(--atlas-warm-soft);
+}
+
+.atlas-badge__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.atlas-hint {
+  position: relative;
+  display: inline-flex;
+}
+
+.atlas-hint__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid var(--atlas-border);
+  background: var(--atlas-surface-strong);
+  color: var(--atlas-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+
+.atlas-hint__trigger:hover,
+.atlas-hint__trigger:focus-visible {
+  color: var(--atlas-ink);
+  border-color: var(--atlas-accent);
+}
+
+.atlas-hint__bubble {
+  position: absolute;
+  z-index: 20;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: 240px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--atlas-border);
+  background: var(--atlas-surface-strong);
+  box-shadow: var(--atlas-shadow);
+  color: var(--atlas-ink);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--atlas-transition), transform var(--atlas-transition), visibility var(--atlas-transition);
+}
+
+.atlas-hint__trigger:hover + .atlas-hint__bubble,
+.atlas-hint__trigger:focus-visible + .atlas-hint__bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.atlas-hint__bubble a {
+  color: var(--atlas-accent);
+  font-weight: 600;
+}
+
+.atlas-badge--earned .atlas-badge__dot {
+  opacity: 1;
 }

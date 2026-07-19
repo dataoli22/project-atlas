@@ -1,19 +1,29 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.features.endurance.health_query import query_health_data
 from app.features.endurance.schemas import (
     EnduranceDashboardResponse,
+    EnduranceDisciplineKpiResponse,
+    EnduranceGoal,
+    EnduranceGoalRequest,
     EnduranceInsightsResponse,
     EnduranceTimelineResponse,
+    EnduranceTrainingPlanResponse,
+    EnduranceWeeklyVolumeTrendResponse,
 )
 from app.features.endurance.service import (
+    generate_training_plan,
     get_endurance_dashboard,
+    get_endurance_discipline_kpis,
+    get_endurance_goal,
     get_endurance_insights,
     get_endurance_timeline,
     get_stub_dashboard,
     get_stub_insights,
     get_stub_timeline,
+    get_weekly_volume_trend,
+    save_endurance_goal,
 )
 from app.features.shared.schemas.health import BodyWeightMetric, HydrationMetric
 
@@ -73,3 +83,45 @@ def query_endurance_health_data(
         sessions=result.sessions,
         metric_readings=result.metric_readings,
     )
+
+
+@router.get("/kpis/discipline-split", response_model=EnduranceDisciplineKpiResponse)
+def read_endurance_discipline_kpis() -> EnduranceDisciplineKpiResponse:
+    """Real triathlon-relevant KPIs: total distance/time per discipline (run/bike/swim), summed
+    from actual synced sessions' sport_type over the last 7 and 30 days. Backs the capability
+    page's "current strengths by discipline" widget."""
+    return get_endurance_discipline_kpis()
+
+
+@router.get("/kpis/weekly-volume", response_model=EnduranceWeeklyVolumeTrendResponse)
+def read_endurance_weekly_volume_trend() -> EnduranceWeeklyVolumeTrendResponse:
+    """Real chronological weekly-volume history from actual synced session history. Backs the
+    timeline page's "history over time" widget."""
+    return get_weekly_volume_trend()
+
+
+@router.get("/goal", response_model=EnduranceGoal)
+def read_endurance_goal() -> EnduranceGoal:
+    return get_endurance_goal()
+
+
+@router.post("/goal", response_model=EnduranceGoal)
+def write_endurance_goal(payload: EnduranceGoalRequest) -> EnduranceGoal:
+    try:
+        return save_endurance_goal(
+            goal_type=payload.goal_type,
+            target_distance_km=payload.target_distance_km,
+            target_time_minutes=payload.target_time_minutes,
+            target_date=payload.target_date,
+            note=payload.note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/training-plan", response_model=EnduranceTrainingPlanResponse)
+def read_endurance_training_plan() -> EnduranceTrainingPlanResponse:
+    """A deterministic, rules-based weekly training plan (see generate_training_plan's
+    docstring for the heuristic used) built from the saved goal plus real recent training
+    volume. Returns has_goal=False with no weeks if no goal has been set yet."""
+    return generate_training_plan()

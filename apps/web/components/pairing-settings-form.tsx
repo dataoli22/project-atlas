@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import QRCode from "qrcode";
 
+import { HintTooltip } from "@/components/hint-tooltip";
 import type { PairedDeviceData, PairingStartData } from "@/lib/pairing-data";
 import { revokeDevice, startPairing } from "@/lib/pairing-data";
 
@@ -85,11 +86,23 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
 
   return (
     <section className="atlas-panel atlas-stack">
-      <div className="atlas-panel__eyebrow">Phone pairing</div>
+      <div
+        className="atlas-panel__eyebrow"
+        style={{ display: "flex", alignItems: "center", gap: "6px" }}
+      >
+        Phone pairing
+        <HintTooltip label="Why pair a phone">
+          Health Connect and Samsung Health only exist on your phone, not this device. Pairing lets
+          the Atlas Companion phone app send that data here - hydration, steps, sleep, and more.
+        </HintTooltip>
+      </div>
       <p className="atlas-note">
-        Pair the Atlas Companion phone app to sync Health Connect / HealthKit data from your phone.
-        Both devices must be on the same local network - nothing is relayed through a hosted
-        server.
+        Both devices need to be on the same Wi-Fi network - nothing goes through a hosted server.
+      </p>
+      <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
+        Early / unfinished feature: pairing itself works, but the phone-side code that actually
+        reads Health Connect and Samsung Health hasn&apos;t been built or tested on a real device
+        yet, so a paired phone may not have real data to sync.
       </p>
 
       <LanPairingToggle />
@@ -101,9 +114,8 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
           devices.map((device) => (
             <div key={device.deviceId} className="atlas-list-card">
               <div className="atlas-list-card__title">{device.deviceName}</div>
-              <div className="atlas-list-card__meta">
-                Paired {device.pairedAt} | Last sync: {device.lastSyncAt ?? "Never"}
-              </div>
+              <div className="atlas-list-card__meta">Paired {device.pairedAt}</div>
+              <div className="atlas-list-card__meta">Last sync: {device.lastSyncAt ?? "Never"}</div>
               <button
                 type="button"
                 className="atlas-button atlas-button--secondary"

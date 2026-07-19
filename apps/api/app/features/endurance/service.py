@@ -1,22 +1,31 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.features.endurance.medical_escalation import (
     ESCALATION_COPY,
     detect_medical_red_flags,
 )
 from app.features.endurance.schemas import (
+    GOAL_TYPES,
     EnduranceCapabilityArea,
     EnduranceCapabilitySnapshot,
     EnduranceDashboardCard,
     EnduranceDashboardResponse,
+    EnduranceDisciplineKpi,
+    EnduranceDisciplineKpiResponse,
+    EnduranceGoal,
     EnduranceInsightItem,
     EnduranceInsightsResponse,
     EnduranceMedicalFlag,
     EnduranceSupportLink,
     EnduranceTimelineEntry,
     EnduranceTimelineResponse,
+    EnduranceTrainingPlanResponse,
+    EnduranceTrainingPlanSession,
+    EnduranceTrainingPlanWeek,
+    EnduranceWeeklyVolumePoint,
+    EnduranceWeeklyVolumeTrendResponse,
     EnduranceWorkoutSummary,
 )
 from app.features.shared.services.state import shared_state
@@ -717,3 +726,262 @@ def _support_links(generated_at: str, *, all_disconnected: bool = False) -> list
 
     # Disconnected connectors first (prioritized), then training resources, then connected ones.
     return [*disconnected_links, *training_links, *connected_links]
+
+
+# ---------------------------------------------------------------------------
+# Triathlon-relevant KPIs: real per-discipline (run/bike/swim) totals, derived by grouping actual
+# synced sessions by their real `sport_type` (from Strava/Health Connect). No swim-specific data
+# pipeline exists anywhere in this backend (checked provider_clients.py/integrations.py) - swim
+# sessions only ever appear if a connector reports sport_type "Swim" on a synced activity, the
+# same as any other sport_type value. A discipline with zero real sessions in a window is simply
+# omitted from that window's list, never shown as a fabricated zero row.
+# ---------------------------------------------------------------------------
+
+_RUN_KEYWORDS = ("run",)
+_BIKE_KEYWORDS = ("ride", "bike", "cycle")
+_SWIM_KEYWORDS = ("swim",)
+
+
+def _discipline_for_sport_type(sport_type: str) -> str:
+    lowered = sport_type.lower()
+    if any(keyword in lowered for keyword in _RUN_KEYWORDS):
+        return "run"
+    if any(keyword in lowered for keyword in _BIKE_KEYWORDS):
+        return "bike"
+    if any(keyword in lowered for keyword in _SWIM_KEYWORDS):
+        return "swim"
+    return "other"
+
+
+def _session_sport_type(item: dict[str, object | None]) -> str:
+    return str(item.get("sport_type") or item.get("session_type") or "Other")
+
+
+def _group_by_discipline(
+    activities: list[dict[str, object | None]], *, cutoff: datetime
+) -> list[EnduranceDisciplineKpi]:
+    totals: dict[str, dict[str, float]] = {}
+    for item in activities:
+        start = _parse_start_date(item.get("start_date"))
+        if start is None or start < cutoff:
+            continue
+        discipline = _discipline_for_sport_type(_session_sport_type(item))
+        bucket = totals.setdefault(
+            discipline, {"session_count": 0, "distance_m": 0.0, "duration_s": 0.0}
+        )
+        bucket["session_count"] += 1
+        bucket["distance_m"] += _session_distance_meters(item)
+        bucket["duration_s"] += _session_duration_seconds(item)
+
+    order = {"run": 0, "bike": 1, "swim": 2, "other": 3}
+    return [
+        EnduranceDisciplineKpi(
+            discipline=discipline,
+            session_count=int(values["session_count"]),
+            total_distance_km=round(values["distance_m"] / 1000, 2),
+            total_duration_minutes=round(values["duration_s"] / 60, 1),
+        )
+        for discipline, values in sorted(totals.items(), key=lambda entry: order.get(entry[0], 9))
+    ]
+
+
+def get_endurance_discipline_kpis(*, now: datetime | None = None) -> EnduranceDisciplineKpiResponse:
+    now = now or datetime.now(timezone.utc)
+    runtime = shared_state.get_integration_runtime_snapshot()
+    activities = _combined_recent_sessions(runtime)
+    week = _group_by_discipline(activities, cutoff=now - timedelta(days=7))
+    month = _group_by_discipline(activities, cutoff=now - timedelta(days=30))
+    generated_at = activities[0].get("start_date") if activities else None
+    return EnduranceDisciplineKpiResponse(
+        generated_at=str(generated_at) if generated_at else _iso_z(now),
+        window_label="Last 7 days vs last 30 days",
+        week=week,
+        month=month,
+        has_real_sessions=bool(activities),
+    )
+
+
+def _iso_z(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _iso_week_start(value: datetime) -> datetime:
+    return (value - timedelta(days=value.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def get_weekly_volume_trend(*, now: datetime | None = None, max_weeks: int = 8) -> EnduranceWeeklyVolumeTrendResponse:
+    """Real chronological weekly-volume history for the timeline page - a genuinely distinct
+    "history over time" view from the dashboard's current-state cards and the capability page's
+    current-strengths breakdown. Buckets are built strictly from weeks that actually contain a
+    synced session; there is no fabricated zero-filled week in between."""
+    now = now or datetime.now(timezone.utc)
+    runtime = shared_state.get_integration_runtime_snapshot()
+    activities = _combined_recent_sessions(runtime)
+
+    buckets: dict[datetime, dict[str, float]] = {}
+    for item in activities:
+        start = _parse_start_date(item.get("start_date"))
+        if start is None:
+            continue
+        week_start = _iso_week_start(start)
+        bucket = buckets.setdefault(
+            week_start, {"session_count": 0, "distance_m": 0.0, "duration_s": 0.0}
+        )
+        bucket["session_count"] += 1
+        bucket["distance_m"] += _session_distance_meters(item)
+        bucket["duration_s"] += _session_duration_seconds(item)
+
+    ordered_weeks = sorted(buckets.keys())[-max_weeks:]
+    points = [
+        EnduranceWeeklyVolumePoint(
+            week_label=week_start.strftime("Week of %b %d"),
+            week_start_date=week_start.date().isoformat(),
+            total_distance_km=round(buckets[week_start]["distance_m"] / 1000, 2),
+            total_duration_minutes=round(buckets[week_start]["duration_s"] / 60, 1),
+            session_count=int(buckets[week_start]["session_count"]),
+        )
+        for week_start in ordered_weeks
+    ]
+    return EnduranceWeeklyVolumeTrendResponse(
+        generated_at=_iso_z(now),
+        weeks=points,
+        has_real_sessions=bool(points),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Goal selection: a small, real persisted goal (type/target distance/optional target time and
+# date), following the exact singleton-table persistence pattern used by nutrition preferences
+# (see nutrition/service.py's get/save_nutrition_preferences and shared/services/db.py's
+# nutrition_preferences table) - a sqlite singleton via a migration, with an in-memory fallback
+# for tests.
+# ---------------------------------------------------------------------------
+
+
+def get_endurance_goal() -> EnduranceGoal:
+    saved = shared_state.get_endurance_goal()
+    if saved is None:
+        return EnduranceGoal(goal_type="", target_distance_km=0.0, is_set=False)
+    return EnduranceGoal(**saved, is_set=True)
+
+
+def save_endurance_goal(
+    *,
+    goal_type: str,
+    target_distance_km: float,
+    target_time_minutes: float | None,
+    target_date: str | None,
+    note: str,
+) -> EnduranceGoal:
+    normalized_type = goal_type.strip().lower()
+    if normalized_type not in GOAL_TYPES:
+        raise ValueError(f"Unknown goal type '{goal_type}'. Real options are {', '.join(GOAL_TYPES)}.")
+    saved = shared_state.set_endurance_goal(
+        goal_type=normalized_type,
+        target_distance_km=target_distance_km,
+        target_time_minutes=target_time_minutes,
+        target_date=(target_date or "").strip() or None,
+        note=note.strip(),
+    )
+    return EnduranceGoal(**saved, is_set=True)
+
+
+# ---------------------------------------------------------------------------
+# Training plan: a deterministic, rules-based weekly plan generator - not AI-fabricated and not
+# personalized coaching. It applies one well-known, widely-cited endurance-coaching heuristic
+# (the "10% rule": don't raise total weekly training volume by more than ~10% week over week) to
+# the user's own real recent weekly volume (from get_weekly_volume_trend, i.e. actual synced
+# sessions), building toward the real goal distance saved via save_endurance_goal. See e.g.
+# generic run-coaching literature on the 10% rule - this is a standard mechanical heuristic, not
+# a claim of personalized AI coaching.
+# ---------------------------------------------------------------------------
+
+_TRIATHLON_GOAL_TYPES = {
+    "sprint_triathlon",
+    "olympic_triathlon",
+    "half_ironman_triathlon",
+    "ironman_triathlon",
+}
+_WEEKLY_PROGRESSION_RATE = 1.10  # the "10% rule"
+_PLAN_WEEK_COUNT = 6
+_MIN_STARTING_WEEKLY_KM = 5.0
+
+
+def _sessions_by_discipline_for_goal(goal_type: str) -> list[EnduranceTrainingPlanSession]:
+    if goal_type in _TRIATHLON_GOAL_TYPES:
+        return [
+            EnduranceTrainingPlanSession(discipline="swim", sessions_per_week=2, focus="Technique + aerobic swim volume"),
+            EnduranceTrainingPlanSession(discipline="bike", sessions_per_week=2, focus="One steady endurance ride, one shorter tempo ride"),
+            EnduranceTrainingPlanSession(discipline="run", sessions_per_week=2, focus="One easy run, one longer aerobic run"),
+        ]
+    return [
+        EnduranceTrainingPlanSession(discipline="run", sessions_per_week=4, focus="3 easy/aerobic runs + 1 longer weekly run"),
+    ]
+
+
+def generate_training_plan(*, now: datetime | None = None) -> EnduranceTrainingPlanResponse:
+    now = now or datetime.now(timezone.utc)
+    trend = get_weekly_volume_trend(now=now, max_weeks=4)
+    recent_weeks = trend.weeks[-4:]
+    baseline_weekly_distance_km = (
+        round(sum(week.total_distance_km for week in recent_weeks) / len(recent_weeks), 1)
+        if recent_weeks
+        else 0.0
+    )
+
+    methodology_note = (
+        "Deterministic, rules-based plan - not personalized AI coaching. It starts from your own "
+        "real recent weekly training distance (synced sessions, last 4 weeks) and applies the "
+        "widely-used '10% rule' from endurance-coaching practice: don't grow total weekly volume "
+        "by more than roughly 10% week over week. Use it as a reasonable default structure, not a "
+        "prescription - adjust with real judgment or a coach."
+    )
+
+    saved_goal = shared_state.get_endurance_goal()
+    if saved_goal is None:
+        return EnduranceTrainingPlanResponse(
+            generated_at=_iso_z(now),
+            has_goal=False,
+            goal=None,
+            methodology_note=methodology_note,
+            baseline_weekly_distance_km=baseline_weekly_distance_km,
+            sessions_by_discipline=[],
+            weeks=[],
+        )
+
+    goal = EnduranceGoal(**saved_goal, is_set=True)
+    sessions_by_discipline = _sessions_by_discipline_for_goal(goal.goal_type)
+
+    current_km = max(baseline_weekly_distance_km, _MIN_STARTING_WEEKLY_KM)
+    # Cap growth so the plan converges toward (not wildly overshoots) the real goal distance.
+    weekly_cap_km = max(goal.target_distance_km * 1.15, current_km)
+    weeks: list[EnduranceTrainingPlanWeek] = []
+    for week_number in range(1, _PLAN_WEEK_COUNT + 1):
+        current_km = min(current_km * _WEEKLY_PROGRESSION_RATE, weekly_cap_km)
+        is_taper_week = week_number == _PLAN_WEEK_COUNT
+        total_km = round(current_km * 0.85, 1) if is_taper_week else round(current_km, 1)
+        long_session_km = round(min(total_km * 0.4, goal.target_distance_km), 1)
+        note = (
+            f"Taper week: reduce total volume ahead of race day, keep the goal-distance long session light."
+            if is_taper_week
+            else "Increase weekly volume by ~10% versus last week (standard endurance-coaching progression heuristic)."
+        )
+        weeks.append(
+            EnduranceTrainingPlanWeek(
+                week_number=week_number,
+                label=f"Week {week_number}",
+                long_session_distance_km=long_session_km,
+                total_distance_km=total_km,
+                note=note,
+            )
+        )
+
+    return EnduranceTrainingPlanResponse(
+        generated_at=_iso_z(now),
+        has_goal=True,
+        goal=goal,
+        methodology_note=methodology_note,
+        baseline_weekly_distance_km=baseline_weekly_distance_km,
+        sessions_by_discipline=sessions_by_discipline,
+        weeks=weeks,
+    )

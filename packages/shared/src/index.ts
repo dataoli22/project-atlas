@@ -124,6 +124,95 @@ export interface EnduranceInsightsData {
   medicalFlags: EnduranceMedicalFlag[];
 }
 
+/** Real, small enum of goal types the deterministic training-plan generator knows how to build a
+ * plan for. Mirrors apps/api/app/features/endurance/schemas.py's GOAL_TYPES. */
+export type EnduranceGoalType =
+  | "5k_run"
+  | "10k_run"
+  | "half_marathon"
+  | "marathon"
+  | "sprint_triathlon"
+  | "olympic_triathlon"
+  | "half_ironman_triathlon"
+  | "ironman_triathlon"
+  | "custom";
+
+export interface EnduranceGoal {
+  goalType: EnduranceGoalType | "";
+  targetDistanceKm: number;
+  targetTimeMinutes?: number | null;
+  targetDate?: string | null;
+  note: string;
+  updatedAt?: string | null;
+  isSet: boolean;
+}
+
+export interface EnduranceGoalRequest {
+  goalType: EnduranceGoalType;
+  targetDistanceKm: number;
+  targetTimeMinutes?: number | null;
+  targetDate?: string | null;
+  note?: string;
+}
+
+/** One discipline's real, summed totals over a window - see
+ * apps/api/app/features/endurance/service.py's _group_by_discipline docstring: built strictly
+ * from actual synced session sport_type values, a discipline with zero real sessions is simply
+ * omitted rather than shown as a fabricated zero. */
+export interface EnduranceDisciplineKpi {
+  discipline: string;
+  sessionCount: number;
+  totalDistanceKm: number;
+  totalDurationMinutes: number;
+}
+
+export interface EnduranceDisciplineKpiData {
+  generatedAt: string;
+  windowLabel: string;
+  week: EnduranceDisciplineKpi[];
+  month: EnduranceDisciplineKpi[];
+  hasRealSessions: boolean;
+}
+
+export interface EnduranceWeeklyVolumePoint {
+  weekLabel: string;
+  weekStartDate: string;
+  totalDistanceKm: number;
+  totalDurationMinutes: number;
+  sessionCount: number;
+}
+
+export interface EnduranceWeeklyVolumeTrendData {
+  generatedAt: string;
+  weeks: EnduranceWeeklyVolumePoint[];
+  hasRealSessions: boolean;
+}
+
+export interface EnduranceTrainingPlanSession {
+  discipline: string;
+  sessionsPerWeek: number;
+  focus: string;
+  targetDistanceKm?: number | null;
+}
+
+export interface EnduranceTrainingPlanWeek {
+  weekNumber: number;
+  label: string;
+  longSessionDistanceKm: number;
+  totalDistanceKm: number;
+  note: string;
+}
+
+export interface EnduranceTrainingPlanData {
+  generatedAt: string;
+  hasGoal: boolean;
+  goal: EnduranceGoal | null;
+  methodologyNote: string;
+  baselineWeeklyDistanceKm: number;
+  sessionsByDiscipline: EnduranceTrainingPlanSession[];
+  weeks: EnduranceTrainingPlanWeek[];
+}
+
 export interface NutritionMealSummary {
   day: string;
   breakfast: string;
@@ -252,6 +341,32 @@ export interface NutritionPlannerData {
   videoLinks: NutritionVideoLink[];
   /** Prior generations, newest first. */
   swapHistory: NutritionSwapHistoryEntry[];
+}
+
+/** User-saved nutrition planning preferences (POST/GET /nutrition/preferences). */
+export interface NutritionPreferences {
+  cuisines: string[];
+  shopFrequencyPerWeek: number;
+  mealTypes: NutritionMealSlot[];
+  avgCookTimeMinutes: number;
+  healthConditions: string[];
+  allergens: string[];
+  planningNote: string;
+  updatedAt: string | null;
+  /** Fields whose value genuinely changes the served plan. */
+  hasRealEffect: string[];
+  /** Fields that are saved and echoed back, but don't yet reshape blueprint-driven output. */
+  persistedOnly: string[];
+}
+
+export interface NutritionPreferencesRequest {
+  cuisines: string[];
+  shopFrequencyPerWeek: number;
+  mealTypes: NutritionMealSlot[];
+  avgCookTimeMinutes: number;
+  healthConditions: string[];
+  allergens: string[];
+  planningNote: string;
 }
 
 export interface NutritionShoppingItem {

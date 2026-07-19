@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { HintTooltip } from "@/components/hint-tooltip";
 import { searchRecipes, swapNutritionMeal, type RecipeSearchHit } from "@/lib/nutrition-data";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -61,7 +62,16 @@ export function RecipeSearchForm() {
 
   return (
     <section className="atlas-panel atlas-stack">
-      <div className="atlas-panel__eyebrow">Find your own recipe</div>
+      <div
+        className="atlas-panel__eyebrow"
+        style={{ display: "flex", alignItems: "center", gap: "6px" }}
+      >
+        Find your own recipe
+        <HintTooltip label="Before this works">
+          Needs a Brave Search key set under Settings → Integrations. Without one, searches will
+          fail - this is a real web search, not example data.
+        </HintTooltip>
+      </div>
       <p className="atlas-note">
         Search for a recipe you actually want to cook, then sync it straight into your plan - the
         cooking steps, shopping list, and pantry view all update from it automatically.

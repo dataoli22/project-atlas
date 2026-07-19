@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { HintTooltip } from "@/components/hint-tooltip";
 import {
   getAppPreferencesData,
   saveAppPreferences,
@@ -38,10 +39,10 @@ const STEP_LABELS: Record<OnboardingStep, string> = {
 };
 
 const PROFILE_GUIDANCE: Record<string, string> = {
-  general: "Keep this light: capture the basics now, then adapt nutrition and activity suggestions later.",
-  runner: "Runner profiles will later map to training load, hydration, and recovery prompts from connected activity data.",
-  cyclist: "Cyclist profiles will later map to ride fueling, hydration, and training summaries from connected apps.",
-  multisport: "Multisport profiles should stay flexible so training and nutrition logic can blend across sports."
+  general: "Just the basics for now - you can refine this anytime.",
+  runner: "Connect Strava or Health Connect later to bring in real training and recovery data.",
+  cyclist: "Connect Strava or Health Connect later to bring in real ride and recovery data.",
+  multisport: "Covers multiple sports - connect a training app later for real activity data."
 };
 
 const STEP_FIELDS: Record<OnboardingStep, FieldName[]> = {
@@ -93,38 +94,6 @@ function getFieldError(
   return null;
 }
 
-function getStepRequirements(
-  step: OnboardingStep,
-  profile: ProfileSettingsData,
-  localization: LocalizationSettingsData
-) {
-  if (step === "identity") {
-    return [
-      { label: "Primary goal", valid: Boolean(profile.primaryGoal) },
-      { label: "Profile type", valid: Boolean(profile.profileType) }
-    ];
-  }
-
-  if (step === "metrics") {
-    const requiresWeight =
-      profile.profileType === "runner" ||
-      profile.profileType === "cyclist" ||
-      profile.profileType === "multisport";
-
-    return [
-      { label: "Activity level", valid: Boolean(profile.activityLevel) },
-      { label: "Hydration baseline", valid: Boolean(profile.hydration) },
-      { label: "Body weight", valid: requiresWeight ? Boolean(profile.bodyWeight) : true }
-    ];
-  }
-
-  return [
-    { label: "Market", valid: Boolean(localization.market) },
-    { label: "Currency", valid: Boolean(localization.currency) },
-    { label: "Language", valid: Boolean(localization.language) }
-  ];
-}
-
 export function NutritionOnboardingForm({
   initialProfile,
   initialLocalization,
@@ -135,7 +104,7 @@ export function NutritionOnboardingForm({
   const [localization, setLocalization] = useState<LocalizationSettingsData>(initialLocalization);
   const [activeStep, setActiveStep] = useState<OnboardingStep>("identity");
   const [touchedFields, setTouchedFields] = useState<Partial<Record<FieldName, boolean>>>({});
-  const [status, setStatus] = useState("Shared onboarding settings are ready to save.");
+  const [status, setStatus] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const selectedMarket =
@@ -181,7 +150,7 @@ export function NutritionOnboardingForm({
     }
 
     setActiveStep(step);
-    setStatus(`Editing ${STEP_LABELS[step].toLowerCase()} settings.`);
+    setStatus(null);
   }
 
   function updateMarket(nextMarketCode: MarketOptionData["code"]) {
@@ -248,23 +217,13 @@ export function NutritionOnboardingForm({
       );
 
       const sources = [profileResult.source, localizationResult.source, preferenceResult.source];
-      setStatus(
-        sources.every((source) => source === "api")
-          ? "Saved through shared API settings endpoints."
-          : "Saved locally with stub fallback for any unavailable endpoint."
-      );
+      setStatus(sources.every((source) => source === "api") ? "Saved." : "Couldn't reach the local app - try again.");
       onSaved?.();
     });
   }
 
   return (
     <section className="atlas-panel atlas-stack">
-      <div className="atlas-panel__eyebrow">Onboarding inputs</div>
-      <p className="atlas-note">
-        This form is modular by design: today it saves stub-backed shared settings, and later we can swap in live
-        Samsung Health, Google Fit, Strava, and nutrition APIs without replacing the UI contract.
-      </p>
-
       <div className="atlas-feature-switcher">
         {STEP_ORDER.map((step) => (
           <button
@@ -329,7 +288,13 @@ export function NutritionOnboardingForm({
       {activeStep === "metrics" ? (
         <div className="atlas-form-grid">
           <label className={getVisibleFieldError("activityLevel") ? "atlas-form-field atlas-form-field--error" : "atlas-form-field"}>
-            <span>Activity level</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              Activity level
+              <HintTooltip label="Rough guide">
+                Low: mostly sedentary. Moderate: a few workouts a week. High: regular structured
+                training. Elite: daily high-volume training. Saved with your profile for now.
+              </HintTooltip>
+            </span>
             <select
               value={profile.activityLevel ?? ""}
               onChange={(event) =>
@@ -464,28 +429,9 @@ export function NutritionOnboardingForm({
         </div>
       ) : null}
 
-      <div className="atlas-list-card">
-        <div className="atlas-list-card__title">Profile guidance</div>
-        <div className="atlas-list-card__meta">
-          {PROFILE_GUIDANCE[profile.profileType ?? "general"]}
-        </div>
-      </div>
+      <p className="atlas-note">{PROFILE_GUIDANCE[profile.profileType ?? "general"]}</p>
 
-      <dl className="atlas-detail-list">
-        {getStepRequirements(activeStep, profile, localization).map((requirement) => (
-          <div key={`${activeStep}-${requirement.label}`} className="atlas-detail-list__row">
-            <dt>{requirement.label}</dt>
-            <dd>{requirement.valid ? "Ready" : "Required"}</dd>
-          </div>
-        ))}
-
-        <div className="atlas-detail-list__row">
-          <dt>Resolved locale</dt>
-          <dd>{localization.locale}</dd>
-        </div>
-      </dl>
-
-      <p className="atlas-note">{status}</p>
+      {status ? <p className="atlas-note">{status}</p> : null}
 
       <div className="atlas-control-card__actions">
         {activeStep !== "identity" ? (
@@ -512,7 +458,7 @@ export function NutritionOnboardingForm({
           onClick={saveAll}
           disabled={isPending}
         >
-          {isPending ? "Saving..." : "Save onboarding settings"}
+          {isPending ? "Saving..." : "Save"}
         </button>
       </div>
     </section>
