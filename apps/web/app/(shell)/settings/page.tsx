@@ -18,7 +18,7 @@ export default async function SettingsPage() {
     <PageScaffold
       eyebrow="Settings"
       title="Overview"
-      description="Choose which sections you use, check for updates, and see your saved profile. Your account, region, and AI setup live under Setup; connected apps live under Integrations."
+      description="Manage which sections are visible, check for updates, and review your saved profile. Account, region, and AI configuration are under Setup; connected apps are under Integrations."
       tags={["Settings"]}
       metrics={[
         { label: "Default view", value: activeFeature?.label ?? "Atlas" },
@@ -30,15 +30,15 @@ export default async function SettingsPage() {
 
       <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Jump to</div>
+          <div className="atlas-panel__eyebrow">Quick links</div>
           <div className="atlas-meta">
             <Link href="/settings/setup" className="atlas-button">
               <ClipboardList size={15} strokeWidth={2} aria-hidden="true" />
-              Setup - profile, region, AI
+              Setup: profile, region, AI
             </Link>
             <Link href="/settings/integrations" className="atlas-button">
               <Link2 size={15} strokeWidth={2} aria-hidden="true" />
-              Integrations - connect apps
+              Integrations: connected apps
             </Link>
           </div>
         </section>

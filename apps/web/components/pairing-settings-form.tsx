@@ -67,7 +67,7 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
       setStatus(
         result.data.lanAddresses.length > 0
           ? "Enter this address and code in the Atlas Companion app on your phone within 5 minutes."
-          : "No local network address was detected. Make sure this device is on Wi-Fi, not just loopback."
+          : "No local network address was detected. Confirm this device is connected to Wi-Fi, not only loopback."
       );
     });
   }
@@ -76,7 +76,7 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
     startRevokeTransition(async () => {
       const result = await revokeDevice(deviceId);
       if (result === null) {
-        setStatus("Could not revoke that device - the local backend was unreachable.");
+        setStatus("Could not revoke that device. The local backend was unreachable.");
         return;
       }
       setDevices(result);
@@ -97,12 +97,12 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
         </HintTooltip>
       </div>
       <p className="atlas-note">
-        Both devices need to be on the same Wi-Fi network - nothing goes through a hosted server.
+        Both devices must be on the same Wi-Fi network. No data passes through a hosted server.
       </p>
       <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
-        Early / unfinished feature: pairing itself works, but the phone-side code that actually
-        reads Health Connect and Samsung Health hasn&apos;t been built or tested on a real device
-        yet, so a paired phone may not have real data to sync.
+        In development: pairing itself is functional, but the device-side code that reads Health
+        Connect and Samsung Health has not yet been built or tested on hardware, so a paired
+        phone may not have data to sync.
       </p>
 
       <LanPairingToggle />
@@ -142,8 +142,8 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
               <div className="atlas-control-card__meta">
                 <img src={qrDataUrl} alt="Scan with your phone's camera to pair" width={220} height={220} />
                 <p className="atlas-note">
-                  Scan with your phone&apos;s camera. If Atlas Companion isn&apos;t installed yet,
-                  this takes you to the app download instead - scan again once it&apos;s installed.
+                  Scan with your phone&apos;s camera. If Atlas Companion is not yet installed,
+                  this opens the app download page instead; scan again once it is installed.
                 </p>
               </div>
             ) : null}
@@ -213,9 +213,9 @@ function LanPairingToggle() {
       <div className="atlas-control-card__content">
         <div className="atlas-control-card__title">Allow phone pairing on this network</div>
         <div className="atlas-control-card__meta">
-          When off (default), Atlas only accepts connections from this device - a phone cannot
-          reach it even with a valid pairing code. When on, Atlas listens on this network&apos;s
-          address too, gated by the pairing code and device token flow.
+          When off (default), Atlas only accepts connections from this device; a phone cannot
+          reach it even with a valid pairing code. When on, Atlas also listens on this
+          network&apos;s address, gated by the pairing code and device token flow.
         </div>
       </div>
       <div className="atlas-control-card__actions">

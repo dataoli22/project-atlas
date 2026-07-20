@@ -27,7 +27,7 @@ export default async function IntegrationsSettingsPage() {
     <PageScaffold
       eyebrow="Settings"
       title="Integrations"
-      description="Connect health apps, set up your AI assistant, and turn on web search - everything Atlas talks to outside itself."
+      description="Connect health apps, configure the AI assistant, and enable web search. These are the only external services Atlas communicates with."
       tags={["Health apps", "AI assistant", "Web search"]}
       metrics={[
         { label: "Connected apps", value: integrations.data.filter((integration) => integration.connected).length.toString() },
@@ -57,7 +57,7 @@ export default async function IntegrationsSettingsPage() {
           <dl className="atlas-detail-list">
             <div className="atlas-detail-list__row">
               <dt>Stays on this device only</dt>
-              <dd>{ai.data.localOnlyMode ? "Yes" : "No - an optional cloud provider is allowed"}</dd>
+              <dd>{ai.data.localOnlyMode ? "Yes" : "No (an optional cloud provider is allowed)"}</dd>
             </div>
             <div className="atlas-detail-list__row">
               <dt>Cloud fallback (Groq)</dt>
@@ -65,9 +65,9 @@ export default async function IntegrationsSettingsPage() {
             </div>
           </dl>
           <p className="atlas-note">
-            Any key you enter here stays on this device and goes straight to that provider - never
-            through an Atlas server. We have no access to it, and neither does anyone else. Use the
-            connection check below to confirm Atlas can reach Ollama.
+            Any key entered here stays on this device and is sent directly to that provider,
+            never through an Atlas server. Atlas has no access to it, and neither does anyone
+            else. Use the connection check below to confirm Atlas can reach Ollama.
           </p>
         </section>
 

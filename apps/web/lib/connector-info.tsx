@@ -18,24 +18,24 @@ export const CONNECTOR_INFO: ConnectorInfo[] = [
     title: "Strava",
     icon: Zap,
     detail: "Brings in recent activities and training load for the endurance module.",
-    hintLabel: "What Strava needs first",
-    hint: "Sign-in and sync are real, working code - but Strava requires every installation to register its own API app first. Set that up once under Settings → Integrations (\"Strava API app\"), then this works for real."
+    hintLabel: "Requirement: a registered Strava API app",
+    hint: "Sign-in and sync are fully implemented, but each installation must register its own Strava API app first. Configure this once under Settings → Integrations (\"Strava API app\")."
   },
   {
     key: "health_connect",
     title: "Health Connect",
     icon: Smartphone,
-    detail: "Android's health data hub - hydration, steps, active energy.",
-    hintLabel: "Current state: early / unfinished",
-    hint: "Clicking Connect only stages permission on this device - it doesn't pull real data. The phone-side code that would actually read Health Connect exists but hasn't been built or tested on a real device yet."
+    detail: "Android's health data hub: hydration, steps, active energy.",
+    hintLabel: "Status: in development",
+    hint: "Clicking Connect only stages permission on this device; it does not pull real data. The device-side code required to read Health Connect exists but has not yet been built or tested on hardware."
   },
   {
     key: "samsung_health",
     title: "Samsung Health",
     icon: Watch,
-    detail: "Samsung's health app - sleep, resting heart rate, and energy score.",
-    hintLabel: "Current state: early / unfinished",
-    hint: "Clicking Connect only stages permission on this device - it doesn't pull real data. The phone-side code that would actually read Samsung Health exists but hasn't been built or tested on a real device yet."
+    detail: "Samsung's health app: sleep, resting heart rate, and energy score.",
+    hintLabel: "Status: in development",
+    hint: "Clicking Connect only stages permission on this device; it does not pull real data. The device-side code required to read Samsung Health exists but has not yet been built or tested on hardware."
   }
 ];
 
@@ -57,7 +57,7 @@ export function pendingConnectionNote(integration: IntegrationSourceData): strin
     return null;
   }
   if (integration.key === "strava") {
-    return "Almost there - finish signing in below. If it fails, make sure a Strava API app is configured under Settings → Integrations first.";
+    return "Sign-in is not yet complete. Finish signing in below. If it fails, confirm a Strava API app is configured under Settings → Integrations.";
   }
-  return "Permission staged on this device, but nothing has synced yet - the phone-side code for this isn't built or tested on a real device yet, so pairing and syncing may not work.";
+  return "Permission has been staged on this device, but nothing has synced yet. The device-side code for this integration is not yet built or tested, so pairing and syncing may not work.";
 }

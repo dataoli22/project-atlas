@@ -86,7 +86,7 @@ export function FeaturePreferencesForm({
           detail: result.data
         })
       );
-      setStatus(result.source === "api" ? "Saved." : "Couldn't reach the local app - try again.");
+      setStatus(result.source === "api" ? "Saved." : "Could not reach the local app. Try again.");
     });
   }
 
@@ -96,14 +96,14 @@ export function FeaturePreferencesForm({
         className="atlas-panel__eyebrow"
         style={{ display: "flex", alignItems: "center", gap: "6px" }}
       >
-        What do you want to see?
+        Visible sections
         <HintTooltip label="What hiding a section does">
-          Only hides it from the navigation menu - your data for that section is kept and comes
-          right back if you turn it on again.
+          Hides the section from the navigation menu only; its data is retained and reappears if
+          the section is re-enabled.
         </HintTooltip>
       </div>
       <p className="atlas-note">
-        Pick the sections that are relevant to you. You can turn either one back on anytime.
+        Choose which sections to show. Either can be re-enabled at any time.
       </p>
       <div className="atlas-stack">
         {availableFeatures.map((feature) => {
@@ -116,7 +116,7 @@ export function FeaturePreferencesForm({
                 <div className="atlas-control-card__title">{formatFeatureLabel(feature)}</div>
                 <div className="atlas-control-card__meta">
                   {checked ? "Shown in navigation" : "Hidden from navigation"}
-                  {active ? " - this is your default view" : ""}
+                  {active ? " (default view)" : ""}
                 </div>
               </div>
               <div className="atlas-control-card__actions">

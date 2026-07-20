@@ -65,7 +65,7 @@ export function AIRuntimeSettingsForm({
       setStatus(
         result.source === "api"
           ? "Saved to the local Atlas runtime on this device."
-          : "Backend unavailable, so the page stayed in stub fallback mode."
+          : "Backend unavailable. Changes were not saved."
       );
     });
   }
@@ -351,7 +351,7 @@ export function AIRuntimeSettingsForm({
         <label className="atlas-control-card">
           <div className="atlas-control-card__content">
             <div className="atlas-control-card__title">Clear stored Ollama key</div>
-            <div className="atlas-control-card__meta">Use this if you want to remove the current local runtime secret.</div>
+            <div className="atlas-control-card__meta">Removes the currently stored local runtime credential.</div>
           </div>
           <div className="atlas-control-card__actions">
             <input type="checkbox" checked={clearOllamaApiKey} onChange={(event) => setClearOllamaApiKey(event.target.checked)} />
@@ -361,7 +361,7 @@ export function AIRuntimeSettingsForm({
         <label className="atlas-control-card">
           <div className="atlas-control-card__content">
             <div className="atlas-control-card__title">Clear stored Groq key</div>
-            <div className="atlas-control-card__meta">Useful when returning the app to fully local Ollama-only mode.</div>
+            <div className="atlas-control-card__meta">Removes the stored Groq credential and returns the app to local-only Ollama mode.</div>
           </div>
           <div className="atlas-control-card__actions">
             <input type="checkbox" checked={clearGroqApiKey} onChange={(event) => setClearGroqApiKey(event.target.checked)} />
@@ -376,8 +376,8 @@ export function AIRuntimeSettingsForm({
           <div className="atlas-control-card__content">
             <div className="atlas-control-card__title">Advanced: non-local Ollama target</div>
             <div className="atlas-control-card__meta">
-              This isn&apos;t a loopback address, so requests will leave this device. Only use a non-local target if
-              you configured a hosted Ollama endpoint on purpose.
+              This is not a loopback address, so requests will leave this device. Use a non-local target only if
+              you have intentionally configured a hosted Ollama endpoint.
             </div>
           </div>
         </div>
@@ -388,8 +388,8 @@ export function AIRuntimeSettingsForm({
           <div className="atlas-control-card__content">
             <div className="atlas-control-card__title">Test the connection to Ollama</div>
             <div className="atlas-control-card__meta">
-              Checks that Ollama is installed, running, and has the right models ready. Your keys are never shown
-              back in the result.
+              Verifies that Ollama is installed, running, and has the required models available. Credentials are
+              never shown in the result.
             </div>
             {healthStatus ? (
               <div className="atlas-stack">
@@ -414,7 +414,7 @@ export function AIRuntimeSettingsForm({
                   </div>
                   <div className="atlas-detail-list__row">
                     <dt>2. Running</dt>
-                    <dd>{healthStatus.version ? `Yes (v${healthStatus.version})` : "No - start the Ollama app or service"}</dd>
+                    <dd>{healthStatus.version ? `Yes (v${healthStatus.version})` : "No. Start the Ollama app or service."}</dd>
                   </div>
                   <div className="atlas-detail-list__row">
                     <dt>3. Chat model</dt>
@@ -463,7 +463,7 @@ export function AIRuntimeSettingsForm({
                 ) : null}
                 {pullStatus ? <p className="atlas-note">{pullStatus.message}</p> : null}
                 <p className="atlas-note">
-                  Pulling a large model can take a while - this page waits for the final result rather than
+                  Pulling a large model can take several minutes. This page waits for the final result rather than
                   showing live progress. <a href={OLLAMA_LIBRARY_URL} target="_blank" rel="noreferrer">Browse models</a>
                 </p>
               </div>

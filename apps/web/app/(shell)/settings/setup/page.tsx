@@ -14,7 +14,7 @@ export default async function SettingsSetupPage() {
     <PageScaffold
       eyebrow="Settings"
       title="Setup"
-      description="Profile, health apps, AI, and search - the same guided setup shown on first launch, always here to revisit and edit."
+      description="Profile, health apps, AI, and search. The same guided setup shown on first launch, available here to revisit and edit at any time."
       tags={["Setup", "Local-first"]}
     >
       <SettingsTabs />

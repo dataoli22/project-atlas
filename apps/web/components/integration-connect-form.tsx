@@ -64,7 +64,7 @@ export function IntegrationConnectForm({
           ? selected.key === "strava"
             ? "Connected. Now finish signing in below."
             : "Connected."
-          : "Couldn't reach the local app - try again."
+          : "Could not reach the local app. Try again."
       );
       setAccountLabel("");
     });
@@ -77,7 +77,7 @@ export function IntegrationConnectForm({
 
     const value = stravaCallbackUrl.trim();
     if (!value) {
-      setStatus("Paste the link Strava sent you back to first.");
+      setStatus("Enter the redirect URL Strava returned before continuing.");
       return;
     }
 
@@ -89,12 +89,12 @@ export function IntegrationConnectForm({
       code = parsedUrl.searchParams.get("code")?.trim() ?? code;
       state = parsedUrl.searchParams.get("state")?.trim() ?? state;
     } catch {
-      setStatus("That doesn't look like a full link. Paste the whole address Strava sent you back to.");
+      setStatus("This does not appear to be a valid URL. Enter the full redirect address Strava returned.");
       return;
     }
 
     if (!code || !state) {
-      setStatus("That link is missing something Strava normally includes. Try signing in again.");
+      setStatus("The redirect URL is missing required parameters. Sign in again.");
       return;
     }
 
@@ -102,14 +102,14 @@ export function IntegrationConnectForm({
       const callbackResult = await completeStravaCallback({ code, state });
 
       if (callbackResult.source !== "api") {
-        setStatus("Couldn't reach the local app - try again.");
+        setStatus("Could not reach the local app. Try again.");
         return;
       }
 
       const exchangeResult = await exchangeStravaTokens();
       replaceIntegration(exchangeResult.data.integration);
       setLastSource(exchangeResult.source);
-      setStatus(exchangeResult.source === "api" ? "Strava is fully connected." : "Signed in, but activating the connection failed - try again.");
+      setStatus(exchangeResult.source === "api" ? "Strava connected successfully." : "Signed in, but activation failed. Try again.");
       setStravaCallbackUrl("");
       setStravaCode("");
       setStravaState("");
@@ -130,7 +130,7 @@ export function IntegrationConnectForm({
       const result = await disconnectIntegrationSource(selected.key);
       replaceIntegration(result.data.integration);
       setLastSource(result.source);
-      setStatus(result.source === "api" ? `${result.data.integration.title} disconnected.` : "Couldn't reach the local app - try again.");
+      setStatus(result.source === "api" ? `${result.data.integration.title} disconnected.` : "Could not reach the local app. Try again.");
       setAccountLabel("");
     });
   }
@@ -144,7 +144,7 @@ export function IntegrationConnectForm({
       const result = await syncIntegrationSource(selected.key);
       replaceIntegration(result.data.integration);
       setLastSource(result.source);
-      setStatus(result.source === "api" ? `${result.data.integration.title} synced.` : "Couldn't reach the local app - try again.");
+      setStatus(result.source === "api" ? `${result.data.integration.title} synced.` : "Could not reach the local app. Try again.");
     });
   }
 
@@ -165,15 +165,14 @@ export function IntegrationConnectForm({
     <section className="atlas-panel atlas-stack">
       <div className="atlas-panel__eyebrow">Health apps</div>
       <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
-        Strava&apos;s sign-in and sync are real, working code - it just needs a Strava API app
-        registered first (see &quot;Strava API app&quot; below). Health Connect and Samsung Health
-        are further behind: the phone-side code that would read them hasn&apos;t been built or
-        tested on a real device yet, so those two won&apos;t work end-to-end today no matter what
-        you configure.
+        Strava sign-in and sync are fully implemented but require a registered Strava API app
+        (see &quot;Strava API app&quot; below). Health Connect and Samsung Health are in
+        development: the device-side code required to read them has not yet been built or
+        tested on hardware, so these two integrations do not function end-to-end at this time.
       </p>
       <p className="atlas-note">
-        Connecting an app brings in real activities, sleep, and recovery data instead of samples.
-        Entirely optional.
+        Connecting an app replaces sample data with real activities, sleep, and recovery data.
+        This step is optional.
       </p>
 
       <div className="atlas-feature-switcher" aria-label="Health app selector">
@@ -237,7 +236,7 @@ export function IntegrationConnectForm({
             <div className="atlas-list-card">
               <div className="atlas-list-card__title">Finish signing in to Strava</div>
               <div className="atlas-list-card__meta">
-                Open the link below, sign in to Strava, then copy the address you land on back here.
+                Open the link below, sign in to Strava, then copy the resulting redirect address back here.
               </div>
               {stravaLaunchUrl ? (
                 <div className="atlas-list-card__meta" style={{ marginTop: "8px" }}>
@@ -247,7 +246,7 @@ export function IntegrationConnectForm({
                 </div>
               ) : null}
               <div className="atlas-form-field" style={{ marginTop: "10px" }}>
-                <span>Paste the link Strava sent you back to</span>
+                <span>Redirect URL from Strava</span>
                 <input
                   type="text"
                   value={stravaCallbackUrl}
@@ -429,7 +428,7 @@ export function IntegrationConnectForm({
                 Sync now
               </button>
             ) : selected.connected ? (
-              <p className="atlas-note">Syncs from your paired phone, not from here - see Phone pairing below.</p>
+              <p className="atlas-note">Synced from the paired phone. See Phone pairing below.</p>
             ) : null}
             {selected.connected ? (
               <button

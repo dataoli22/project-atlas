@@ -29,7 +29,7 @@ export function StravaAppSettingsForm({ initialSettings, initialSource }: Strava
       const result = await saveStravaAppSettings({ clientId, clientSecret });
       setSettings(result.data);
       setLastSource(result.source);
-      setStatus(result.source === "api" ? "Saved." : "Couldn't reach the local app - try again.");
+      setStatus(result.source === "api" ? "Saved." : "Could not reach the local app. Try again.");
       setClientId("");
       setClientSecret("");
     });
@@ -43,7 +43,7 @@ export function StravaAppSettingsForm({ initialSettings, initialSource }: Strava
       >
         Strava API app
         <HintTooltip label="How to register a Strava app">
-          Create a free app at Strava&apos;s developer settings, then copy its Client ID and
+          Create a free app in Strava&apos;s developer settings, then copy its Client ID and
           Client Secret here. Set the app&apos;s &quot;Authorization Callback Domain&quot; to
           match where this instance of Atlas runs.{" "}
           <a href={STRAVA_APP_SETTINGS_URL} target="_blank" rel="noreferrer">
@@ -52,10 +52,10 @@ export function StravaAppSettingsForm({ initialSettings, initialSource }: Strava
         </HintTooltip>
       </div>
       <p className="atlas-note">
-        Strava requires every installation to register its own app - there&apos;s no shared Atlas
-        app ID to reuse. Without this, the Strava connector stays staged locally but sign-in and
-        sync will fail. Same guarantee as your other keys: sent straight from this device to
-        Strava, never through an Atlas server.
+        Strava requires each installation to register its own API app; there is no shared Atlas
+        app ID. Without this configured, the Strava connector remains available but sign-in and
+        sync will fail. As with other credentials, this key is sent directly from this device to
+        Strava and never passes through an Atlas server.
       </p>
 
       <div className="atlas-meta">
@@ -71,7 +71,7 @@ export function StravaAppSettingsForm({ initialSettings, initialSource }: Strava
             type="text"
             value={clientId}
             onChange={(event) => setClientId(event.target.value)}
-            placeholder={settings.clientIdSet ? "Already saved - enter a new one to replace it" : "e.g. 123456"}
+            placeholder={settings.clientIdSet ? "Already saved. Enter a new value to replace it." : "e.g. 123456"}
           />
         </label>
         <label className="atlas-form-field">
@@ -80,7 +80,7 @@ export function StravaAppSettingsForm({ initialSettings, initialSource }: Strava
             type="password"
             value={clientSecret}
             onChange={(event) => setClientSecret(event.target.value)}
-            placeholder={settings.clientSecretSet ? "Already saved - enter a new one to replace it" : "Client secret"}
+            placeholder={settings.clientSecretSet ? "Already saved. Enter a new value to replace it." : "Client secret"}
           />
         </label>
       </div>
