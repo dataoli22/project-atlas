@@ -228,6 +228,21 @@ running *inside* the packaged Electron app (`Get-Process` showed `atlas-api.exe`
 Build it with: `pip install -r apps/api/requirements.txt -r apps/api/requirements-build.txt` then
 `npm run desktop:build:api` (or let `npm run desktop:dist` do it automatically).
 
+> **Use a standard CPython install (python.org, or a venv created from one) — not an Anaconda
+> base environment or a venv created from one.** A venv doesn't copy the standard library; it
+> just points back at the base install's files. Anaconda ships its native DLLs
+> (`sqlite3.dll`, `liblzma.dll`, `libbz2.dll`, `ffi.dll`) in a non-standard layout
+> (`Library\bin`, not the standard `DLLs` folder), so PyInstaller's dependency walker silently
+> fails to find and bundle them - the build finishes with no fatal error, just a
+> `WARNING: Library not found: could not resolve 'sqlite3.dll', ...` buried in the log. The
+> resulting `atlas-api.exe` looks fine but crashes immediately on any machine without those
+> Anaconda DLLs on its path (i.e. every real user's machine), which surfaces as a generic
+> Electron "Atlas failed to start - Timed out waiting for .../api/v1/health to become healthy"
+> dialog with no indication the API process itself never came up. Caught and fixed in v0.1.6 -
+> if you see that dialog again, this is the first thing to check. Always smoke-test the built
+> `atlas-api.exe` standalone (run it directly, curl its `/api/v1/health`) before packaging -
+> "the build succeeded" is not the same as "the binary runs."
+
 ### What's built vs. still open
 
 | Deliverable | Status |

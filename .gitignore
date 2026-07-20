@@ -4,7 +4,7 @@ dist
 build
 !desktop/build
 .turbo
-.venv
+.venv*
 __pycache__
 *.pyc
 .env
