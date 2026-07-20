@@ -251,7 +251,7 @@ export function OnboardingWizard({
             Connecting an app replaces sample data with real activities, recovery, and sleep data.
             This step is optional; connect more apps anytime from Settings.
           </p>
-          <div className="atlas-stack">
+          <div className="atlas-grid atlas-grid--connectors">
             {CONNECTOR_INFO.map((connector) => {
               const integration = integrations.find((item) => item.key === connector.key);
               const connected = integration ? isFullyConnected(integration) : false;
@@ -267,6 +267,16 @@ export function OnboardingWizard({
                     <HintTooltip label={connector.hintLabel}>{connector.hint}</HintTooltip>
                   </div>
                   <div className="atlas-list-card__meta">{connector.detail}</div>
+                  <p className="atlas-note" style={{ marginTop: "6px" }}>
+                    {connector.hint}
+                  </p>
+                  {integration?.docUrl ? (
+                    <p className="atlas-note">
+                      <a href={integration.docUrl} target="_blank" rel="noreferrer">
+                        Official documentation
+                      </a>
+                    </p>
+                  ) : null}
                   <div className="atlas-control-card__actions" style={{ marginTop: "10px" }}>
                     {connected ? (
                       <span
@@ -276,7 +286,10 @@ export function OnboardingWizard({
                         Connected
                       </span>
                     ) : (
-                      <Link href="/settings/integrations" className="atlas-button atlas-button--secondary">
+                      <Link
+                        href={`/settings/integrations#connector-${connector.key}`}
+                        className="atlas-button atlas-button--secondary"
+                      >
                         Connect
                       </Link>
                     )}

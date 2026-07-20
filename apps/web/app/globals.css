@@ -255,6 +255,11 @@ textarea {
      the full content width instead; multi-column only kicks in on displays wide enough that two
      full-size panels still have breathing room. */
   grid-template-columns: 1fr;
+  /* Grid rows default to align-items: stretch, so a short panel sharing a row with a much taller
+     one gets forced to that row's full height - its own content stays top-packed (see
+     align-content: start below), leaving a dead gap under it. Sizing every panel to its own
+     content instead avoids that gap without giving up the multi-column layout. */
+  align-items: start;
 }
 
 @media (min-width: 900px) {
@@ -265,6 +270,43 @@ textarea {
        problem this class was introduced to fix. */
     grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
   }
+}
+
+/* Three-across row for compact, similarly-sized panels (e.g. Settings overview cards). Falls
+   back to a single column below the laptop breakpoint like .atlas-grid--hero. */
+.atlas-grid--trio {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .atlas-grid--trio {
+    /* auto-fit/minmax rather than a hard repeat(3, ...): each card needs enough width for its
+       control rows (label + action buttons) to lay out without overflowing, so a true 3-up row
+       only forms once the viewport is wide enough - two columns (or one) otherwise. */
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+}
+
+/* Connector cards (Strava, Health Connect, Samsung Health) shown side by side instead of stacked,
+   so comparing status/documentation across all three doesn't require scrolling past each one. */
+.atlas-grid--connectors {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+@media (min-width: 860px) {
+  .atlas-grid--connectors {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+}
+
+/* Compact horizontal link bar - deliberately not an .atlas-panel card, so it reads as a small
+   menu/toolbar rather than a full-height content block. */
+.atlas-quicklinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .atlas-panel {
@@ -281,6 +323,12 @@ textarea {
 .atlas-stack {
   display: grid;
   gap: 12px;
+  /* Rows default to filling extra block-axis space equally (the grid analogue of justify-content
+     for the main axis) - inside a panel that's been stretched taller than its own content (see
+     .atlas-grid--hero above), that spreads this stack's rows apart instead of leaving the slack
+     at the bottom. Packing rows at their natural size keeps content tight regardless of how tall
+     the surrounding panel ends up. */
+  align-content: start;
 }
 
 .atlas-detail-list {
@@ -427,6 +475,7 @@ textarea {
 
 .atlas-control-card {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -439,6 +488,7 @@ textarea {
 .atlas-control-card__content,
 .atlas-control-card__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
@@ -446,6 +496,10 @@ textarea {
 .atlas-control-card__content {
   flex-direction: column;
   align-items: flex-start;
+  /* Lets the label/description column shrink instead of forcing the actions on the right to
+     overflow into a narrow track (e.g. a three-across settings grid) - see .atlas-grid--trio. */
+  min-width: 0;
+  flex: 1 1 220px;
 }
 
 .atlas-control-card__title {

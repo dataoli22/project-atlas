@@ -28,21 +28,18 @@ export default async function SettingsPage() {
     >
       <SettingsTabs />
 
-      <div className="atlas-grid atlas-grid--hero">
-        <section className="atlas-panel atlas-stack">
-          <div className="atlas-panel__eyebrow">Quick links</div>
-          <div className="atlas-meta">
-            <Link href="/settings/setup" className="atlas-button">
-              <ClipboardList size={15} strokeWidth={2} aria-hidden="true" />
-              Setup: profile, region, AI
-            </Link>
-            <Link href="/settings/integrations" className="atlas-button">
-              <Link2 size={15} strokeWidth={2} aria-hidden="true" />
-              Integrations: connected apps
-            </Link>
-          </div>
-        </section>
+      <nav className="atlas-quicklinks" aria-label="Jump to a settings section">
+        <Link href="/settings/setup" className="atlas-button">
+          <ClipboardList size={15} strokeWidth={2} aria-hidden="true" />
+          Setup: profile, region, AI
+        </Link>
+        <Link href="/settings/integrations" className="atlas-button">
+          <Link2 size={15} strokeWidth={2} aria-hidden="true" />
+          Integrations: connected apps
+        </Link>
+      </nav>
 
+      <div className="atlas-grid atlas-grid--trio">
         <FeaturePreferencesForm
           initialFeatures={settings.featureRegistry.data.features}
           initialPreferences={settings.appPreferences.data}

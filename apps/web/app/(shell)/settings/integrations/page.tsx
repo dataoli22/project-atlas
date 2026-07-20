@@ -36,19 +36,24 @@ export default async function IntegrationsSettingsPage() {
       ]}
     >
       <SettingsTabs />
-      <div className="atlas-grid atlas-grid--hero">
-        <IntegrationConnectForm
-          initialIntegrations={integrations.data}
-          initialSource={integrations.source}
-        />
 
+      {/* Full width, not part of a hero grid column, so the three connector cards inside can lay
+          out side by side instead of being squeezed into a half-width panel. */}
+      <IntegrationConnectForm
+        initialIntegrations={integrations.data}
+        initialSource={integrations.source}
+      />
+
+      <div className="atlas-grid atlas-grid--hero">
         <StravaAppSettingsForm initialSettings={strava.data} initialSource={strava.source} />
 
         <PairingSettingsForm
           initialDevices={pairing.ok ? pairing.devices : []}
           devicesLoadOk={pairing.ok}
         />
+      </div>
 
+      <div className="atlas-grid atlas-grid--hero">
         <section className="atlas-panel atlas-stack">
           <div className="atlas-panel__eyebrow">How your AI assistant runs</div>
           <div className="atlas-meta">
@@ -71,10 +76,10 @@ export default async function IntegrationsSettingsPage() {
           </p>
         </section>
 
-        <AIRuntimeSettingsForm initialSettings={ai.data} initialSource={ai.source} />
-
         <SearchSettingsForm initialSettings={search.data} initialSource={search.source} />
       </div>
+
+      <AIRuntimeSettingsForm initialSettings={ai.data} initialSource={ai.source} />
     </PageScaffold>
   );
 }
