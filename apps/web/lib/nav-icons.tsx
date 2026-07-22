@@ -12,6 +12,7 @@ import {
   Settings,
   ShoppingCart,
   SlidersHorizontal,
+  Trophy,
   type LucideIcon
 } from "lucide-react";
 
@@ -21,6 +22,7 @@ import {
 export const ROUTE_ICONS: Record<string, LucideIcon> = {
   "/dashboard": LayoutDashboard,
   "/ask": MessageCircle,
+  "/achievements": Trophy,
   "/settings": Settings,
   "/settings/setup": ClipboardList,
   "/planner": CalendarRange,

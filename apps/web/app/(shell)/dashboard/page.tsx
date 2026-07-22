@@ -120,6 +120,9 @@ export default async function DashboardPage() {
           <Link href="/capability" className="atlas-button">
             Capability score detail
           </Link>
+          <Link href="/achievements" className="atlas-button">
+            Achievements &amp; streak
+          </Link>
           <CoachSupportModal groups={groupSupportLinks(dashboard.supportLinks)} />
         </div>
         <RefreshButton />

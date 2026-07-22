@@ -1280,6 +1280,28 @@ textarea {
   opacity: 0.6;
 }
 
+/* Reusable progress bar - same visual language as the AI runtime model-pull progress bar
+   (updates-panel.tsx has an inline-styled one-off version of this; this is the shared class
+   version for the achievements grid, which needs many of these on one page). */
+.atlas-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(31, 107, 92, 0.12);
+  overflow: hidden;
+}
+
+.atlas-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--atlas-accent), var(--atlas-warm));
+  transition: width 300ms ease;
+}
+
+.atlas-list-card--unlocked {
+  border-color: rgba(31, 107, 92, 0.35);
+  background: var(--atlas-accent-soft);
+}
+
 .atlas-hint {
   position: relative;
   display: inline-flex;

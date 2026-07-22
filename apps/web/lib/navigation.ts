@@ -38,6 +38,7 @@ export const navGroups: Array<{
     label: "Shared shell",
     items: [
       { href: "/ask", label: "Ask Atlas", shortLabel: "Ask", feature: "shared" },
+      { href: "/achievements", label: "Achievements", shortLabel: "Achieve", feature: "shared" },
       { href: "/settings", label: "Settings", shortLabel: "Settings", feature: "shared" }
     ]
   },

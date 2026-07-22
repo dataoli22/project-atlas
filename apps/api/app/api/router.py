@@ -13,6 +13,7 @@ enforced between backend and frontend for `packages/shared/src/index.ts` (see
 from fastapi import APIRouter
 
 from app.features.endurance.router import router as endurance_router
+from app.features.gamification.router import router as gamification_router
 from app.features.nutrition.router import router as nutrition_router
 from app.features.shared.routers.app import router as app_router
 from app.features.shared.routers.backup import router as backup_router
@@ -30,3 +31,4 @@ api_router.include_router(pairing_router, tags=["pairing"])
 api_router.include_router(settings_router, tags=["settings"])
 api_router.include_router(endurance_router, prefix="/endurance", tags=["endurance"])
 api_router.include_router(nutrition_router, prefix="/nutrition", tags=["nutrition"])
+api_router.include_router(gamification_router, prefix="/gamification", tags=["gamification"])
