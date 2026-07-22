@@ -54,6 +54,30 @@ a {
   text-decoration: none;
 }
 
+/* Plain `a { color: inherit }` above is deliberate for nav/button-styled links (they shouldn't
+   look like inline hyperlinks), but that leaves genuine inline links inside body copy - "Register
+   an app", "Official documentation", download links - visually identical to surrounding text and
+   effectively invisible as clickable. Give links inside actual prose/content containers real link
+   styling; .atlas-hint__bubble already had its own copy of this, kept below for the same reason. */
+.atlas-note a,
+.atlas-list-card__meta a,
+.atlas-list-card__title a,
+.atlas-detail-list a,
+.atlas-control-card__meta a {
+  color: var(--atlas-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.atlas-note a:hover,
+.atlas-list-card__meta a:hover,
+.atlas-list-card__title a:hover,
+.atlas-detail-list a:hover,
+.atlas-control-card__meta a:hover {
+  color: var(--atlas-warm);
+}
+
 button,
 input,
 select,

@@ -26,16 +26,16 @@ export const CONNECTOR_INFO: ConnectorInfo[] = [
     title: "Health Connect",
     icon: Smartphone,
     detail: "Android's health data hub: hydration, steps, active energy.",
-    hintLabel: "Status: in development",
-    hint: "Clicking Connect only stages permission on this device; it does not pull real data. The device-side code required to read Health Connect exists but has not yet been built or tested on hardware."
+    hintLabel: "Synced from your paired phone",
+    hint: "Data comes from your paired phone, not from this device. Pair your phone under the Pair your device step to start syncing."
   },
   {
     key: "samsung_health",
     title: "Samsung Health",
     icon: Watch,
     detail: "Samsung's health app: sleep, resting heart rate, and energy score.",
-    hintLabel: "Status: in development",
-    hint: "Clicking Connect only stages permission on this device; it does not pull real data. The device-side code required to read Samsung Health exists but has not yet been built or tested on hardware."
+    hintLabel: "Synced from your paired phone",
+    hint: "Data comes from your paired phone, not from this device. Pair your phone under the Pair your device step to start syncing."
   }
 ];
 
@@ -59,5 +59,5 @@ export function pendingConnectionNote(integration: IntegrationSourceData): strin
   if (integration.key === "strava") {
     return "Sign-in is not yet complete. Finish signing in below. If it fails, confirm a Strava API app is configured below.";
   }
-  return "Permission has been staged on this device, but nothing has synced yet. The device-side code for this integration is not yet built or tested, so pairing and syncing may not work.";
+  return "Permission has been staged on this device, but nothing has synced yet. Pair your phone under the Pair your device step to start syncing.";
 }

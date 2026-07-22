@@ -17,6 +17,13 @@ import {
 type ConnectorPanelProps = {
   initialIntegration: IntegrationSourceData;
   initialSource: ApiDataSource;
+  /** Omits the outer panel chrome and intro copy, for composing inside a parent panel that
+   * already explains what this connector does (e.g. the Setup wizard's combined Strava step,
+   * which merges this with <StravaAppSettingsForm> rather than showing two near-duplicate
+   * "what is Strava / why connect it" panels back to back). */
+  embedded?: boolean;
+  /** Overrides the step heading shown when embedded (defaults to the connector's own title). */
+  embeddedTitle?: string;
 };
 
 /**
@@ -24,7 +31,12 @@ type ConnectorPanelProps = {
  * Samsung Health). Self-contained so it can be dropped into a single Setup wizard step - this is
  * the only place that logic lives now that the standalone Integrations page has been retired.
  */
-export function ConnectorPanel({ initialIntegration, initialSource }: ConnectorPanelProps) {
+export function ConnectorPanel({
+  initialIntegration,
+  initialSource,
+  embedded = false,
+  embeddedTitle
+}: ConnectorPanelProps) {
   const connectorKey = initialIntegration.key;
   const connector = CONNECTOR_INFO.find((item) => item.key === connectorKey);
 
@@ -139,15 +151,27 @@ export function ConnectorPanel({ initialIntegration, initialSource }: ConnectorP
     return String(value);
   }
 
+  const Wrapper = embedded ? "div" : "section";
+
   return (
-    <div className="atlas-panel atlas-stack">
-      <div className="atlas-panel__eyebrow" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-        <connector.icon size={16} strokeWidth={2} aria-hidden="true" />
-        {connector.title}
-        <HintTooltip label={connector.hintLabel}>{connector.hint}</HintTooltip>
-      </div>
-      <p className="atlas-note">{connector.detail}</p>
-      <p className="atlas-note">{connector.hint}</p>
+    <Wrapper className={embedded ? "atlas-stack" : "atlas-panel atlas-stack"}>
+      {!embedded ? (
+        <>
+          <div className="atlas-panel__eyebrow" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <connector.icon size={16} strokeWidth={2} aria-hidden="true" />
+            {connector.title}
+            <HintTooltip label={connector.hintLabel}>{connector.hint}</HintTooltip>
+          </div>
+          <p className="atlas-note">{connector.detail}</p>
+          <p className="atlas-note">{connector.hint}</p>
+        </>
+      ) : (
+        <div className="atlas-list-card__title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <connector.icon size={16} strokeWidth={2} aria-hidden="true" />
+          {embeddedTitle ?? `Connect your ${connector.title} account`}
+          <HintTooltip label={connector.hintLabel}>{connector.hint}</HintTooltip>
+        </div>
+      )}
 
       <div className="atlas-meta">
         <span className={fullyConnected ? "atlas-source-badge" : "atlas-source-badge atlas-source-badge--stub"}>
@@ -365,6 +389,6 @@ export function ConnectorPanel({ initialIntegration, initialSource }: ConnectorP
       </div>
 
       {status ? <p className="atlas-note">{status}</p> : null}
-    </div>
+    </Wrapper>
   );
 }

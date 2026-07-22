@@ -27,6 +27,7 @@ const OLLAMA_CLOUD_KEYS_URL = "https://ollama.com/settings/keys";
 const OLLAMA_CLOUD_BASE_URL = "https://ollama.com";
 const OLLAMA_LOCAL_BASE_URL = "http://localhost:11434";
 const BRAVE_KEYS_URL = "https://api.search.brave.com/app/keys";
+const STRAVA_APP_SETTINGS_URL = "https://www.strava.com/settings/api";
 
 type WizardStep = "profile" | "pair" | "strava" | "samsung_health" | "health_connect" | "ai" | "brave" | "finish";
 
@@ -302,14 +303,44 @@ export function OnboardingWizard({
           <p className="atlas-note">
             Optional. Brings in real activities and training load instead of sample data.
           </p>
-          <StravaAppSettingsForm
-            initialSettings={initialStravaAppSettings}
-            initialSource={initialStravaAppSettingsSource}
-          />
-          <ConnectorPanel
-            initialIntegration={integrations.find((item) => item.key === "strava")!}
-            initialSource={initialIntegrationsSource}
-          />
+
+          <div className="atlas-panel atlas-stack">
+            <div className="atlas-panel__eyebrow">Before you start</div>
+            <ol style={{ margin: 0, paddingLeft: "20px", display: "grid", gap: "6px" }}>
+              <li className="atlas-note">
+                Register a free API app at{" "}
+                <a href={STRAVA_APP_SETTINGS_URL} target="_blank" rel="noreferrer">
+                  strava.com/settings/api
+                </a>
+                , then paste its <strong>Client ID</strong> and <strong>Client Secret</strong>{" "}
+                below. Set the app&apos;s &quot;Authorization Callback Domain&quot; to match where
+                this instance of Atlas runs, then click <strong>Save</strong>.
+              </li>
+              <li className="atlas-note">
+                Click <strong>Connect</strong>, sign in to Strava, then copy the address you land
+                on back into &quot;Redirect URL from Strava&quot; and click{" "}
+                <strong>Finish connecting</strong>.
+              </li>
+            </ol>
+
+            <hr style={{ border: "none", borderTop: "1px solid var(--atlas-border)", margin: "4px 0" }} />
+
+            <StravaAppSettingsForm
+              initialSettings={initialStravaAppSettings}
+              initialSource={initialStravaAppSettingsSource}
+              embedded
+            />
+
+            <hr style={{ border: "none", borderTop: "1px solid var(--atlas-border)", margin: "4px 0" }} />
+
+            <ConnectorPanel
+              initialIntegration={integrations.find((item) => item.key === "strava")!}
+              initialSource={initialIntegrationsSource}
+              embedded
+              embeddedTitle="Step 2: Connect your Strava account"
+            />
+          </div>
+
           <div className="atlas-control-card__actions">
             <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("pair")}>
               Back
@@ -329,9 +360,9 @@ export function OnboardingWizard({
           >
             Connect Samsung Health
           </h2>
-          <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
-            Optional and in development: the device-side code required to read Samsung Health has
-            not yet been built or tested on hardware, so this can be skipped for a working setup.
+          <p className="atlas-note">
+            Synced automatically from your paired phone once it&apos;s connected - no separate
+            sign-in or permission is needed here. See the Pair your device step.
           </p>
           <ConnectorPanel
             initialIntegration={integrations.find((item) => item.key === "samsung_health")!}
@@ -356,10 +387,9 @@ export function OnboardingWizard({
           >
             Connect Health Connect
           </h2>
-          <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
-            Optional and in development: the device-side code required to read Health Connect
-            (Android&apos;s health data hub, including Google Fit-sourced data) has not yet been built
-            or tested on hardware, so this can be skipped for a working setup.
+          <p className="atlas-note">
+            Synced automatically from your paired phone once it&apos;s connected - no separate
+            sign-in or permission is needed here. See the Pair your device step.
           </p>
           <ConnectorPanel
             initialIntegration={integrations.find((item) => item.key === "health_connect")!}

@@ -103,12 +103,6 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
           the Atlas Companion phone app send that data here - hydration, steps, sleep, and more.
         </HintTooltip>
       </div>
-      <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
-        In development: pairing itself is functional, but the device-side code that reads Health
-        Connect and Samsung Health has not yet been built or tested on hardware, so a paired
-        phone may not have data to sync.
-      </p>
-
       <div className="atlas-list-card">
         <div className="atlas-list-card__title">Before you start</div>
         <ol style={{ margin: "8px 0 0", paddingLeft: "20px", display: "grid", gap: "6px" }}>

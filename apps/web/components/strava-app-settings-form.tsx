@@ -12,9 +12,12 @@ const STRAVA_APP_SETTINGS_URL = "https://www.strava.com/settings/api";
 type StravaAppSettingsFormProps = {
   initialSettings: StravaAppSettingsData;
   initialSource: ApiDataSource;
+  /** Omits the outer panel chrome and intro copy, for composing inside a parent panel that
+   * already explains what this form is for (e.g. the Setup wizard's combined Strava step). */
+  embedded?: boolean;
 };
 
-export function StravaAppSettingsForm({ initialSettings, initialSource }: StravaAppSettingsFormProps) {
+export function StravaAppSettingsForm({ initialSettings, initialSource, embedded = false }: StravaAppSettingsFormProps) {
   const [settings, setSettings] = useState<StravaAppSettingsData>(initialSettings);
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -35,28 +38,45 @@ export function StravaAppSettingsForm({ initialSettings, initialSource }: Strava
     });
   }
 
+  const Wrapper = embedded ? "div" : "section";
+
   return (
-    <section className="atlas-panel atlas-stack">
-      <div
-        className="atlas-panel__eyebrow"
-        style={{ display: "flex", alignItems: "center", gap: "6px" }}
-      >
-        Strava API app
-        <HintTooltip label="How to register a Strava app">
-          Create a free app in Strava&apos;s developer settings, then copy its Client ID and
-          Client Secret here. Set the app&apos;s &quot;Authorization Callback Domain&quot; to
-          match where this instance of Atlas runs.{" "}
-          <a href={STRAVA_APP_SETTINGS_URL} target="_blank" rel="noreferrer">
-            Register an app
-          </a>
-        </HintTooltip>
-      </div>
-      <p className="atlas-note">
-        Strava requires each installation to register its own API app; there is no shared Atlas
-        app ID. Without this configured, the Strava connector remains available but sign-in and
-        sync will fail. As with other credentials, this key is sent directly from this device to
-        Strava and never passes through an Atlas server.
-      </p>
+    <Wrapper className={embedded ? "atlas-stack" : "atlas-panel atlas-stack"}>
+      {!embedded ? (
+        <>
+          <div
+            className="atlas-panel__eyebrow"
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            Strava API app
+            <HintTooltip label="How to register a Strava app">
+              Create a free app in Strava&apos;s developer settings, then copy its Client ID and
+              Client Secret here. Set the app&apos;s &quot;Authorization Callback Domain&quot; to
+              match where this instance of Atlas runs.{" "}
+              <a href={STRAVA_APP_SETTINGS_URL} target="_blank" rel="noreferrer">
+                Register an app
+              </a>
+            </HintTooltip>
+          </div>
+          <p className="atlas-note">
+            Strava requires each installation to register its own API app; there is no shared
+            Atlas app ID. Without this configured, the Strava connector remains available but
+            sign-in and sync will fail. As with other credentials, this key is sent directly from
+            this device to Strava and never passes through an Atlas server.
+          </p>
+        </>
+      ) : (
+        <div className="atlas-list-card__title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          Step 1: Register your Strava API app
+          <HintTooltip label="Why this step exists">
+            Strava requires each installation to register its own API app; there is no shared
+            Atlas app ID.{" "}
+            <a href={STRAVA_APP_SETTINGS_URL} target="_blank" rel="noreferrer">
+              Register an app
+            </a>
+          </HintTooltip>
+        </div>
+      )}
 
       <div className="atlas-meta">
         <span className={configured ? "atlas-source-badge" : "atlas-source-badge atlas-source-badge--stub"}>
@@ -101,6 +121,6 @@ export function StravaAppSettingsForm({ initialSettings, initialSource }: Strava
       </button>
 
       {status ? <p className="atlas-note">{status}</p> : null}
-    </section>
+    </Wrapper>
   );
 }
