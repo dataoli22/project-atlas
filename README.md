@@ -1,5 +1,7 @@
 # Atlas
 
+[![GitHub all releases](https://img.shields.io/github/downloads/dataoli22/project-atlas/total?label=downloads&color=1f6b5c)](https://github.com/dataoli22/project-atlas/releases)
+
 Atlas is a local-first, self-hosted health and fitness app for two modules:
 
 - **Endurance and Capability** — training, recovery, and capability tracking
