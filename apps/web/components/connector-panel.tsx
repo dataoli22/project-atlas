@@ -24,6 +24,10 @@ type ConnectorPanelProps = {
   embedded?: boolean;
   /** Overrides the step heading shown when embedded (defaults to the connector's own title). */
   embeddedTitle?: string;
+  /** Called when the user clicks the "Pair your device" reference shown for phone-synced
+   * connectors (Health Connect, Samsung Health) once connected. Renders as a plain-text mention
+   * with no href when omitted, since ConnectorPanel has no route/step of its own to link to. */
+  onPairDeviceClick?: () => void;
 };
 
 /**
@@ -35,7 +39,8 @@ export function ConnectorPanel({
   initialIntegration,
   initialSource,
   embedded = false,
-  embeddedTitle
+  embeddedTitle,
+  onPairDeviceClick
 }: ConnectorPanelProps) {
   const connectorKey = initialIntegration.key;
   const connector = CONNECTOR_INFO.find((item) => item.key === connectorKey);
@@ -379,7 +384,17 @@ export function ConnectorPanel({
             Sync now
           </button>
         ) : integration.connected ? (
-          <p className="atlas-note">Synced from the paired phone. See the Pair your device step.</p>
+          <p className="atlas-note">
+            Synced from the paired phone. See the{" "}
+            {onPairDeviceClick ? (
+              <button type="button" className="atlas-link-button" onClick={onPairDeviceClick}>
+                Pair your device
+              </button>
+            ) : (
+              "Pair your device"
+            )}{" "}
+            step.
+          </p>
         ) : null}
         {integration.connected ? (
           <button type="button" className="atlas-button atlas-button--secondary" onClick={disconnect} disabled={isPending}>

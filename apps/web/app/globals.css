@@ -78,6 +78,26 @@ a {
   color: var(--atlas-warm);
 }
 
+/* A <button> styled to read as an inline text link, for in-app jumps (e.g. "see the Pair your
+   device step") where an <a href> would be wrong - there's no URL to navigate to, just wizard
+   step state to change. */
+.atlas-link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--atlas-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.atlas-link-button:hover {
+  color: var(--atlas-warm);
+}
+
 button,
 input,
 select,

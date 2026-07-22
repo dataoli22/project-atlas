@@ -362,11 +362,16 @@ export function OnboardingWizard({
           </h2>
           <p className="atlas-note">
             Synced automatically from your paired phone once it&apos;s connected - no separate
-            sign-in or permission is needed here. See the Pair your device step.
+            sign-in or permission is needed here. See the{" "}
+            <button type="button" className="atlas-link-button" onClick={() => goTo("pair")}>
+              Pair your device
+            </button>{" "}
+            step.
           </p>
           <ConnectorPanel
             initialIntegration={integrations.find((item) => item.key === "samsung_health")!}
             initialSource={initialIntegrationsSource}
+            onPairDeviceClick={() => goTo("pair")}
           />
           <div className="atlas-control-card__actions">
             <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("strava")}>
@@ -389,11 +394,16 @@ export function OnboardingWizard({
           </h2>
           <p className="atlas-note">
             Synced automatically from your paired phone once it&apos;s connected - no separate
-            sign-in or permission is needed here. See the Pair your device step.
+            sign-in or permission is needed here. See the{" "}
+            <button type="button" className="atlas-link-button" onClick={() => goTo("pair")}>
+              Pair your device
+            </button>{" "}
+            step.
           </p>
           <ConnectorPanel
             initialIntegration={integrations.find((item) => item.key === "health_connect")!}
             initialSource={initialIntegrationsSource}
+            onPairDeviceClick={() => goTo("pair")}
           />
           <div className="atlas-control-card__actions">
             <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("samsung_health")}>
@@ -447,7 +457,14 @@ export function OnboardingWizard({
                     </a>
                   </HintTooltip>
                 </div>
-                <div className="atlas-list-card__meta">Faster than most local hardware, and requires no local installation.</div>
+                <div className="atlas-list-card__meta">
+                  Faster than most local hardware, and requires no local installation. Create a
+                  free account and generate a key at{" "}
+                  <a href={GROQ_KEYS_URL} target="_blank" rel="noreferrer">
+                    console.groq.com/keys
+                  </a>
+                  .
+                </div>
                 <div className="atlas-form-field" style={{ marginTop: "10px" }}>
                   <input
                     type="password"
@@ -503,7 +520,12 @@ export function OnboardingWizard({
                   </HintTooltip>
                 </div>
                 <div className="atlas-list-card__meta">
-                  Runs on Ollama&apos;s servers instead of this device. No local installation is required.
+                  Runs on Ollama&apos;s servers instead of this device. No local installation is
+                  required. Sign in and generate a key at{" "}
+                  <a href={OLLAMA_CLOUD_KEYS_URL} target="_blank" rel="noreferrer">
+                    ollama.com/settings/keys
+                  </a>
+                  .
                 </div>
                 <div className="atlas-form-field" style={{ marginTop: "10px" }}>
                   <input
@@ -565,6 +587,11 @@ export function OnboardingWizard({
             </div>
             <div className="atlas-list-card__meta">
               No key required. This confirms Atlas can reach Ollama running on this machine.
+              Download it at{" "}
+              <a href={OLLAMA_DOWNLOAD_URL} target="_blank" rel="noreferrer">
+                ollama.com/download
+              </a>
+              .
             </div>
             <div className="atlas-control-card__actions" style={{ marginTop: "10px" }}>
               <button
@@ -635,7 +662,14 @@ export function OnboardingWizard({
                 </a>
               </HintTooltip>
             </div>
-            <div className="atlas-list-card__meta">Free tier is enough for everyday nutrition lookups.</div>
+            <div className="atlas-list-card__meta">
+              Free tier is enough for everyday nutrition lookups. Create a free account and copy
+              your key at{" "}
+              <a href={BRAVE_KEYS_URL} target="_blank" rel="noreferrer">
+                api.search.brave.com/app/keys
+              </a>
+              .
+            </div>
             <div className="atlas-form-field" style={{ marginTop: "10px" }}>
               <input
                 type="password"
