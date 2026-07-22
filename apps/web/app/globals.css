@@ -272,22 +272,6 @@ textarea {
   }
 }
 
-/* Three-across row for compact, similarly-sized panels (e.g. Settings overview cards). Falls
-   back to a single column below the laptop breakpoint like .atlas-grid--hero. */
-.atlas-grid--trio {
-  grid-template-columns: 1fr;
-  align-items: start;
-}
-
-@media (min-width: 900px) {
-  .atlas-grid--trio {
-    /* auto-fit/minmax rather than a hard repeat(3, ...): each card needs enough width for its
-       control rows (label + action buttons) to lay out without overflowing, so a true 3-up row
-       only forms once the viewport is wide enough - two columns (or one) otherwise. */
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  }
-}
-
 /* Connector cards (Strava, Health Connect, Samsung Health) shown side by side instead of stacked,
    so comparing status/documentation across all three doesn't require scrolling past each one. */
 .atlas-grid--connectors {
@@ -329,6 +313,13 @@ textarea {
      at the bottom. Packing rows at their natural size keeps content tight regardless of how tall
      the surrounding panel ends up. */
   align-content: start;
+}
+
+/* A stack of full-width panels ("bars") with more breathing room between them than the default
+   .atlas-stack gap - used where each child is itself a whole panel (e.g. Settings overview)
+   rather than a row of fields inside one panel. */
+.atlas-stack--bars {
+  gap: 16px;
 }
 
 .atlas-detail-list {

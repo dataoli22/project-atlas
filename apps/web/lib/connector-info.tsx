@@ -19,7 +19,7 @@ export const CONNECTOR_INFO: ConnectorInfo[] = [
     icon: Zap,
     detail: "Brings in recent activities and training load for the endurance module.",
     hintLabel: "Requirement: a registered Strava API app",
-    hint: "Sign-in and sync are fully implemented, but each installation must register its own Strava API app first. Configure this once under Settings → Integrations (\"Strava API app\")."
+    hint: "Sign-in and sync are fully implemented, but each installation must register its own Strava API app first. Configure this once below."
   },
   {
     key: "health_connect",
@@ -57,7 +57,7 @@ export function pendingConnectionNote(integration: IntegrationSourceData): strin
     return null;
   }
   if (integration.key === "strava") {
-    return "Sign-in is not yet complete. Finish signing in below. If it fails, confirm a Strava API app is configured under Settings → Integrations.";
+    return "Sign-in is not yet complete. Finish signing in below. If it fails, confirm a Strava API app is configured below.";
   }
   return "Permission has been staged on this device, but nothing has synced yet. The device-side code for this integration is not yet built or tested, so pairing and syncing may not work.";
 }

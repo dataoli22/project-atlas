@@ -1,20 +1,24 @@
 "use client";
 
-import { BrainCircuit, CheckCircle2, CircleCheck, HeartPulse, PartyPopper, Search, UserCircle2 } from "lucide-react";
-import Link from "next/link";
+import { BrainCircuit, CheckCircle2, CircleCheck, PartyPopper, Search, Smartphone, UserCircle2 } from "lucide-react";
 import { useState, useTransition } from "react";
 
+import { ConnectorPanel } from "@/components/connector-panel";
 import { HintTooltip } from "@/components/hint-tooltip";
 import { NutritionOnboardingForm } from "@/components/nutrition-onboarding-form";
-import { CONNECTOR_INFO, isFullyConnected } from "@/lib/connector-info";
+import { PairingSettingsForm } from "@/components/pairing-settings-form";
+import { StravaAppSettingsForm } from "@/components/strava-app-settings-form";
 import { completeOnboarding, saveAISettings, saveSearchSettings, testAIRuntimeHealth } from "@/lib/settings-data";
+import type { ApiDataSource } from "@/lib/api";
+import type { PairedDeviceData } from "@/lib/pairing-data";
 import type {
   AISettingsData,
   IntegrationSourceData,
   LocalizationSettingsData,
   MarketOptionData,
   ProfileSettingsData,
-  SearchSettingsData
+  SearchSettingsData,
+  StravaAppSettingsData
 } from "@/lib/settings-data";
 
 const GROQ_KEYS_URL = "https://console.groq.com/keys";
@@ -24,13 +28,25 @@ const OLLAMA_CLOUD_BASE_URL = "https://ollama.com";
 const OLLAMA_LOCAL_BASE_URL = "http://localhost:11434";
 const BRAVE_KEYS_URL = "https://api.search.brave.com/app/keys";
 
-type WizardStep = "profile" | "connect" | "ai" | "brave" | "finish";
+type WizardStep = "profile" | "pair" | "strava" | "samsung_health" | "health_connect" | "ai" | "brave" | "finish";
 
-const STEP_ORDER: WizardStep[] = ["profile", "connect", "ai", "brave", "finish"];
+const STEP_ORDER: WizardStep[] = [
+  "profile",
+  "pair",
+  "strava",
+  "samsung_health",
+  "health_connect",
+  "ai",
+  "brave",
+  "finish"
+];
 
 const STEP_LABEL: Record<WizardStep, string> = {
   profile: "Your details",
-  connect: "Health apps",
+  pair: "Pair your device",
+  strava: "Strava",
+  samsung_health: "Samsung Health",
+  health_connect: "Health Connect",
   ai: "AI setup",
   brave: "Web search",
   finish: "Finish"
@@ -50,7 +66,12 @@ type OnboardingWizardProps = {
   markets: MarketOptionData[];
   initialAiSettings: AISettingsData;
   initialIntegrations: IntegrationSourceData[];
+  initialIntegrationsSource: ApiDataSource;
   initialSearchSettings: SearchSettingsData;
+  initialPairedDevices: PairedDeviceData[];
+  pairedDevicesLoadOk: boolean;
+  initialStravaAppSettings: StravaAppSettingsData;
+  initialStravaAppSettingsSource: ApiDataSource;
 };
 
 export function OnboardingWizard({
@@ -59,7 +80,12 @@ export function OnboardingWizard({
   markets,
   initialAiSettings,
   initialIntegrations,
-  initialSearchSettings
+  initialIntegrationsSource,
+  initialSearchSettings,
+  initialPairedDevices,
+  pairedDevicesLoadOk,
+  initialStravaAppSettings,
+  initialStravaAppSettingsSource
 }: OnboardingWizardProps) {
   const [step, setStep] = useState<WizardStep>("profile");
   const [profileSaved, setProfileSaved] = useState(false);
@@ -187,16 +213,24 @@ export function OnboardingWizard({
   return (
     <div className="atlas-panel atlas-stack" style={{ maxWidth: "760px", margin: "0 auto" }}>
       <div className="atlas-panel__eyebrow">Getting started</div>
-      <div className="atlas-meta">
+      <p className="atlas-note">
+        Jump straight to any module below, or use Back/Continue to work through them in order.
+      </p>
+      <div className="atlas-feature-switcher" role="navigation" aria-label="Jump to a setup module">
         {STEP_ORDER.map((candidate, index) => (
-          <span
+          <button
             key={candidate}
-            className={candidate === step ? "atlas-tag" : undefined}
-            style={{ opacity: index <= stepIndex ? 1 : 0.5, display: "inline-flex", alignItems: "center", gap: "4px" }}
+            type="button"
+            onClick={() => goTo(candidate)}
+            className={candidate === step ? "atlas-chip atlas-chip--active" : "atlas-chip"}
           >
-            {index < stepIndex ? <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" /> : `${index + 1}.`}{" "}
-            {STEP_LABEL[candidate]}
-          </span>
+            {index < stepIndex ? (
+              <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" />
+            ) : (
+              <span aria-hidden="true">{index + 1}.</span>
+            )}
+            <span>{STEP_LABEL[candidate]}</span>
+          </button>
         ))}
       </div>
 
@@ -223,7 +257,7 @@ export function OnboardingWizard({
             <button
               type="button"
               className="atlas-button atlas-button--primary"
-              onClick={() => goTo("connect")}
+              onClick={() => goTo("pair")}
               disabled={!profileSaved}
             >
               {profileSaved ? "Continue" : "Save above to continue"}
@@ -232,77 +266,107 @@ export function OnboardingWizard({
         </div>
       ) : null}
 
-      {step === "connect" ? (
+      {step === "pair" ? (
         <div className="atlas-stack">
           <h2
             className="atlas-panel__title"
             style={{ fontSize: "1.2rem", display: "flex", alignItems: "center", gap: "10px" }}
           >
-            <HeartPulse size={22} strokeWidth={1.75} aria-hidden="true" />
-            Connect your health apps
+            <Smartphone size={22} strokeWidth={1.75} aria-hidden="true" />
+            Pair your device
           </h2>
-          <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
-            Strava sign-in and sync are fully implemented but require a Strava API app registered
-            under Settings → Integrations. Health Connect and Samsung Health are in development:
-            the device-side code required to read them has not yet been built or tested on
-            hardware, so these can be skipped for a working setup.
-          </p>
           <p className="atlas-note">
-            Connecting an app replaces sample data with real activities, recovery, and sleep data.
-            This step is optional; connect more apps anytime from Settings.
+            Pairing a phone is how Health Connect and Samsung Health data reaches Atlas - both live
+            on the phone, not this device. This step is optional and can be revisited anytime.
           </p>
-          <div className="atlas-grid atlas-grid--connectors">
-            {CONNECTOR_INFO.map((connector) => {
-              const integration = integrations.find((item) => item.key === connector.key);
-              const connected = integration ? isFullyConnected(integration) : false;
-
-              return (
-                <div key={connector.key} className="atlas-list-card">
-                  <div
-                    className="atlas-list-card__title"
-                    style={{ display: "flex", alignItems: "center", gap: "8px" }}
-                  >
-                    <connector.icon size={17} strokeWidth={2} aria-hidden="true" />
-                    {connector.title}
-                    <HintTooltip label={connector.hintLabel}>{connector.hint}</HintTooltip>
-                  </div>
-                  <div className="atlas-list-card__meta">{connector.detail}</div>
-                  <p className="atlas-note" style={{ marginTop: "6px" }}>
-                    {connector.hint}
-                  </p>
-                  {integration?.docUrl ? (
-                    <p className="atlas-note">
-                      <a href={integration.docUrl} target="_blank" rel="noreferrer">
-                        Official documentation
-                      </a>
-                    </p>
-                  ) : null}
-                  <div className="atlas-control-card__actions" style={{ marginTop: "10px" }}>
-                    {connected ? (
-                      <span
-                        style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--atlas-accent)" }}
-                      >
-                        <CircleCheck size={16} strokeWidth={2} aria-hidden="true" />
-                        Connected
-                      </span>
-                    ) : (
-                      <Link
-                        href={`/settings/integrations#connector-${connector.key}`}
-                        className="atlas-button atlas-button--secondary"
-                      >
-                        Connect
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <p className="atlas-note">
-            Connecting opens Settings → Integrations, where sign-in and setup actually happen.
-          </p>
+          <PairingSettingsForm initialDevices={initialPairedDevices} devicesLoadOk={pairedDevicesLoadOk} />
           <div className="atlas-control-card__actions">
             <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("profile")}>
+              Back
+            </button>
+            <button type="button" className="atlas-button atlas-button--primary" onClick={() => goTo("strava")}>
+              Continue
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === "strava" ? (
+        <div className="atlas-stack">
+          <h2
+            className="atlas-panel__title"
+            style={{ fontSize: "1.2rem", display: "flex", alignItems: "center", gap: "10px" }}
+          >
+            Connect Strava
+          </h2>
+          <p className="atlas-note">
+            Optional. Brings in real activities and training load instead of sample data.
+          </p>
+          <StravaAppSettingsForm
+            initialSettings={initialStravaAppSettings}
+            initialSource={initialStravaAppSettingsSource}
+          />
+          <ConnectorPanel
+            initialIntegration={integrations.find((item) => item.key === "strava")!}
+            initialSource={initialIntegrationsSource}
+          />
+          <div className="atlas-control-card__actions">
+            <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("pair")}>
+              Back
+            </button>
+            <button type="button" className="atlas-button atlas-button--primary" onClick={() => goTo("samsung_health")}>
+              Continue
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === "samsung_health" ? (
+        <div className="atlas-stack">
+          <h2
+            className="atlas-panel__title"
+            style={{ fontSize: "1.2rem", display: "flex", alignItems: "center", gap: "10px" }}
+          >
+            Connect Samsung Health
+          </h2>
+          <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
+            Optional and in development: the device-side code required to read Samsung Health has
+            not yet been built or tested on hardware, so this can be skipped for a working setup.
+          </p>
+          <ConnectorPanel
+            initialIntegration={integrations.find((item) => item.key === "samsung_health")!}
+            initialSource={initialIntegrationsSource}
+          />
+          <div className="atlas-control-card__actions">
+            <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("strava")}>
+              Back
+            </button>
+            <button type="button" className="atlas-button atlas-button--primary" onClick={() => goTo("health_connect")}>
+              Continue
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === "health_connect" ? (
+        <div className="atlas-stack">
+          <h2
+            className="atlas-panel__title"
+            style={{ fontSize: "1.2rem", display: "flex", alignItems: "center", gap: "10px" }}
+          >
+            Connect Health Connect
+          </h2>
+          <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
+            Optional and in development: the device-side code required to read Health Connect
+            (Android&apos;s health data hub, including Google Fit-sourced data) has not yet been built
+            or tested on hardware, so this can be skipped for a working setup.
+          </p>
+          <ConnectorPanel
+            initialIntegration={integrations.find((item) => item.key === "health_connect")!}
+            initialSource={initialIntegrationsSource}
+          />
+          <div className="atlas-control-card__actions">
+            <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("samsung_health")}>
               Back
             </button>
             <button type="button" className="atlas-button atlas-button--primary" onClick={() => goTo("ai")}>
@@ -494,7 +558,7 @@ export function OnboardingWizard({
           </div>
 
           <div className="atlas-control-card__actions">
-            <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("connect")}>
+            <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("health_connect")}>
               Back
             </button>
             <button

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardList, Link2 } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 
 import { FeaturePreferencesForm } from "@/components/feature-preferences-form";
 import { PageScaffold } from "@/components/page-scaffold";
@@ -18,7 +18,7 @@ export default async function SettingsPage() {
     <PageScaffold
       eyebrow="Settings"
       title="Overview"
-      description="Manage which sections are visible, check for updates, and review your saved profile. Account, region, and AI configuration are under Setup; connected apps are under Integrations."
+      description="Manage which sections are visible, check for updates, and review your saved profile. Profile, device pairing, connected health apps, AI, and search all live under Setup."
       tags={["Settings"]}
       metrics={[
         { label: "Default view", value: activeFeature?.label ?? "Atlas" },
@@ -31,15 +31,14 @@ export default async function SettingsPage() {
       <nav className="atlas-quicklinks" aria-label="Jump to a settings section">
         <Link href="/settings/setup" className="atlas-button">
           <ClipboardList size={15} strokeWidth={2} aria-hidden="true" />
-          Setup: profile, region, AI
-        </Link>
-        <Link href="/settings/integrations" className="atlas-button">
-          <Link2 size={15} strokeWidth={2} aria-hidden="true" />
-          Integrations: connected apps
+          Setup: profile, pairing, health apps, AI, search
         </Link>
       </nav>
 
-      <div className="atlas-grid atlas-grid--trio">
+      {/* Three full-width bars, stacked, rather than a card grid - each panel gets the whole
+          content width instead of competing for a column, so its control rows read as a single
+          horizontal bar (label left, actions/value right) instead of wrapping awkwardly. */}
+      <div className="atlas-stack atlas-stack--bars">
         <FeaturePreferencesForm
           initialFeatures={settings.featureRegistry.data.features}
           initialPreferences={settings.appPreferences.data}

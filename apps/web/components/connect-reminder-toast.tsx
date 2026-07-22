@@ -43,7 +43,7 @@ export function ConnectReminderToast({ missingLabels }: ConnectReminderToastProp
         <span>
           {missingLabels.join(", ")} {missingLabels.length === 1 ? "isn't" : "aren't"} connected yet, so some
           training data may be missing. Connect it in{" "}
-          <Link href="/settings/integrations">Settings &rarr; Integrations</Link>.
+          <Link href="/settings/setup">Settings &rarr; Setup</Link>.
         </span>
       </div>
       <button type="button" className="atlas-toast__close" aria-label="Dismiss reminder" onClick={close}>

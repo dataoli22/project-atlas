@@ -1,20 +1,20 @@
 "use client";
 
-import { ClipboardList, LayoutGrid, Link2, type LucideIcon } from "lucide-react";
+import { ClipboardList, LayoutGrid, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/settings", label: "Overview", icon: LayoutGrid },
-  { href: "/settings/setup", label: "Setup", icon: ClipboardList },
-  { href: "/settings/integrations", label: "Integrations", icon: Link2 }
+  { href: "/settings/setup", label: "Setup", icon: ClipboardList }
 ];
 
 /**
- * Settings is a single tabbed hub - overview, setup/onboarding, integrations, and tracking
- * fields all live under here now instead of being separate top-level nav items. Real navigation
- * (Link, not client-only tab state) so each section stays a real, deep-linkable, server-rendered
- * page - this is just a consistent tab bar shown at the top of all four.
+ * Settings is a single tabbed hub - overview and setup live under here instead of being separate
+ * top-level nav items. Integrations used to be its own tab, but every connector's live UI (health
+ * apps, device pairing, AI, web search) now lives inside Setup's module menu, so there's nothing
+ * left for a separate Integrations page to own. Real navigation (Link, not client-only tab state)
+ * so each section stays a real, deep-linkable, server-rendered page.
  */
 export function SettingsTabs() {
   const pathname = usePathname();

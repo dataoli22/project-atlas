@@ -594,6 +594,22 @@ desktop, and the hard iOS blocker.)
 
 ## 10. Frontend hardening — P1 — PARTIAL
 
+- [~] **Setup rebuilt as a module-menu wizard; Integrations page retired.** `/settings/integrations`
+      and `<IntegrationConnectForm>` are gone - every connector's live connect/disconnect/sync UI
+      (extracted into the new standalone `<ConnectorPanel>`, `components/connector-panel.tsx`) now
+      lives inside `/settings/setup` as its own module step, in order: Your details → Pair your
+      device (new, uses the existing `<PairingSettingsForm>`, previously Integrations-only) →
+      Strava → Samsung Health → Health Connect → AI setup → Web search → Finish. The old linear
+      progress trail is now a clickable module menu (`STEP_ORDER.map` renders real `<button>`s
+      calling `goTo()` directly) so a returning user can jump straight to the one module they want
+      to edit instead of clicking Back/Continue through everything else. `SettingsTabs` dropped
+      its "Integrations" entry (Overview + Setup only). **Still open**: the connect/disconnect/sync
+      actions in `<ConnectorPanel>` call the same real backend endpoints
+      (`connectIntegrationSource`/`disconnectIntegrationSource`/`syncIntegrationSource`/Strava
+      OAuth callback) that already existed on the old Integrations page, so they were not
+      re-verified live against a real backend in this pass - only typechecked, linted, and
+      screenshot-checked for layout. Do a real click-through (Strava OAuth round-trip especially)
+      against a running API before calling this module reorg fully verified, not just UI-complete.
 - [x] **IA collapse: each module owns its Dashboard, Settings becomes a single tabbed hub.**
       "Shared shell" nav previously had 4 items (Overview, Dashboard, Ask Atlas, Settings) plus
       Nutrition/Endurance each carrying their own settings-adjacent items (Onboarding,

@@ -6,7 +6,6 @@ import {
   Gauge,
   Home,
   LayoutDashboard,
-  Link2,
   MessageCircle,
   NotebookPen,
   Salad,
@@ -31,7 +30,6 @@ export const ROUTE_ICONS: Record<string, LucideIcon> = {
   "/timeline": Activity,
   "/capability": Gauge,
   "/log": NotebookPen,
-  "/settings/integrations": Link2,
   "/settings/tracking": SlidersHorizontal
 };
 
