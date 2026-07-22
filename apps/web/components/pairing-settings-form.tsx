@@ -12,7 +12,14 @@ import { revokeDevice, startPairing } from "@/lib/pairing-data";
 // served by this desktop over LAN, since GitHub is reachable from any network the phone has
 // data/Wi-Fi on - a locally-served fallback would only work if the phone happens to already be on
 // the same LAN as the desktop, which is often true but not guaranteed at scan time.
-const COMPANION_APK_RELEASES_URL = "https://github.com/dataoli22/project-atlas/releases/latest";
+//
+// Filtered to "Atlas Companion" (the mobile release workflow's release title, see
+// .github/workflows/android-release.yml) rather than plain /releases/latest: this repo also
+// publishes desktop installer releases to the same Releases list under different tags, and
+// /releases/latest resolves to whichever was published most recently, desktop or mobile - a user
+// scanning this QR could land on a Windows .exe instead of the Android APK. The query filter
+// keeps the fallback page scoped to companion-app releases only.
+const COMPANION_APK_RELEASES_URL = "https://github.com/dataoli22/project-atlas/releases?q=Atlas+Companion&expanded=true";
 
 /**
  * Builds the Android "intent://" URI a QR code scan opens: if the Atlas Companion app
@@ -96,14 +103,36 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
           the Atlas Companion phone app send that data here - hydration, steps, sleep, and more.
         </HintTooltip>
       </div>
-      <p className="atlas-note">
-        Both devices must be on the same Wi-Fi network. No data passes through a hosted server.
-      </p>
       <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
         In development: pairing itself is functional, but the device-side code that reads Health
         Connect and Samsung Health has not yet been built or tested on hardware, so a paired
         phone may not have data to sync.
       </p>
+
+      <div className="atlas-list-card">
+        <div className="atlas-list-card__title">Before you start</div>
+        <ol style={{ margin: "8px 0 0", paddingLeft: "20px", display: "grid", gap: "6px" }}>
+          <li className="atlas-note">
+            Connect your phone to the <strong>same Wi-Fi network</strong> as this computer. Phone
+            pairing only works over the local network - it will not work on mobile data or a
+            different Wi-Fi network.
+          </li>
+          <li className="atlas-note">
+            Turn on <strong>&quot;Allow phone pairing on this network&quot;</strong> below.
+          </li>
+          <li className="atlas-note">
+            Tap <strong>&quot;Start pairing a phone&quot;</strong>, then scan the QR code with your
+            phone&apos;s camera. If the Atlas Companion app isn&apos;t installed yet, this downloads
+            it - Android will ask you to confirm &quot;install from unknown sources&quot; once,
+            since it isn&apos;t distributed through the Play Store. Approve that, install the app,
+            then scan the same QR code again to open it directly into pairing.
+          </li>
+        </ol>
+        <p className="atlas-note" style={{ marginTop: "8px" }}>
+          No developer options or wireless debugging needed for this path - that&apos;s only for
+          the advanced install method below.
+        </p>
+      </div>
 
       <LanPairingToggle />
 
@@ -142,8 +171,10 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
               <div className="atlas-control-card__meta">
                 <img src={qrDataUrl} alt="Scan with your phone's camera to pair" width={220} height={220} />
                 <p className="atlas-note">
-                  Scan with your phone&apos;s camera. If Atlas Companion is not yet installed,
-                  this opens the app download page instead; scan again once it is installed.
+                  Scan with your phone&apos;s camera app (not from inside Atlas Companion). Already
+                  installed: opens straight into pairing with this code filled in. Not installed
+                  yet: takes you to the download page - install the app, then scan this same code
+                  again.
                 </p>
               </div>
             ) : null}
@@ -156,6 +187,46 @@ export function PairingSettingsForm({ initialDevices, devicesLoadOk }: PairingSe
       </button>
 
       <p className="atlas-note">{status}</p>
+
+      <details>
+        <summary className="atlas-note" style={{ cursor: "pointer" }}>
+          For developers: install via ADB instead of the QR code
+        </summary>
+        <div className="atlas-stack" style={{ marginTop: "10px" }}>
+          <p className="atlas-note">
+            Skips the in-app download page - installs the debug or downloaded release APK directly
+            from a computer with{" "}
+            <a href="https://developer.android.com/tools/adb" target="_blank" rel="noreferrer">
+              adb
+            </a>{" "}
+            on its PATH.
+          </p>
+          <div className="atlas-list-card">
+            <div className="atlas-list-card__title">USB</div>
+            <pre className="atlas-code-block">
+              <code>adb install -r app-debug.apk</code>
+            </pre>
+          </div>
+          <div className="atlas-list-card">
+            <div className="atlas-list-card__title">Wireless (Android 11+, no cable)</div>
+            <p className="atlas-note">
+              On the phone: Settings → Developer options → Wireless debugging → Pair device with
+              pairing code. Then, on the computer:
+            </p>
+            <pre className="atlas-code-block">
+              <code>{`adb pair <phone-ip>:<pairing-port>   # enter the 6-digit code shown on the phone
+adb connect <phone-ip>:<debugging-port>
+adb install -r app-debug.apk`}</code>
+            </pre>
+          </div>
+          <p className="atlas-note">
+            This is the same debug APK produced by <code>./gradlew assembleDebug</code> (see{" "}
+            <code>docs/user-guides/android-install.md</code>), or a signed release APK downloaded
+            from GitHub Releases. Wireless debugging is only needed for this ADB path - it is not
+            required for the QR-code install above.
+          </p>
+        </div>
+      </details>
     </section>
   );
 }

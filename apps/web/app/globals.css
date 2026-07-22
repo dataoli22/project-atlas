@@ -409,6 +409,19 @@ textarea {
   line-height: 1.5;
 }
 
+.atlas-code-block {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--atlas-surface-strong);
+  border: 1px solid var(--atlas-border);
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
 .atlas-list-card {
   display: grid;
   gap: 4px;
