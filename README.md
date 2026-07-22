@@ -49,26 +49,13 @@ New to Atlas? Read these in order:
 - **[Recovery & restore](docs/user-guides/recovery-and-restore.md)** — what to do if Atlas won't
   start, the database looks broken, or you're moving to a new machine.
 
+## Achievements
+
+Atlas tracks real milestones from your own synced activity, meal swaps, and plan refreshes — an
+activity streak plus a set of achievements across endurance, nutrition, and connected apps.
+Nothing is fabricated, and there's no social or leaderboard layer, since Atlas is single-user and
+local-first by design.
+
 ## Project status
 
-Atlas is a solo, actively-developed project. Current status, what's done, and what's still open
-is tracked in [`docs/production-todo.md`](docs/production-todo.md).
-
-## For developers
-
-All technical documentation lives under [`docs/`](docs), grouped by purpose:
-
-- **Build & run**: [`packaging-and-installation.md`](docs/build-and-run/packaging-and-installation.md) (local
-  dev setup, desktop/Android packaging, release gates) ·
-  [`ollama-on-device-and-agents.md`](docs/build-and-run/ollama-on-device-and-agents.md) (AI runtime wiring,
-  provider fallback chain) · [`agent-prompt-maintenance-guide.md`](docs/build-and-run/agent-prompt-maintenance-guide.md)
-  + [`prompt-changelog.md`](docs/build-and-run/prompt-changelog.md) (changing agent prompts/guardrails)
-- **Feature specs (current)**: [`nutrition-endurance-feature-spec.md`](docs/feature-specs/nutrition-endurance-feature-spec.md)
-  (refresh/calendar/prep-hacks, endurance support links) ·
-  [`mobile-architecture.md`](docs/feature-specs/mobile-architecture.md) (companion mobile app, pairing,
-  Android/iOS status)
-- **Original design docs (historical — superseded by the feature specs above and the backlog
-  below, kept for design-stage context)**:
-  [`master-product-architecture.md`](docs/historical/master-product-architecture.md) ·
-  [`prd-feature-1-endurance-capability.md`](docs/historical/prd-feature-1-endurance-capability.md) ·
-  [`prd-feature-2-nutrition-cooking-cost.md`](docs/historical/prd-feature-2-nutrition-cooking-cost.md)
+Atlas is a solo, actively-developed project, currently at v1.0.

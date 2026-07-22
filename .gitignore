@@ -23,3 +23,13 @@ e2e/playwright-report
 desktop/release
 desktop/resources
 *.tsbuildinfo
+
+# Internal/maintainer-only docs - architecture, feature specs, superseded historical design docs,
+# the agent handoff backlog, and dev-tooling scripts docs. Not relevant to someone who just wants
+# to install and use Atlas; README.md links only to docs/user-guides/ for that audience. Kept
+# locally (not deleted) for whoever is actively developing the app - just not published.
+docs/build-and-run/
+docs/feature-specs/
+docs/historical/
+docs/marketing/
+docs/production-todo.md
