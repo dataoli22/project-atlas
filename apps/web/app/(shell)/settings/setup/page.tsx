@@ -38,6 +38,7 @@ export default async function SettingsSetupPage() {
         pairedDevicesLoadOk={pairing.ok}
         initialStravaAppSettings={strava.data}
         initialStravaAppSettingsSource={strava.source}
+        hasCompletedOnboarding={onboarding.appPreferences.data.hasCompletedOnboarding}
       />
     </PageScaffold>
   );

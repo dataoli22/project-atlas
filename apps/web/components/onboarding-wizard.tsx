@@ -73,6 +73,10 @@ type OnboardingWizardProps = {
   pairedDevicesLoadOk: boolean;
   initialStravaAppSettings: StravaAppSettingsData;
   initialStravaAppSettingsSource: ApiDataSource;
+  /** Whether onboarding was already completed once before. Profile/AI/Web search are only
+   * enforced as mandatory-to-finish the first time through - once onboarding is done, revisiting
+   * Setup lets the module menu jump anywhere freely with nothing blocking "Finish setup" again. */
+  hasCompletedOnboarding: boolean;
 };
 
 export function OnboardingWizard({
@@ -86,10 +90,16 @@ export function OnboardingWizard({
   initialPairedDevices,
   pairedDevicesLoadOk,
   initialStravaAppSettings,
-  initialStravaAppSettingsSource
+  initialStravaAppSettingsSource,
+  hasCompletedOnboarding
 }: OnboardingWizardProps) {
   const [step, setStep] = useState<WizardStep>("profile");
-  const [profileSaved, setProfileSaved] = useState(false);
+  // Not just a "did they click Save this session" flag: a returning user revisiting Setup
+  // already has real profile data from before and shouldn't be forced to re-save it just to
+  // satisfy the mandatory-fields check on the Finish step.
+  const [profileSaved, setProfileSaved] = useState(
+    Boolean(initialProfile.primaryGoal) || Boolean(initialProfile.bodyWeight) || Boolean(initialProfile.hydration)
+  );
   const [isPending, startTransition] = useTransition();
 
   const [integrations] = useState(initialIntegrations);
@@ -112,6 +122,18 @@ export function OnboardingWizard({
 
   const aiConfigured = hasWorkingAiPath(aiSettings, ollamaVerified);
   const braveConfigured = searchSettings.braveApiKeySet;
+
+  // Your details, AI setup, and Web search are mandatory to complete first-time setup; Pair your
+  // device, Strava, Samsung Health, and Health Connect stay fully optional. Once onboarding has
+  // been completed once, none of this blocks Finish again - the module menu already lets a
+  // returning user jump anywhere freely.
+  const missingMandatorySteps: Array<{ step: WizardStep; label: string }> = hasCompletedOnboarding
+    ? []
+    : [
+        !profileSaved ? { step: "profile" as WizardStep, label: STEP_LABEL.profile } : null,
+        !aiConfigured ? { step: "ai" as WizardStep, label: STEP_LABEL.ai } : null,
+        !braveConfigured ? { step: "brave" as WizardStep, label: STEP_LABEL.brave } : null
+      ].filter((entry): entry is { step: WizardStep; label: string } => entry !== null);
 
   function checkOllama() {
     setIsCheckingOllama(true);
@@ -231,9 +253,19 @@ export function OnboardingWizard({
               <span aria-hidden="true">{index + 1}.</span>
             )}
             <span>{STEP_LABEL[candidate]}</span>
+            {missingMandatorySteps.some((entry) => entry.step === candidate) ? (
+              <span aria-label="required" title="Required" style={{ color: "var(--atlas-warm)" }}>
+                *
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
+      {missingMandatorySteps.length > 0 ? (
+        <p className="atlas-note">
+          <span style={{ color: "var(--atlas-warm)" }}>*</span> Required to finish first-time setup.
+        </p>
+      ) : null}
 
       {step === "profile" ? (
         <div className="atlas-stack">
@@ -739,6 +771,20 @@ export function OnboardingWizard({
             Your nutrition plan is generating from the profile and market just configured. Any of
             this, including connecting a health app, can be revisited from Settings at any time.
           </p>
+          {missingMandatorySteps.length > 0 ? (
+            <p className="atlas-note" style={{ color: "var(--atlas-warm)" }}>
+              Finish the required steps first:{" "}
+              {missingMandatorySteps.map((entry, index) => (
+                <span key={entry.step}>
+                  {index > 0 ? ", " : ""}
+                  <button type="button" className="atlas-link-button" onClick={() => goTo(entry.step)}>
+                    {entry.label}
+                  </button>
+                </span>
+              ))}
+              .
+            </p>
+          ) : null}
           <div className="atlas-control-card__actions">
             <button type="button" className="atlas-button atlas-button--secondary" onClick={() => goTo("brave")}>
               Back
@@ -747,9 +793,13 @@ export function OnboardingWizard({
               type="button"
               className="atlas-button atlas-button--primary"
               onClick={finish}
-              disabled={isPending}
+              disabled={isPending || missingMandatorySteps.length > 0}
             >
-              {isPending ? "Finishing..." : "Finish setup"}
+              {isPending
+                ? "Finishing..."
+                : missingMandatorySteps.length > 0
+                  ? "Complete the required steps to finish"
+                  : "Finish setup"}
             </button>
           </div>
         </div>
